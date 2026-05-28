@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import { healthRouter } from './routes/health.js';
 import { contentRouter } from './routes/content.js';
 import { adaptRouter } from './routes/adapt.js';
+import { publishRouter } from './routes/publish.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
 const app = express();
@@ -15,6 +16,7 @@ app.use(express.json());
 app.use('/health', healthRouter);
 app.use('/api/contents', contentRouter);
 app.use('/api', adaptRouter);
+app.use('/api', publishRouter);
 
 app.use(errorHandler);
 
