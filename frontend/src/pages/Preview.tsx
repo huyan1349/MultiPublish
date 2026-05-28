@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Send, Rocket, CheckCircle, XCircle, AlertTriangle, Info, Loader2 } from 'lucide-react';
+import { ArrowLeft, Send, Rocket, CheckCircle, XCircle, AlertTriangle, Info, Loader2, ExternalLink } from 'lucide-react';
 import { api } from '../api/client';
 
 interface Output {
@@ -28,6 +28,8 @@ export default function Preview() {
   const [activeTab, setActiveTab] = useState('wechat');
   const [loading, setLoading] = useState(true);
   const [publishing, setPublishing] = useState(false);
+  const [singlePublishing, setSinglePublishing] = useState<string | null>(null);
+  const [publishedSet, setPublishedSet] = useState<Set<string>>(new Set());
   const [publishResults, setPublishResults] = useState<Array<{ platformName: string; status: string; mockUrl?: string }> | null>(null);
   const [editing, setEditing] = useState<{ id: string; title: string; body: string; tags: string } | null>(null);
 
@@ -56,6 +58,19 @@ export default function Preview() {
       ? { ...o, title: editing.title, body: editing.body, tags: editing.tags.split(/[,，]/).map((t) => t.trim()).filter(Boolean) }
       : o));
     setEditing(null);
+  };
+
+  const handleSinglePublish = async (outputId: string, platform: string) => {
+    setSinglePublishing(outputId);
+    try {
+      const result = await api.publish(outputId);
+      setPublishedSet((prev) => new Set(prev).add(platform));
+      setPublishResults((prev) => [...(prev || []), result]);
+    } catch {
+      setPublishResults((prev) => [...(prev || []), { platformName: platform, status: 'failed' }]);
+    } finally {
+      setSinglePublishing(null);
+    }
   };
 
   const handleBatchPublish = async () => {
@@ -122,7 +137,7 @@ export default function Preview() {
             <button
               key={t.id}
               onClick={() => { setActiveTab(t.id); setEditing(null); }}
-              className="platform-tab"
+              className="platform-tab flex items-center gap-1.5"
               style={{
                 color: isActive ? t.color : undefined,
                 borderColor: isActive ? t.color : 'transparent',
@@ -131,6 +146,9 @@ export default function Preview() {
               }}
             >
               {t.name}
+              {publishedSet.has(t.id) && (
+                <CheckCircle size={12} className="text-green-500" />
+              )}
             </button>
           );
         })}
@@ -172,9 +190,29 @@ export default function Preview() {
                   <h2 className="text-xl font-semibold text-ink">{active.title}</h2>
                   {active.summary && <p className="text-muted text-sm mt-1">{active.summary}</p>}
                 </div>
-                <button onClick={() => handleEdit(active)} className="btn-secondary text-sm flex items-center gap-1.5">
-                  <Send size={14} /> 编辑
-                </button>
+                <div className="flex items-center gap-2">
+                  {publishedSet.has(active.platform) ? (
+                    <span className="text-xs text-green-600 flex items-center gap-1 bg-green-50 px-2.5 py-1.5 rounded-lg">
+                      <CheckCircle size={13} /> 已发布
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() => handleSinglePublish(active.id, active.platform)}
+                      disabled={singlePublishing === active.id}
+                      className="btn-primary text-sm flex items-center gap-1.5"
+                    >
+                      {singlePublishing === active.id ? (
+                        <Loader2 size={14} className="animate-spin" />
+                      ) : (
+                        <Rocket size={14} />
+                      )}
+                      发布到此平台
+                    </button>
+                  )}
+                  <button onClick={() => handleEdit(active)} className="btn-secondary text-sm flex items-center gap-1.5">
+                    <Send size={14} /> 编辑
+                  </button>
+                </div>
               </div>
 
               {/* Tags */}

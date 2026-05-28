@@ -45,7 +45,7 @@ export const api = {
 
   // Publishing
   publish(outputId: string) {
-    return request<{ status: string; message: string; mockUrl?: string }>('/publish', {
+    return request<{ platform: string; platformName: string; status: string; message: string; mockUrl?: string }>('/publish', {
       method: 'POST', body: JSON.stringify({ outputId }),
     });
   },
