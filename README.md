@@ -19,10 +19,12 @@ ContentBridge 解决的就是这个问题——用户在所见即所得编辑器
 - **所见即所得编辑器（Tiptap）**：工具栏支持加粗、斜体、标题、列表、引用、撤销/重做，Markdown 快捷输入
 - **智能格式适配**：自动将内容转换为公众号（行内样式 HTML）、知乎（Markdown）、B站（视频描述+时间轴）、小红书（emoji+话题标签）四种风格
 - **分平台预览**：Tab 切换查看各平台适配效果，支持人工编辑微调
+- **真发布（Chrome 扩展）**：Content Script 自动注入内容到平台编辑器，无需 API
 - **单平台 / 一键全发**：每个平台独立发布，或一次性批量发布全部
-- **发布记录追踪**：表格展示所有发布记录，含平台、状态、模拟链接、时间
-- **Dashboard 仪表盘**：内容总数、发布次数统计 + 最近内容快速入口
-- **一键 Demo 填充**：点击按钮自动填入示例内容，快速体验完整流程
+- **发布记录追踪**：展示所有发布记录，含平台、状态、时间
+- **Dashboard 仪表盘**：内容总数、发布统计 + 最近内容快速入口
+- **暗夜编辑室主题**：深色系 UI，暖金强调色，磨砂玻璃卡片
+- **一键 Demo 填充**：自动填入示例，快速体验完整流程
 - **可扩展适配器架构**：新增平台只需实现 `PlatformAdapter` 接口并注册
 
 ## 支持平台
@@ -135,14 +137,16 @@ pnpm build        # 产出 build/chrome-mv3-prod/
 
 **加载**：Chrome → `chrome://extensions/` → 开发者模式 → 加载已解压 → 选 `extension/build/chrome-mv3-prod/`
 
-**发布原理**：点击发布 → Background SW 打开平台编辑器 → Content Script 自动注入内容 → 用户确认后手动发布
+**发布原理**：Storage 信号机制 — Background 写待发布数据到 `chrome.storage.local` → Content Script 加载后自主读取 → `MutationObserver` 轮询编辑器 DOM → 注入内容 → 写结果回 Storage → Background 回报用户
 
 | 平台 | 注入策略 |
 |------|----------|
-| 公众号 | `all_frames: true` 穿透 UEditor iframe，直接写入 `contenteditable` |
-| 知乎 | ClipboardEvent 模拟粘贴，突破 Draft.js 不可变状态模型 |
-| B站 | Quill.js 编辑器 DOM 注入 + 标签填充 |
-| 小红书 | `Object.getOwnPropertyDescriptor` 绕过 React 受控组件，原生 value setter 注入 |
+| 公众号 | `all_frames: true` 穿透双层 UEditor iframe，`MutationObserver` 轮询 `[contenteditable]` |
+| 知乎 | `ClipboardEvent` 模拟粘贴 + `DataTransfer`，突破 Draft.js 不可变状态 |
+| B站 | `innerHTML` 直接写入 Quill.js 编辑器 + 原生 value setter 绕 React |
+| 小红书 | `getOwnPropertyDescriptor` 绕过 React 受控组件，`dispatchEvent('input')` 触发状态同步 |
+
+**使用前**：需先在浏览器中登录各平台（`mp.weixin.qq.com` / `zhuanlan.zhihu.com` / `member.bilibili.com` / `creator.xiaohongshu.com`），扩展自动复用登录态。
 
 ## 核心架构
 
@@ -246,7 +250,8 @@ interface PlatformAdapter {
 | #8 | 单平台独立发布 + 已发布标记 |
 | #9 | 端口统一 4395 + 一键启动脚本 |
 | #10 | Tiptap 所见即所得编辑器 + Dashboard 统计面板 |
-| #11 | Chrome 扩展真发布 — Plasmo + Content Script DOM 注入 + 4 平台注入策略 |
+| #11 | Chrome 扩展真发布 — Plasmo + Content Script DOM 注入 |
+| #12 | 扩展暗夜编辑室 UI + storage 信号发布机制 + MutationObserver 轮询 |
 
 ### Chrome 扩展
 
