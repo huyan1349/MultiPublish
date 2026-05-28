@@ -22,14 +22,16 @@ async function handlePublish(payload: PublishPayload): Promise<PublishResult> {
   if (!url) throw new Error(`Unknown platform: ${platform}`);
 
   try {
-    // Open platform editor
     const tab = await chrome.tabs.create({ url, active: false });
     if (!tab.id) throw new Error('Failed to create tab');
 
     // Wait for page load
     await waitForTabLoad(tab.id);
 
-    // Inject fill script directly via executeScript — bypasses timing issues
+    // Wait extra 3s for SPA editors to render
+    await sleep(3000);
+
+    // Inject fill script — with built-in DOM polling
     const results = await chrome.scripting.executeScript({
       target: { tabId: tab.id, allFrames: platform === 'wechat' },
       func: injectContent,
@@ -44,13 +46,14 @@ async function handlePublish(payload: PublishPayload): Promise<PublishResult> {
         message: `已填入${platformName}编辑器，请确认并手动发布`,
         mockUrl: `${url}/post_preview` };
     }
-
-    return { platform, platformName, status: 'failed', message: '未找到编辑器，请确认页面已加载' };
+    return { platform, platformName, status: 'failed', message: '未找到编辑器元素' };
   } catch (err) {
     const msg = err instanceof Error ? err.message : '发布失败';
     return { platform, platformName, status: 'failed', message: msg };
   }
 }
+
+function sleep(ms: number) { return new Promise((r) => setTimeout(r, ms)); }
 
 function waitForTabLoad(tabId: number): Promise<void> {
   return new Promise((resolve) => {
@@ -59,92 +62,119 @@ function waitForTabLoad(tabId: number): Promise<void> {
       if (tid === tabId && info.status === 'complete') done();
     };
     chrome.tabs.onUpdated.addListener(listener);
-    setTimeout(done, 20000);
+    setTimeout(done, 25000);
   });
 }
 
-// This function is serialized and injected into the target page via executeScript.
-// It runs in the page's context — NO access to outer scope variables.
+// Serialized & injected into target page. Polls for editor elements up to 10s.
 function injectContent(platform: string, content: { title: string; body: string; tags: string[]; summary?: string; coverImage?: string }) {
   const { title, body, tags } = content;
-  const isIframe = window.self !== window.top;
   const plainText = body.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ');
 
   function setNativeValue(el: HTMLInputElement | HTMLTextAreaElement, value: string) {
-    const desc = Object.getOwnPropertyDescriptor(
-      el instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype, 'value',
-    );
+    const proto = el instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+    const desc = Object.getOwnPropertyDescriptor(proto, 'value');
     desc?.set?.call(el, value);
     el.dispatchEvent(new Event('input', { bubbles: true }));
     el.dispatchEvent(new Event('change', { bubbles: true }));
   }
 
-  // === WECHAT ===
-  if (platform === 'wechat') {
-    if (isIframe) {
-      const ed = document.querySelector('[contenteditable="true"]') as HTMLElement;
-      if (ed) { ed.innerHTML = body; ed.dispatchEvent(new Event('input', { bubbles: true })); return true; }
-    }
+  function waitFor<T extends Element>(selector: string, timeout = 8000): Promise<T | null> {
+    return new Promise((resolve) => {
+      const el = document.querySelector<T>(selector);
+      if (el) return resolve(el);
+      const observer = new MutationObserver(() => {
+        const el2 = document.querySelector<T>(selector);
+        if (el2) { observer.disconnect(); resolve(el2); }
+      });
+      observer.observe(document.body || document.documentElement, { childList: true, subtree: true });
+      setTimeout(() => { observer.disconnect(); resolve(null); }, timeout);
+    });
+  }
+
+  function fillWeChat() {
+    // main frame: fill title
     const ti = document.querySelector('#title') as HTMLTextAreaElement;
     if (ti) setNativeValue(ti, title);
+    // try to access the iframe
     const iframe = document.querySelector('#ueditor_0') as HTMLIFrameElement;
     if (iframe?.contentDocument) {
-      const ed = iframe.contentDocument.querySelector('[contenteditable="true"]') as HTMLElement;
+      const ed = iframe.contentDocument.querySelector<HTMLElement>('[contenteditable="true"]');
       if (ed) { ed.innerHTML = body; ed.dispatchEvent(new Event('input', { bubbles: true })); return true; }
     }
+    // if we're inside the iframe already
+    const ed = document.querySelector<HTMLElement>('[contenteditable="true"]');
+    if (ed) { ed.innerHTML = body; ed.dispatchEvent(new Event('input', { bubbles: true })); return true; }
     return false;
   }
 
-  // === ZHIHU ===
-  if (platform === 'zhihu') {
-    const ti = document.querySelector('.WriteIndex-titleInput') as HTMLTextAreaElement
-      || document.querySelector('textarea[placeholder*="标题"]') as HTMLTextAreaElement;
+  function fillZhihu() {
+    const ti = document.querySelector<HTMLTextAreaElement>('.WriteIndex-titleInput, textarea[placeholder*="标题"]');
     if (ti) setNativeValue(ti, title);
-
-    setTimeout(() => {
-      const ed = document.querySelector('.public-DraftEditor-content')
-        || document.querySelector('[contenteditable="true"]');
-      if (ed) {
-        const dt = new DataTransfer();
-        dt.setData('text/html', body);
-        dt.setData('text/plain', plainText);
-        ed.dispatchEvent(new ClipboardEvent('paste', { bubbles: true, cancelable: true, clipboardData: dt }));
-      }
-    }, 500);
-    return true; // fire-and-forget for the setTimeout
-  }
-
-  // === BILIBILI ===
-  if (platform === 'bilibili') {
-    const ti = document.querySelector('input[placeholder*="标题"]') as HTMLInputElement;
-    if (ti) setNativeValue(ti, title);
-    setTimeout(() => {
-      const ed = document.querySelector('.ql-editor') as HTMLElement
-        || document.querySelector('[contenteditable="true"]') as HTMLElement;
-      if (ed) { ed.innerHTML = body.replace(/\n\n/g, '<p><br></p>').replace(/\n/g, '<br>'); ed.dispatchEvent(new Event('input', { bubbles: true })); }
-      const tagInput = document.querySelector('input[placeholder*="标签"]') as HTMLInputElement;
-      if (tagInput) setNativeValue(tagInput, tags.join(','));
-    }, 800);
+    const ed = document.querySelector<HTMLElement>('.public-DraftEditor-content, [contenteditable="true"]');
+    if (!ed) return false;
+    const dt = new DataTransfer();
+    dt.setData('text/html', body);
+    dt.setData('text/plain', plainText);
+    ed.focus();
+    ed.dispatchEvent(new ClipboardEvent('paste', { bubbles: true, cancelable: true, clipboardData: dt }));
     return true;
   }
 
-  // === XIAOHONGSHU ===
-  if (platform === 'xiaohongshu') {
-    const ti = document.querySelector('input[placeholder*="标题"]') as HTMLInputElement
-      || document.querySelector('#title') as HTMLInputElement;
+  function fillBilibili() {
+    const ti = document.querySelector<HTMLInputElement>('input[placeholder*="标题"]');
     if (ti) setNativeValue(ti, title);
+    const ed = document.querySelector<HTMLElement>('.ql-editor, [contenteditable="true"]');
+    if (!ed) return false;
+    ed.innerHTML = body.replace(/\n\n/g, '<p><br></p>').replace(/\n/g, '<br>');
+    ed.dispatchEvent(new Event('input', { bubbles: true }));
+    const tagInput = document.querySelector<HTMLInputElement>('input[placeholder*="标签"]');
+    if (tagInput) setNativeValue(tagInput, tags.join(','));
+    return true;
+  }
 
-    const bodyEl = document.querySelector('textarea[placeholder*="笔记"]') as HTMLTextAreaElement
-      || document.querySelector('#content') as HTMLTextAreaElement
-      || document.querySelector('textarea') as HTMLTextAreaElement;
+  function fillXiaohongshu() {
+    const ti = document.querySelector<HTMLInputElement>('input[placeholder*="标题"], #title');
+    if (ti) setNativeValue(ti, title);
+    const bodyEl = document.querySelector<HTMLTextAreaElement>('textarea[placeholder*="笔记"], #content, textarea');
     if (bodyEl) setNativeValue(bodyEl, plainText);
-
-    const tagInput = document.querySelector('input[placeholder*="话题"]') as HTMLInputElement;
+    const tagInput = document.querySelector<HTMLInputElement>('input[placeholder*="话题"]');
     if (tagInput) setNativeValue(tagInput, tags.join(' '));
-    return true;
+    return !!(ti || bodyEl);
   }
 
-  return false;
+  // Immediate attempt
+  let ok = false;
+  switch (platform) {
+    case 'wechat': ok = fillWeChat(); break;
+    case 'zhihu': ok = fillZhihu(); break;
+    case 'bilibili': ok = fillBilibili(); break;
+    case 'xiaohongshu': ok = fillXiaohongshu(); break;
+  }
+  if (ok) return true;
+
+  // Poll for editor elements
+  const selectors: Record<string, string> = {
+    wechat: '#title, #ueditor_0, [contenteditable="true"]',
+    zhihu: '.public-DraftEditor-content, [contenteditable="true"], textarea[placeholder*="标题"]',
+    bilibili: '.ql-editor, [contenteditable="true"], input[placeholder*="标题"]',
+    xiaohongshu: 'textarea, input[placeholder*="标题"]',
+  };
+
+  const selector = selectors[platform];
+  if (!selector) return false;
+
+  // Wait up to 10s for DOM, then retry
+  return waitFor(selector, 10000).then((el) => {
+    if (!el) return false;
+    switch (platform) {
+      case 'wechat': return fillWeChat();
+      case 'zhihu': return fillZhihu();
+      case 'bilibili': return fillBilibili();
+      case 'xiaohongshu': return fillXiaohongshu();
+    }
+    return false;
+  }) as unknown as boolean;
 }
 
 export {};

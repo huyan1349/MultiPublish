@@ -214,12 +214,12 @@ export default function Sidepanel() {
           <div className="help-text" style={{ marginBottom: 6 }}>目标平台</div>
           <div className="platform-grid">
             {PLATFORMS.map((p) => (
-              <label key={p.id} className={`platform-pill ${selected.has(p.id) ? 'active' : ''}`}>
-                <input type="checkbox" checked={selected.has(p.id)}
-                  onChange={() => setSelected((prev) => { const n = new Set(prev); n.has(p.id) ? n.delete(p.id) : n.add(p.id); return n; })} />
+              <div key={p.id}
+                className={`platform-pill ${selected.has(p.id) ? 'active' : ''}`}
+                onClick={(e) => { e.preventDefault(); setSelected((prev) => { const n = new Set(prev); n.has(p.id) ? n.delete(p.id) : n.add(p.id); return n; }); }}>
                 <span className="dot" style={{ backgroundColor: p.color }} />
                 {p.name}
-              </label>
+              </div>
             ))}
           </div>
         </div>
