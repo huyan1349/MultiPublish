@@ -5,50 +5,53 @@ export const config: PlasmoCSConfig = {
   run_at: 'document_idle',
 };
 
-interface FillMessage {
-  type: 'FILL_EDITOR';
-  platform: string;
-  content: { title: string; body: string; tags: string[]; summary?: string };
+const PLATFORM = 'xiaohongshu';
+const NAME = '小红书';
+
+(async function init() {
+  const data = await chrome.storage.local.get('contentbridge_fill');
+  const fill = data.contentbridge_fill;
+  if (!fill || fill.platform !== PLATFORM) return;
+  await chrome.storage.local.remove('contentbridge_fill');
+
+  const { title, body, tags } = fill.content as { title: string; body: string; tags: string[] };
+  const plainText = body.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ');
+  const ok = await tryFill(title, plainText, tags);
+
+  await chrome.storage.local.set({
+    contentbridge_result: { platform: PLATFORM, platformName: NAME, success: ok, error: ok ? undefined : '未找到小红书编辑器' },
+  });
+})();
+
+function setNativeValue(el: HTMLInputElement | HTMLTextAreaElement, value: string) {
+  const proto = el instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+  const desc = Object.getOwnPropertyDescriptor(proto, 'value');
+  desc?.set?.call(el, value);
+  el.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
-chrome.runtime.onMessage.addListener((message: FillMessage, _sender, sendResponse) => {
-  if (message.type !== 'FILL_EDITOR' || message.platform !== 'xiaohongshu') return false;
+async function tryFill(title: string, body: string, tags: string[]): Promise<boolean> {
+  const titleEl = await waitFor<HTMLInputElement>('input[placeholder*="标题"], #title', 8000);
+  if (titleEl) setNativeValue(titleEl, title);
 
-  const { title, body, tags } = message.content;
+  const bodyEl = await waitFor<HTMLTextAreaElement>('textarea[placeholder*="笔记"], #content, textarea', 8000);
+  if (bodyEl) setNativeValue(bodyEl, body);
 
-  try {
-    // Xiaohongshu: title input + textarea body
-    const titleInput = document.querySelector('input[placeholder*="标题"]') as HTMLInputElement
-      || document.querySelector('#title') as HTMLInputElement;
-    if (titleInput) {
-      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
-      setter?.call(titleInput, title);
-      titleInput.dispatchEvent(new Event('input', { bubbles: true }));
-    }
+  const tagInput = document.querySelector<HTMLInputElement>('input[placeholder*="话题"]');
+  if (tagInput) setNativeValue(tagInput, tags.join(' '));
 
-    const bodyInput = document.querySelector('textarea[placeholder*="笔记"]') as HTMLTextAreaElement
-      || document.querySelector('#content') as HTMLTextAreaElement
-      || document.querySelector('textarea');
+  return !!(titleEl || bodyEl);
+}
 
-    if (bodyInput) {
-      const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set;
-      const plainText = body.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ');
-      setter?.call(bodyInput, plainText);
-      bodyInput.dispatchEvent(new Event('input', { bubbles: true }));
-    }
-
-    // Fill tags if tag input exists
-    const tagInput = document.querySelector('input[placeholder*="话题"]') as HTMLInputElement;
-    if (tagInput && tags.length > 0) {
-      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
-      setter?.call(tagInput, tags.join(' '));
-      tagInput.dispatchEvent(new Event('input', { bubbles: true }));
-    }
-
-    sendResponse({ success: true });
-  } catch (err) {
-    sendResponse({ success: false, error: `注入失败: ${err instanceof Error ? err.message : '未知错误'}` });
-  }
-
-  return true;
-});
+function waitFor<T extends Element>(selector: string, timeout: number): Promise<T | null> {
+  return new Promise((resolve) => {
+    const existing = document.querySelector<T>(selector);
+    if (existing) return resolve(existing);
+    const observer = new MutationObserver(() => {
+      const el = document.querySelector<T>(selector);
+      if (el) { observer.disconnect(); resolve(el); }
+    });
+    observer.observe(document.body || document.documentElement, { childList: true, subtree: true });
+    setTimeout(() => { observer.disconnect(); resolve(null); }, timeout);
+  });
+}
