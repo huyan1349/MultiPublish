@@ -1,6 +1,6 @@
 # ContentBridge — 多平台内容发布工具
 
-> 一次创作，多端适配。自动将内容转换为公众号、知乎、B站、小红书的专属风格，一键模拟发布。
+> 一次创作，多端适配。提供 **Web 应用**（模拟发布）+ **Chrome 扩展**（真发布，Content Script DOM 注入）双形态。
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
@@ -67,6 +67,16 @@ ContentBridge 解决的就是这个问题——用户在所见即所得编辑器
 │       ├── adapters/        # 平台适配器（wechat/zhihu/bilibili/xiaohongshu）
 │       ├── publishers/      # 发布策略（MockPublisher）
 │       └── middleware/      # 中间件
+├── extension/               # Chrome 扩展（真发布）
+│   └── src/
+│       ├── sidepanel.tsx     # 侧边栏 UI（Editor/Preview/Records）
+│       ├── background.ts     # Service Worker（消息路由+标签页管理）
+│       ├── contents/         # Content Scripts（DOM 注入）
+│       │   ├── wechat.ts     # 微信公众号 — UEditor iframe 穿透
+│       │   ├── zhihu.ts      # 知乎 — ClipboardEvent 模拟
+│       │   ├── bilibili.ts   # B站 — Quill.js DOM 注入
+│       │   └── xiaohongshu.ts # 小红书 — React 组件 value setter 注入
+│       └── sidepanel/adapters/ # 平台适配器（与 Web 版共享逻辑）
 ├── start.bat                # Windows 一键启动脚本
 └── README.md
 ```
@@ -111,6 +121,28 @@ npm run dev
 4. 切换到预览页，Tab 切换查看四个平台的不同风格
 5. 点「发布到此平台」独立发布，或「一键全发」批量发布
 6. 查看发布记录页面，确认发布结果
+
+### Chrome 扩展（真发布）
+
+Chrome 扩展通过 Content Script 直接将适配内容注入到平台编辑器，实现**真实发布**。
+
+```bash
+# 安装依赖
+cd extension
+pnpm install
+pnpm build        # 产出 build/chrome-mv3-prod/
+```
+
+**加载**：Chrome → `chrome://extensions/` → 开发者模式 → 加载已解压 → 选 `extension/build/chrome-mv3-prod/`
+
+**发布原理**：点击发布 → Background SW 打开平台编辑器 → Content Script 自动注入内容 → 用户确认后手动发布
+
+| 平台 | 注入策略 |
+|------|----------|
+| 公众号 | `all_frames: true` 穿透 UEditor iframe，直接写入 `contenteditable` |
+| 知乎 | ClipboardEvent 模拟粘贴，突破 Draft.js 不可变状态模型 |
+| B站 | Quill.js 编辑器 DOM 注入 + 标签填充 |
+| 小红书 | `Object.getOwnPropertyDescriptor` 绕过 React 受控组件，原生 value setter 注入 |
 
 ## 核心架构
 
@@ -186,8 +218,9 @@ interface PlatformAdapter {
 
 ## 已知限制
 
-- 当前版本采用**模拟发布**，不接入真实平台 API。各平台 API 权限审核门槛高（公众号需认证服务号、小红书不开放发布 API 等）
-- 架构已预留 `Publisher` 接口，后续可替换为真实 API 集成或浏览器自动化方案
+- **Web 应用**：采用模拟发布。各平台 API 权限审核门槛高（公众号需认证服务号、小红书不开放发布 API 等）
+- **Chrome 扩展**：DOM 注入依赖平台页面结构，平台改版可能导致注入失败，需持续维护 CSS 选择器
+- 小红书发布仅填充文案，图片需手动上传
 
 ## 后续规划
 
@@ -213,6 +246,17 @@ interface PlatformAdapter {
 | #8 | 单平台独立发布 + 已发布标记 |
 | #9 | 端口统一 4395 + 一键启动脚本 |
 | #10 | Tiptap 所见即所得编辑器 + Dashboard 统计面板 |
+| #11 | Chrome 扩展真发布 — Plasmo + Content Script DOM 注入 + 4 平台注入策略 |
+
+### Chrome 扩展
+
+| 依赖 | 版本 | 用途 | 许可证 |
+|------|------|------|--------|
+| plasmo | ^0.89 | 扩展开发框架 | MIT |
+| @plasmohq/storage | ^1.9 | chrome.storage 封装 | MIT |
+| react | ^18.3 | UI | MIT |
+| zustand | ^5.0 | 状态管理 | MIT |
+| lucide-react | ^0.547 | 图标 | ISC |
 
 ## License
 
