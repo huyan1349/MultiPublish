@@ -1,0 +1,45 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply antialiased;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-accent text-white px-5 py-2.5 rounded-lg font-medium
+           hover:bg-accent-hover active:scale-[0.98]
+           transition-all duration-200 ease-out;
+    box-shadow: 0 0 0 0 transparent;
+  }
+  .btn-primary:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(59, 76, 202, 0.4);
+  }
+
+  .btn-secondary {
+    @apply text-ink px-5 py-2.5 rounded-lg font-medium
+           hover:bg-black/5 active:scale-[0.98]
+           transition-all duration-200 ease-out;
+    border: 1px solid rgba(26, 26, 27, 0.12);
+  }
+
+  .card {
+    @apply bg-white rounded-2xl;
+    border: 1px solid rgba(26, 26, 27, 0.06);
+    box-shadow: 0 2px 16px rgba(0, 0, 0, 0.04);
+  }
+
+  .platform-tab {
+    @apply px-4 py-2.5 text-sm font-medium rounded-lg
+           transition-all duration-200 ease-out cursor-pointer;
+    border: 1px solid transparent;
+  }
+
+  .platform-tab-active {
+    border-color: currentColor;
+  }
+}
