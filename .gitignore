@@ -1,8 +1,14 @@
 node_modules/
 dist/
+build/
+.plasmo/
 .env
+.env.local
 *.db
 *.db-journal
+*.crx
+*.pem
+*.zip
 .DS_Store
 .vite/
 tsbuildinfo
