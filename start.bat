@@ -1,35 +1,26 @@
 @echo off
-chcp 65001 >nul
-title ContentBridge — 多平台内容发布工具
+title ContentBridge
+
+set "ROOT=%~dp0"
 
 echo.
-echo   ╔══════════════════════════════════════╗
-echo   ║     ContentBridge 一键启动           ║
-echo   ║  多平台内容发布工具                   ║
-echo   ╚══════════════════════════════════════╝
+echo ========================================
+echo   ContentBridge - Multi-Platform Tool
+echo ========================================
 echo.
 
-cd /d "%~dp0"
+echo [1/2] Starting backend (port 3001)...
+start "ContentBridge-Backend" cmd /c "cd /d "%ROOT%backend" && npm run dev"
 
-:: ── 后端 ──
-echo [1/2] 启动后端 (端口 3001)...
-start "ContentBridge-后端" cmd /c "cd /d backend && npm run dev"
+ping -n 4 127.0.0.1 >nul
 
-:: ── 等后端先起来 ──
-timeout /t 3 /nobreak >nul
+echo [2/2] Starting frontend (port 5173)...
+start "ContentBridge-Frontend" cmd /c "cd /d "%ROOT%frontend" && npm run dev"
 
-:: ── 前端 ──
-echo [2/2] 启动前端 (端口 5173)...
-start "ContentBridge-前端" cmd /c "cd /d frontend && npm run dev"
-
-:: ── 打开浏览器 ──
-timeout /t 2 /nobreak >nul
+ping -n 3 127.0.0.1 >nul
 start http://localhost:5173
 
 echo.
-echo   ✅ 已启动！浏览器打开 http://localhost:5173
+echo Done! Open http://localhost:5173
 echo.
-echo   关闭此窗口不会影响运行中的服务。
-echo.
-
 pause
