@@ -22,159 +22,52 @@ async function handlePublish(payload: PublishPayload): Promise<PublishResult> {
   if (!url) throw new Error(`Unknown platform: ${platform}`);
 
   try {
+    // Write fill data to storage before opening tab
+    await chrome.storage.local.set({
+      contentbridge_fill: { platform, content, timestamp: Date.now() },
+    });
+
+    // Open platform editor
     const tab = await chrome.tabs.create({ url, active: false });
     if (!tab.id) throw new Error('Failed to create tab');
 
-    // Wait for page load
-    await waitForTabLoad(tab.id);
-
-    // Wait extra 3s for SPA editors to render
-    await sleep(3000);
-
-    // Inject fill script — with built-in DOM polling
-    const results = await chrome.scripting.executeScript({
-      target: { tabId: tab.id, allFrames: platform === 'wechat' },
-      func: injectContent,
-      args: [platform, content],
-    });
+    // Wait for fill result from content script (via storage polling)
+    const result = await waitForFillResult(tab.id, platform, platformName);
 
     await chrome.tabs.update(tab.id, { active: true });
-
-    const success = results?.some((r) => r.result === true);
-    if (success) {
-      return { platform, platformName, status: 'success',
-        message: `已填入${platformName}编辑器，请确认并手动发布`,
-        mockUrl: `${url}/post_preview` };
-    }
-    return { platform, platformName, status: 'failed', message: '未找到编辑器元素' };
+    return result;
   } catch (err) {
     const msg = err instanceof Error ? err.message : '发布失败';
     return { platform, platformName, status: 'failed', message: msg };
   }
 }
 
-function sleep(ms: number) { return new Promise((r) => setTimeout(r, ms)); }
-
-function waitForTabLoad(tabId: number): Promise<void> {
+function waitForFillResult(tabId: number, platform: string, platformName: string): Promise<PublishResult> {
   return new Promise((resolve) => {
-    const done = () => { chrome.tabs.onUpdated.removeListener(listener); resolve(); };
-    const listener = (tid: number, info: chrome.tabs.TabChangeInfo) => {
-      if (tid === tabId && info.status === 'complete') done();
-    };
-    chrome.tabs.onUpdated.addListener(listener);
-    setTimeout(done, 25000);
-  });
-}
+    const timeout = setTimeout(() => {
+      chrome.storage.onChanged.removeListener(listener);
+      resolve({ platform, platformName, status: 'failed', message: '填充超时，请手动粘贴' });
+    }, 30000);
 
-// Serialized & injected into target page. Polls for editor elements up to 10s.
-function injectContent(platform: string, content: { title: string; body: string; tags: string[]; summary?: string; coverImage?: string }) {
-  const { title, body, tags } = content;
-  const plainText = body.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ');
-
-  function setNativeValue(el: HTMLInputElement | HTMLTextAreaElement, value: string) {
-    const proto = el instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
-    const desc = Object.getOwnPropertyDescriptor(proto, 'value');
-    desc?.set?.call(el, value);
-    el.dispatchEvent(new Event('input', { bubbles: true }));
-    el.dispatchEvent(new Event('change', { bubbles: true }));
-  }
-
-  function waitFor<T extends Element>(selector: string, timeout = 8000): Promise<T | null> {
-    return new Promise((resolve) => {
-      const el = document.querySelector<T>(selector);
-      if (el) return resolve(el);
-      const observer = new MutationObserver(() => {
-        const el2 = document.querySelector<T>(selector);
-        if (el2) { observer.disconnect(); resolve(el2); }
+    const listener = (changes: Record<string, chrome.storage.StorageChange>, areaName: string) => {
+      if (areaName !== 'local') return;
+      if (!changes.contentbridge_result) return;
+      const result = changes.contentbridge_result.newValue;
+      if (!result || result.platform !== platform) return;
+      clearTimeout(timeout);
+      chrome.storage.onChanged.removeListener(listener);
+      chrome.storage.local.remove('contentbridge_result');
+      resolve({
+        platform: result.platform,
+        platformName: result.platformName || platformName,
+        status: result.success ? 'success' : 'failed',
+        message: result.success ? `已填入${platformName}编辑器，请确认并手动发布` : (result.error || '填充失败'),
+        mockUrl: result.success ? `${PLATFORM_URLS[platform]}/post_preview` : undefined,
       });
-      observer.observe(document.body || document.documentElement, { childList: true, subtree: true });
-      setTimeout(() => { observer.disconnect(); resolve(null); }, timeout);
-    });
-  }
+    };
 
-  function fillWeChat() {
-    // main frame: fill title
-    const ti = document.querySelector('#title') as HTMLTextAreaElement;
-    if (ti) setNativeValue(ti, title);
-    // try to access the iframe
-    const iframe = document.querySelector('#ueditor_0') as HTMLIFrameElement;
-    if (iframe?.contentDocument) {
-      const ed = iframe.contentDocument.querySelector<HTMLElement>('[contenteditable="true"]');
-      if (ed) { ed.innerHTML = body; ed.dispatchEvent(new Event('input', { bubbles: true })); return true; }
-    }
-    // if we're inside the iframe already
-    const ed = document.querySelector<HTMLElement>('[contenteditable="true"]');
-    if (ed) { ed.innerHTML = body; ed.dispatchEvent(new Event('input', { bubbles: true })); return true; }
-    return false;
-  }
-
-  function fillZhihu() {
-    const ti = document.querySelector<HTMLTextAreaElement>('.WriteIndex-titleInput, textarea[placeholder*="标题"]');
-    if (ti) setNativeValue(ti, title);
-    const ed = document.querySelector<HTMLElement>('.public-DraftEditor-content, [contenteditable="true"]');
-    if (!ed) return false;
-    const dt = new DataTransfer();
-    dt.setData('text/html', body);
-    dt.setData('text/plain', plainText);
-    ed.focus();
-    ed.dispatchEvent(new ClipboardEvent('paste', { bubbles: true, cancelable: true, clipboardData: dt }));
-    return true;
-  }
-
-  function fillBilibili() {
-    const ti = document.querySelector<HTMLInputElement>('input[placeholder*="标题"]');
-    if (ti) setNativeValue(ti, title);
-    const ed = document.querySelector<HTMLElement>('.ql-editor, [contenteditable="true"]');
-    if (!ed) return false;
-    ed.innerHTML = body.replace(/\n\n/g, '<p><br></p>').replace(/\n/g, '<br>');
-    ed.dispatchEvent(new Event('input', { bubbles: true }));
-    const tagInput = document.querySelector<HTMLInputElement>('input[placeholder*="标签"]');
-    if (tagInput) setNativeValue(tagInput, tags.join(','));
-    return true;
-  }
-
-  function fillXiaohongshu() {
-    const ti = document.querySelector<HTMLInputElement>('input[placeholder*="标题"], #title');
-    if (ti) setNativeValue(ti, title);
-    const bodyEl = document.querySelector<HTMLTextAreaElement>('textarea[placeholder*="笔记"], #content, textarea');
-    if (bodyEl) setNativeValue(bodyEl, plainText);
-    const tagInput = document.querySelector<HTMLInputElement>('input[placeholder*="话题"]');
-    if (tagInput) setNativeValue(tagInput, tags.join(' '));
-    return !!(ti || bodyEl);
-  }
-
-  // Immediate attempt
-  let ok = false;
-  switch (platform) {
-    case 'wechat': ok = fillWeChat(); break;
-    case 'zhihu': ok = fillZhihu(); break;
-    case 'bilibili': ok = fillBilibili(); break;
-    case 'xiaohongshu': ok = fillXiaohongshu(); break;
-  }
-  if (ok) return true;
-
-  // Poll for editor elements
-  const selectors: Record<string, string> = {
-    wechat: '#title, #ueditor_0, [contenteditable="true"]',
-    zhihu: '.public-DraftEditor-content, [contenteditable="true"], textarea[placeholder*="标题"]',
-    bilibili: '.ql-editor, [contenteditable="true"], input[placeholder*="标题"]',
-    xiaohongshu: 'textarea, input[placeholder*="标题"]',
-  };
-
-  const selector = selectors[platform];
-  if (!selector) return false;
-
-  // Wait up to 10s for DOM, then retry
-  return waitFor(selector, 10000).then((el) => {
-    if (!el) return false;
-    switch (platform) {
-      case 'wechat': return fillWeChat();
-      case 'zhihu': return fillZhihu();
-      case 'bilibili': return fillBilibili();
-      case 'xiaohongshu': return fillXiaohongshu();
-    }
-    return false;
-  }) as unknown as boolean;
+    chrome.storage.onChanged.addListener(listener);
+  });
 }
 
 export {};
