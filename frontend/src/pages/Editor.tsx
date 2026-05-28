@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Sparkles, Send, Loader2 } from 'lucide-react';
 import { api } from '../api/client';
 import { useContentStore } from '../stores/contentStore';
+import TiptapEditor from '../components/editor/TiptapEditor';
 
 const PLATFORM_OPTIONS = [
   { id: 'wechat', label: '公众号', color: 'bg-wechat' },
@@ -25,6 +26,7 @@ export default function Editor() {
         setDraft({
           title: c.title,
           rawMarkdown: c.rawMarkdown,
+          htmlContent: c.rawMarkdown,
           tags: (c.tags || []).join(', '),
           coverImage: c.coverImage || '',
           summary: c.summary || '',
@@ -42,7 +44,8 @@ export default function Editor() {
   };
 
   const handleGenerate = async () => {
-    if (!draft.title.trim() || !draft.rawMarkdown.trim()) {
+    const contentText = draft.rawMarkdown.replace(/<[^>]*>/g, '').trim();
+    if (!draft.title.trim() || !contentText) {
       setError('标题和正文不能为空');
       return;
     }
@@ -105,13 +108,11 @@ export default function Editor() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-ink mb-1.5">正文（Markdown）</label>
-            <textarea
-              value={draft.rawMarkdown}
-              onChange={(e) => setDraft({ rawMarkdown: e.target.value })}
-              placeholder="支持 Markdown 语法：# 标题、**加粗**、- 列表、> 引用…"
-              rows={16}
-              className="w-full px-4 py-3 rounded-lg border border-ink/12 bg-white text-ink placeholder:text-muted/60 focus:outline-none focus:ring-2 focus:ring-accent/30 transition font-mono text-sm leading-relaxed resize-y"
+            <label className="block text-sm font-medium text-ink mb-1.5">正文</label>
+            <TiptapEditor
+              content={draft.htmlContent}
+              placeholder="支持 Markdown 快捷输入：输入 # 加空格创建标题、**加粗**、- 列表…"
+              onChange={(html) => setDraft({ rawMarkdown: html, htmlContent: html })}
             />
           </div>
           <div className="grid grid-cols-2 gap-4">
