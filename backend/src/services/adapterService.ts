@@ -1,6 +1,6 @@
 import type { PlatformType, PlatformOutputDraft } from '../adapters/PlatformAdapter.js';
 import { getAdapter, listAdapters } from '../adapters/AdapterFactory.js';
-import { parseMarkdownToBlocks } from './parserService.js';
+import { parseToBlocks } from './parserService.js';
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
@@ -20,7 +20,7 @@ export async function adaptContent(
   const content = await prisma.content.findUnique({ where: { id: contentId } });
   if (!content) throw new Error(`Content ${contentId} not found`);
 
-  const blocks = parseMarkdownToBlocks(content.rawMarkdown);
+  const blocks = parseToBlocks(content.rawMarkdown);
   const standardContent = {
     id: content.id,
     title: content.title,
