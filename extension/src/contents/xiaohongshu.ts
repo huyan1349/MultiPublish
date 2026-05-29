@@ -2,17 +2,14 @@ import type { PlasmoCSConfig } from 'plasmo';
 import { showContentBridgeToast } from '../shared/contentToast';
 
 export const config: PlasmoCSConfig = {
-  matches: [
-    'https://creator.xiaohongshu.com/*',
-    'https://www.xiaohongshu.com/*',
-  ],
+  matches: ['https://creator.xiaohongshu.com/*'],
   run_at: 'document_idle',
 };
 
 const PLATFORM = 'xiaohongshu';
 const NAME = '小红书';
 const FILL_TIMEOUT = 20000;
-const TAG_INPUT_TIMEOUT = 8000;
+const NAV_TIMEOUT = 10000;
 
 const LOGIN_INDICATORS = [
   '.sidebar-user-info',
@@ -20,7 +17,6 @@ const LOGIN_INDICATORS = [
   '[class*="user-info"]',
   '[class*="nickname"]',
   '[class*="creator-sidebar"]',
-  '[data-testid="user-avatar"]',
 ];
 
 (async function init() {
@@ -39,11 +35,12 @@ const LOGIN_INDICATORS = [
     const { title, body, tags } = fill.content as { title: string; body: string; tags: string[] };
     const plainText = htmlToPlainText(body);
 
-    const isCreator = /creator\.xiaohongshu\.com/.test(location.hostname);
-    const fillResult = isCreator
-      ? await tryFillCreator(title, plainText, tags)
-      : await tryFillMainSite(title, plainText, tags);
+    if (!await navigateToLongArticleEditor()) {
+      await report(false, '未能进入小红书长文编辑页面，请检查是否有"写长文"权限');
+      return;
+    }
 
+    const fillResult = await tryFillLongArticle(title, plainText, tags);
     if (!fillResult.success) {
       await report(false, fillResult.error || '小红书填充失败');
       return;
@@ -85,44 +82,87 @@ async function checkLogin(): Promise<boolean> {
 }
 
 /* ═══════════════════════════════════════════
-   Creator Center (creator.xiaohongshu.com)
-   — React 表单：input + textarea + 话题输入
+   导航流程：发布笔记 → 写长文 → 新的创作
    ═══════════════════════════════════════════ */
 
-async function tryFillCreator(
+async function navigateToLongArticleEditor(): Promise<boolean> {
+  if (await isLongArticleEditorReady()) return true;
+
+  if (/\/publish\/(publish|imgNote)/.test(location.pathname)) {
+    const clicked = await clickByText('写长文', NAV_TIMEOUT);
+    if (clicked) {
+      await sleep(2000);
+      if (await isLongArticleEditorReady()) return true;
+    }
+  }
+
+  if (!/\/publish/.test(location.pathname)) {
+    const publishBtn = await findElementByText('发布笔记', NAV_TIMEOUT);
+    if (publishBtn) {
+      clickElement(publishBtn);
+      await sleep(2000);
+    } else {
+      window.location.href = 'https://creator.xiaohongshu.com/publish/publish';
+      await sleep(3000);
+    }
+
+    const clicked = await clickByText('写长文', NAV_TIMEOUT);
+    if (clicked) {
+      await sleep(2000);
+      if (await isLongArticleEditorReady()) return true;
+    }
+  }
+
+  return false;
+}
+
+async function isLongArticleEditorReady(): Promise<boolean> {
+  const titleInput = findTitleInput();
+  const bodyEditor = findBodyEditor();
+  if (titleInput || bodyEditor) return true;
+
+  const newCreationBtn = await findElementByText('新的创作', 3000);
+  if (newCreationBtn) {
+    clickElement(newCreationBtn);
+    await sleep(2000);
+    return !!(findTitleInput() || findBodyEditor());
+  }
+
+  return false;
+}
+
+/* ═══════════════════════════════════════════
+   长文编辑器填充
+   ═══════════════════════════════════════════ */
+
+async function tryFillLongArticle(
   title: string,
   body: string,
   tags: string[],
 ): Promise<{ success: boolean; error?: string }> {
-  if (!/\/publish\//.test(location.pathname)) {
-    const link = document.querySelector<HTMLAnchorElement>('a[href*="/publish/imgNote"]');
-    if (link) { link.click(); await sleep(2000); }
-    else { window.location.href = 'https://creator.xiaohongshu.com/publish/imgNote'; await sleep(3000); }
-  }
-
-  const titleEl = await waitForElement(findCreatorTitle, FILL_TIMEOUT);
+  const titleEl = await waitForElement(findTitleInput, FILL_TIMEOUT);
   if (!titleEl) return { success: false, error: '未找到小红书标题输入框' };
 
-  const titleOk = await fillNativeInput(titleEl, title.substring(0, 20));
+  const titleOk = await fillInput(titleEl, title.substring(0, 20));
   if (!titleOk) return { success: false, error: '小红书标题填充失败' };
   showContentBridgeToast('✅ 标题已填充', 'success');
 
-  const bodyEl = await waitForElement(findCreatorBody, FILL_TIMEOUT);
-  if (!bodyEl) return { success: false, error: '未找到小红书正文输入框' };
+  const bodyEl = await waitForElement(findBodyEditor, FILL_TIMEOUT);
+  if (!bodyEl) return { success: false, error: '未找到小红书正文编辑器' };
 
-  const bodyOk = await fillNativeInput(bodyEl, body.substring(0, 1000));
+  const bodyOk = await fillContentEditable(bodyEl, body.substring(0, 5000));
   if (!bodyOk) return { success: false, error: '小红书正文填充失败' };
   showContentBridgeToast('✅ 正文已填充', 'success');
 
   if (tags.length > 0) {
-    await fillCreatorTags(tags);
+    await appendTagsToBody(bodyEl, tags);
   }
 
   return { success: true };
 }
 
-function findCreatorTitle(): HTMLInputElement | null {
-  const selectors = [
+function findTitleInput(): HTMLElement | null {
+  const inputSelectors = [
     'input[placeholder*="标题"]',
     'input[placeholder*="填写标题"]',
     '#title',
@@ -130,185 +170,84 @@ function findCreatorTitle(): HTMLInputElement | null {
     '.title-input',
     'input[class*="title"]',
   ];
-  for (const sel of selectors) {
-    const el = document.querySelector<HTMLInputElement>(sel);
+  for (const sel of inputSelectors) {
+    const el = document.querySelector<HTMLElement>(sel);
     if (el && isVisible(el)) return el;
   }
-  const inputs = Array.from(document.querySelectorAll<HTMLInputElement>(
-    'input[type="text"], input:not([type])',
-  )).filter(isVisible).filter((el) => {
-    const ph = (el.placeholder || '') + (el.getAttribute('aria-label') || '');
-    return /标题|title/i.test(ph);
-  });
-  return inputs[0] || null;
+  const ceSelectors = [
+    'div[contenteditable="true"][placeholder*="标题"]',
+    'div[contenteditable="true"][class*="title"]',
+    'div[contenteditable="true"][data-placeholder*="标题"]',
+  ];
+  for (const sel of ceSelectors) {
+    const el = document.querySelector<HTMLElement>(sel);
+    if (el && isVisible(el)) return el;
+  }
+  return null;
 }
 
-function findCreatorBody(): HTMLTextAreaElement | null {
-  const selectors = [
-    'textarea[placeholder*="笔记"]',
+function findBodyEditor(): HTMLElement | null {
+  const ceSelectors = [
+    'div[contenteditable="true"][class*="editor"]',
+    'div[contenteditable="true"][class*="content"]',
+    'div[contenteditable="true"][class*="body"]',
+    'div[contenteditable="true"][placeholder*="正文"]',
+    'div[contenteditable="true"][placeholder*="输入"]',
+    'div[contenteditable="true"][data-placeholder*="正文"]',
+    '.ql-editor',
+    '.public-DraftEditor-content',
+    '.ProseMirror',
+  ];
+  for (const sel of ceSelectors) {
+    const els = Array.from(document.querySelectorAll<HTMLElement>(sel)).filter(isVisible);
+    if (els.length > 0) return els[0];
+  }
+  const textareaSelectors = [
     'textarea[placeholder*="正文"]',
-    'textarea[placeholder*="填写笔记"]',
-    'textarea[placeholder*="请输入"]',
-    '#content',
-    '.content-editor',
+    'textarea[placeholder*="笔记"]',
+    'textarea[placeholder*="输入"]',
     'textarea[class*="content"]',
     'textarea',
   ];
-  for (const sel of selectors) {
+  for (const sel of textareaSelectors) {
     const el = document.querySelector<HTMLTextAreaElement>(sel);
     if (el && isVisible(el)) return el;
   }
   return null;
 }
 
-async function fillCreatorTags(tags: string[]): Promise<void> {
-  const cleanTags = tags.map((t) => t.replace(/^#/, '').trim()).filter(Boolean).slice(0, 10);
-  if (cleanTags.length === 0) return;
-
-  const topicTrigger = await waitForElement(findTopicTrigger, FILL_TIMEOUT);
-  if (!topicTrigger) {
-    showContentBridgeToast('⚠️ 未找到话题入口，请手动添加话题', 'error');
-    return;
-  }
-
-  clickElement(topicTrigger);
-  await sleep(1000);
-
-  for (const tag of cleanTags) {
-    const tagInput = await waitForElement(findTopicSearchInput, TAG_INPUT_TIMEOUT);
-    if (!tagInput) {
-      showContentBridgeToast(`⚠️ 话题"${tag}"输入失败，请手动添加`, 'error');
-      break;
-    }
-
-    tagInput.focus();
-    await fillNativeInput(tagInput, tag);
-    await sleep(1000);
-
-    const suggestion = await waitForElement(findTopicSuggestion, TAG_INPUT_TIMEOUT);
-    if (suggestion) {
-      clickElement(suggestion);
-      await sleep(600);
-    } else {
-      tagInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true }));
-      tagInput.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', bubbles: true }));
-      await sleep(600);
-    }
-  }
-}
-
-function findTopicTrigger(): HTMLElement | null {
-  const bySelector = Array.from(document.querySelectorAll<HTMLElement>(
-    '[class*="topic-wrapper"], [class*="add-topic"], [class*="hash-tag"], [class*="tag-input"]',
-  )).filter(isVisible);
-  if (bySelector.length > 0) return bySelector[0];
-
-  const byText = Array.from(document.querySelectorAll<HTMLElement>('div, span, button'))
-    .filter(isVisible)
-    .filter((el) => {
-      const t = compactText(el.innerText || '');
-      return t === '添加话题' || t === '# 话题' || t === '参与话题' || /^#\s*$/.test(t);
-    });
-  return byText[0] || null;
-}
-
-function findTopicSearchInput(): HTMLInputElement | null {
-  const selectors = [
-    'input[placeholder*="搜索话题"]',
-    'input[placeholder*="话题"]',
-    'input[placeholder*="搜索"]',
-    '[class*="topic"] input',
-    '[class*="tag"] input',
-  ];
-  for (const sel of selectors) {
-    const el = document.querySelector<HTMLInputElement>(sel);
-    if (el && isVisible(el)) return el;
-  }
-  return null;
-}
-
-function findTopicSuggestion(): HTMLElement | null {
-  const selectors = [
-    '[class*="topic-suggest"] li',
-    '[class*="suggestion"] li',
-    '[class*="topic-list"] li',
-    '[class*="search-result"] li',
-    '[class*="topic"] [class*="item"]',
-  ];
-  for (const sel of selectors) {
-    const els = Array.from(document.querySelectorAll<HTMLElement>(sel)).filter(isVisible);
-    if (els.length > 0) return els[0];
-  }
-  return null;
-}
-
-/* ═══════════════════════════════════════════
-   Main Site (www.xiaohongshu.com/create)
-   — contenteditable div 编辑器
-   ═══════════════════════════════════════════ */
-
-async function tryFillMainSite(
-  title: string,
-  body: string,
-  tags: string[],
-): Promise<{ success: boolean; error?: string }> {
-  if (!/\/create/.test(location.pathname)) {
-    window.location.href = 'https://www.xiaohongshu.com/create';
-    await sleep(3000);
-  }
-
-  const editor = await waitForElement(findMainSiteEditor, FILL_TIMEOUT);
-  if (!editor) return { success: false, error: '未找到小红书正文编辑器' };
-
-  const tagText = tags.length > 0
-    ? '\n\n' + tags.map((t) => t.startsWith('#') ? t : `#${t}`).join(' ')
-    : '';
-
-  const fullContent = title + '\n\n' + body.substring(0, 1000) + tagText;
-
+async function appendTagsToBody(editor: HTMLElement, tags: string[]): Promise<void> {
+  const tagText = '\n\n' + tags.map((t) => t.startsWith('#') ? t : `#${t}`).join(' ');
   editor.focus();
-  editor.click();
+  await sleep(200);
+
+  const sel = window.getSelection();
+  if (sel) {
+    const range = document.createRange();
+    range.selectNodeContents(editor);
+    range.collapse(false);
+    sel.removeAllRanges();
+    sel.addRange(range);
+  }
+
+  document.execCommand('insertText', false, tagText);
   await sleep(300);
-
-  try {
-    const dt = new DataTransfer();
-    dt.setData('text/plain', fullContent);
-    editor.dispatchEvent(new ClipboardEvent('paste', { bubbles: true, cancelable: true, clipboardData: dt }));
-    await sleep(800);
-    if (editorContains(editor, title.substring(0, 4))) {
-      showContentBridgeToast('✅ 内容已粘贴到编辑器', 'success');
-      return { success: true };
-    }
-  } catch { /* fallback */ }
-
-  document.execCommand('selectAll', false);
-  document.execCommand('insertText', false, fullContent);
-  await sleep(500);
-  if (editorContains(editor, title.substring(0, 4))) {
-    showContentBridgeToast('✅ 内容已插入到编辑器', 'success');
-    return { success: true };
-  }
-
-  return { success: false, error: '小红书编辑器内容填充失败' };
-}
-
-function findMainSiteEditor(): HTMLElement | null {
-  const selectors = [
-    'div[contenteditable="true"][class*="editor"]',
-    'div[contenteditable="true"][class*="input"]',
-    'div[contenteditable="true"][class*="content"]',
-    'div[contenteditable="true"]',
-  ];
-  for (const sel of selectors) {
-    const els = Array.from(document.querySelectorAll<HTMLElement>(sel)).filter(isVisible);
-    if (els.length > 0) return els[0];
-  }
-  return null;
+  showContentBridgeToast('✅ 话题标签已追加', 'success');
 }
 
 /* ═══════════════════════════════════════════
-   Shared Fill Helpers
+   填充策略
    ═══════════════════════════════════════════ */
+
+async function fillInput(el: HTMLElement, value: string): Promise<boolean> {
+  if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
+    return fillNativeInput(el, value);
+  }
+  if (el.isContentEditable) {
+    return fillContentEditable(el, value);
+  }
+  return false;
+}
 
 async function fillNativeInput(
   el: HTMLInputElement | HTMLTextAreaElement,
@@ -349,13 +288,76 @@ async function fillNativeInput(
   return el.value.length > 0;
 }
 
+async function fillContentEditable(editor: HTMLElement, value: string): Promise<boolean> {
+  editor.focus();
+  await sleep(200);
+
+  try {
+    const dt = new DataTransfer();
+    dt.setData('text/plain', value);
+    editor.dispatchEvent(new ClipboardEvent('paste', { bubbles: true, cancelable: true, clipboardData: dt }));
+    await sleep(800);
+    if (editorContains(editor, value.substring(0, 10))) return true;
+  } catch { /* fallback */ }
+
+  editor.focus();
+  document.execCommand('selectAll', false);
+  document.execCommand('insertText', false, value);
+  await sleep(500);
+  if (editorContains(editor, value.substring(0, 10))) return true;
+
+  editor.focus();
+  const sel = window.getSelection();
+  if (sel) {
+    const range = document.createRange();
+    range.selectNodeContents(editor);
+    sel.removeAllRanges();
+    sel.addRange(range);
+  }
+  document.execCommand('insertText', false, value);
+  await sleep(500);
+
+  return editorContains(editor, value.substring(0, 10));
+}
+
 function editorContains(editor: HTMLElement, expected: string): boolean {
   const t = compactText(expected).slice(0, 12);
   return !t || compactText(editor.innerText || editor.textContent || '').includes(t);
 }
 
 /* ═══════════════════════════════════════════
-   Shared DOM Helpers
+   文本查找与点击
+   ═══════════════════════════════════════════ */
+
+async function clickByText(text: string, timeout: number): Promise<boolean> {
+  const el = await findElementByText(text, timeout);
+  if (el) {
+    clickElement(el);
+    return true;
+  }
+  return false;
+}
+
+async function findElementByText(text: string, timeout: number): Promise<HTMLElement | null> {
+  return waitForElement(() => {
+    const all = Array.from(document.querySelectorAll<HTMLElement>(
+      'div, span, button, a, li, p, h1, h2, h3, h4, h5, h6',
+    )).filter(isVisible);
+
+    for (const el of all) {
+      const elText = compactText(el.innerText || '');
+      if (elText === text) return el;
+    }
+    for (const el of all) {
+      const elText = compactText(el.innerText || '');
+      if (elText.includes(text)) return el;
+    }
+    return null;
+  }, timeout);
+}
+
+/* ═══════════════════════════════════════════
+   DOM Helpers
    ═══════════════════════════════════════════ */
 
 function clickElement(el: HTMLElement) {

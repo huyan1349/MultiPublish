@@ -4,7 +4,7 @@ const PLATFORM_URLS: Record<string, string> = {
   wechat: 'https://mp.weixin.qq.com/cgi-bin/appmsg?t=media/appmsg_edit_v2&action=edit&isNew=1&type=77',
   zhihu: 'https://zhuanlan.zhihu.com/write',
   bilibili: 'https://member.bilibili.com/platform/upload/text/edit',
-  xiaohongshu: 'https://creator.xiaohongshu.com/publish/imgNote',
+  xiaohongshu: 'https://creator.xiaohongshu.com/publish/publish',
 };
 
 void chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
