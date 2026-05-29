@@ -19,6 +19,7 @@ const FILL_FLAG_KEY = 'contentbridge_wechat_filled';
   if (!fill || fill.platform !== PLATFORM) return;
 
   const { title, body, tags } = fill.content as { title: string; body: string; tags?: string[] };
+  const autoLayout = !!fill.autoLayout;
   const isMain = window.self === window.top;
 
   if (!isMain) {
@@ -46,6 +47,14 @@ const FILL_FLAG_KEY = 'contentbridge_wechat_filled';
       return;
     }
 
+    if (!autoLayout) {
+      await chrome.storage.local.remove('contentbridge_fill');
+      await chrome.storage.local.remove(FILL_FLAG_KEY);
+      await report(true, '公众号内容已填充，请手动操作发布');
+      return;
+    }
+
+    showContentBridgeToast('✅ 内容已填充，开始自动发布流程...', 'success');
     const published = await tryAutoPublish();
     await chrome.storage.local.remove('contentbridge_fill');
     await chrome.storage.local.remove(FILL_FLAG_KEY);
@@ -176,8 +185,9 @@ function findButtonByText(labels: string[], root: ParentNode = document): HTMLEl
 
 function hasPublishSuccessSignal(): boolean {
   const text = compactText(document.body.innerText || '');
-  return /发布成功|已发布|发送成功|群发成功|操作成功/.test(text)
-    || /\/cgi-bin\/appmsg\?t=media/.test(location.href) === false;
+  if (/发布成功|已发布|发送成功|群发成功|操作成功|提交成功/.test(text)) return true;
+  if (!/\/cgi-bin\/appmsg/.test(location.href)) return true;
+  return false;
 }
 
 /* ── Helpers ── */
