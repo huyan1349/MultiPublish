@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { PenLine, LayoutDashboard, FileText, Sparkles } from 'lucide-react';
+import { PenLine, LayoutDashboard, FileText, Sparkles, Settings as SettingsIcon } from 'lucide-react';
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'HOME' },
@@ -17,10 +17,10 @@ const dots = [
 
 export default function Sidebar() {
   return (
-    <aside className="w-[60px] h-screen flex flex-col items-center py-5 bg-px-bg border-r border-px-border shrink-0">
-      <div className="mb-6 flex flex-col items-center gap-1.5">
-        <div className="w-8 h-8 border border-px-border flex items-center justify-center">
-          <span className="font-mono font-bold text-[9px] text-tx tracking-wider">MP</span>
+    <aside className="w-[56px] h-screen flex flex-col items-center py-5 bg-white border-r border-px-border shrink-0">
+      <div className="mb-8 flex flex-col items-center gap-2">
+        <div className="w-8 h-8 bg-tx flex items-center justify-center">
+          <span className="font-mono font-bold text-[9px] text-white tracking-wider">MP</span>
         </div>
         <div className="flex gap-[3px]">
           {dots.map((d, i) => (
@@ -29,7 +29,7 @@ export default function Sidebar() {
         </div>
       </div>
 
-      <nav className="flex flex-col gap-0.5 flex-1">
+      <nav className="flex flex-col gap-1 flex-1">
         {navItems.map((item) => (
           <NavLink
             key={item.to}
@@ -38,8 +38,8 @@ export default function Sidebar() {
             className={({ isActive }) =>
               `w-10 h-10 flex items-center justify-center transition-all duration-150
               ${isActive
-                ? 'bg-px-hover border-l-2 border-dot-red text-tx'
-                : 'border-l-2 border-transparent text-tx-mute hover:text-tx-dim hover:bg-px-surface'
+                ? 'bg-px-surface border-l-[2px] border-tx text-tx'
+                : 'border-l-[2px] border-transparent text-tx-mute hover:text-tx-dim hover:bg-px-surface'
               }`
             }
             title={item.label}
@@ -49,7 +49,21 @@ export default function Sidebar() {
         ))}
       </nav>
 
-      <div className="font-mono text-[8px] text-tx-faint tracking-pixel">V1.3</div>
+      <NavLink
+        to="/settings"
+        className={({ isActive }) =>
+          `w-10 h-10 flex items-center justify-center transition-all duration-150 mb-2
+          ${isActive
+            ? 'bg-px-surface border-l-[2px] border-tx text-tx'
+            : 'border-l-[2px] border-transparent text-tx-mute hover:text-tx-dim hover:bg-px-surface'
+          }`
+        }
+        title="SETTINGS"
+      >
+        <SettingsIcon size={16} strokeWidth={1.5} />
+      </NavLink>
+
+      <div className="font-mono text-[8px] text-tx-faint tracking-pixel">V2.1</div>
     </aside>
   );
 }

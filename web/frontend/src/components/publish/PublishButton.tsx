@@ -18,42 +18,40 @@ export default function PublishButton({ publishing: _externalPublishing, selecte
   const hasSuccess = statuses.some((s) => s === 'success');
 
   let Icon = Rocket;
-  let label = '发布到选中平台';
+  let label = 'PUBLISH';
   let variant: 'primary' | 'success' | 'danger' = 'primary';
 
   if (publishing) {
     Icon = Loader2;
-    label = '发布中…';
+    label = 'PUBLISHING…';
   } else if (allDone) {
     if (hasFailed && !hasSuccess) {
       Icon = XCircle;
-      label = '发布失败';
+      label = 'FAILED';
       variant = 'danger';
     } else {
       Icon = CheckCircle2;
-      label = hasFailed ? '部分完成' : '发布完成';
+      label = hasFailed ? 'PARTIAL' : 'DONE';
       variant = 'success';
     }
   }
 
-  const baseClass = 'w-full py-3 px-4 rounded-lg font-display font-600 text-sm flex items-center justify-center gap-2 transition-all duration-150 active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed disabled:scale-100';
-
   const variantClass = variant === 'primary'
-    ? 'bg-accent text-white hover:bg-accent-hover'
+    ? 'px-btn-primary'
     : variant === 'success'
-      ? 'bg-emerald-500 text-white'
-      : 'bg-red-500 text-white';
+      ? 'px-btn-primary'
+      : 'px-btn-danger';
 
   return (
     <button
       onClick={onPublish}
       disabled={publishing || selectedCount === 0}
-      className={`${baseClass} ${variantClass}`}
+      className={`w-full py-3 px-4 font-mono font-bold text-[11px] tracking-wide flex items-center justify-center gap-2 transition-all duration-150 active:scale-[0.96] disabled:opacity-30 disabled:cursor-not-allowed disabled:active:scale-100 ${variantClass}`}
     >
-      {publishing ? <Icon size={17} className="animate-spin" /> : <Icon size={17} />}
+      {publishing ? <Icon size={15} className="animate-spin" /> : <Icon size={15} />}
       {label}
       {!publishing && !allDone && selectedCount > 0 && (
-        <span className="opacity-50 text-xs font-mono">({selectedCount})</span>
+        <span className="opacity-40 text-[9px]">({selectedCount})</span>
       )}
     </button>
   );

@@ -22,19 +22,31 @@ interface ContentDraft {
   coverImage: string;
 }
 
+const DRAFT_STORAGE_KEY = 'multipublish_draft';
+
+export interface BeautifiedContent {
+  title: string;
+  htmlBody: string;
+  tags: string[];
+}
+
 interface ContentState {
-  // Draft
   draft: ContentDraft;
   setDraft: (partial: Partial<ContentDraft>) => void;
   resetDraft: () => void;
   loadDemo: () => void;
-  // Platform
+  saveToStorage: () => void;
+  loadFromStorage: () => { draft: ContentDraft; savedAt: number } | null;
   selectedPlatforms: Set<PlatformType>;
   platformStates: Map<PlatformType, PlatformPublishState>;
+  beautifiedOutputs: Map<PlatformType, BeautifiedContent>;
   togglePlatform: (p: PlatformType) => void;
   refreshPlatformOutputs: () => void;
   setPlatformPublishStatus: (p: PlatformType, status: PublishStatus, message?: string) => void;
   resetPublishStates: () => void;
+  setBeautifiedOutput: (p: PlatformType, content: BeautifiedContent) => void;
+  applyBeautifiedContent: (p: PlatformType, title: string, body: string, tags: string[]) => void;
+  clearBeautifiedOutput: (p: PlatformType) => void;
 }
 
 function buildContent(draft: ContentDraft): StandardContent {
@@ -86,7 +98,6 @@ function buildInitialStates(): Map<PlatformType, PlatformPublishState> {
 }
 
 export const useContentStore = create<ContentState>((set, get) => ({
-  // Draft
   draft: { title: '', htmlContent: '', tags: '', coverImage: '' },
   setDraft: (partial) => {
     set((s) => ({ draft: { ...s.draft, ...partial } }));
@@ -107,10 +118,26 @@ export const useContentStore = create<ContentState>((set, get) => ({
     });
     get().refreshPlatformOutputs();
   },
+  saveToStorage: () => {
+    try {
+      const data = { draft: get().draft, savedAt: Date.now() };
+      localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(data));
+    } catch {}
+  },
+  loadFromStorage: () => {
+    try {
+      const raw = localStorage.getItem(DRAFT_STORAGE_KEY);
+      if (!raw) return null;
+      return JSON.parse(raw) as { draft: ContentDraft; savedAt: number };
+    } catch {
+      return null;
+    }
+  },
 
   // Platform
   selectedPlatforms: new Set(allPlatforms),
   platformStates: buildInitialStates(),
+  beautifiedOutputs: new Map<PlatformType, BeautifiedContent>(),
   togglePlatform: (p) => set((s) => {
     const next = new Set(s.selectedPlatforms);
     next.has(p) ? next.delete(p) : next.add(p);
@@ -134,5 +161,30 @@ export const useContentStore = create<ContentState>((set, get) => ({
       if (st.status !== 'publishing') next.set(p, { ...st, status: 'idle', message: '' });
     }
     return { platformStates: next };
+  }),
+  setBeautifiedOutput: (p, content) => set((s) => {
+    const next = new Map(s.beautifiedOutputs);
+    next.set(p, content);
+    return { beautifiedOutputs: next };
+  }),
+  applyBeautifiedContent: (p, title, body, tags) => set((s) => {
+    const next = new Map(s.platformStates);
+    const cur = next.get(p);
+    if (!cur) return {};
+    const adapter = getAdapter(p);
+    const newOutput: PlatformOutputDraft = { ...cur.output, title, body, tags };
+    next.set(p, {
+      ...cur,
+      output: newOutput,
+      meta: adapter.getPreviewMeta(newOutput),
+    });
+    const beautifiedNext = new Map(s.beautifiedOutputs);
+    beautifiedNext.delete(p);
+    return { platformStates: next, beautifiedOutputs: beautifiedNext };
+  }),
+  clearBeautifiedOutput: (p) => set((s) => {
+    const next = new Map(s.beautifiedOutputs);
+    next.delete(p);
+    return { beautifiedOutputs: next };
   }),
 }));

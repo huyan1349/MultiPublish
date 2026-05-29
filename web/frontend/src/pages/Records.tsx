@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ExternalLink } from 'lucide-react';
+import { ExternalLink, Inbox } from 'lucide-react';
 import { api } from '../api/client';
 
 interface PublishRecord {
@@ -17,10 +17,10 @@ const platformColors: Record<string, string> = {
   wechat: '#07C160', zhihu: '#0066FF', bilibili: '#FB7299', xiaohongshu: '#FF2442',
 };
 
-const statusConfig: Record<string, { label: string; dot: string }> = {
-  success: { label: '成功', dot: 'bg-emerald-400' },
-  failed: { label: '失败', dot: 'bg-red-400' },
-  publishing: { label: '发布中', dot: 'bg-blue-400 animate-pulse' },
+const statusConfig: Record<string, { label: string; color: string }> = {
+  success: { label: '成功', color: '#07C160' },
+  failed: { label: '失败', color: '#FF3B30' },
+  publishing: { label: '发布中', color: '#0066FF' },
 };
 
 export default function Records() {
@@ -35,50 +35,64 @@ export default function Records() {
   }, []);
 
   return (
-    <div className="h-full overflow-y-auto">
-      <div className="max-w-[880px] mx-auto px-10 py-12">
-        <h1 className="font-display text-[28px] font-700 text-ink tracking-tight mb-1">发布记录</h1>
-        <p className="text-sm text-ink-muted mb-10">追踪所有平台的发布历史</p>
+    <div className="h-full overflow-y-auto scrollbar-thin">
+      <div className="max-w-[860px] mx-auto px-12 py-16">
+        <div className="flex items-center gap-3 mb-3 px-fade-in">
+          <div className="px-dot" style={{ backgroundColor: '#FF3B30' }} />
+          <span className="px-label">RECORDS</span>
+        </div>
+        <h1 className="font-mono font-bold text-[28px] text-tx tracking-tight mb-2 px-fade-in">
+          发布记录
+        </h1>
+        <p className="text-[12px] text-tx-dim mb-12 px-fade-in px-stagger-1" style={{ animationFillMode: 'both' }}>追踪所有平台的发布历史</p>
 
         {loading ? (
           <div className="space-y-2">
             {[1, 2, 3].map(i => (
-              <div key={i} className="rounded-lg border border-border bg-white p-4 animate-pulse">
-                <div className="h-4 bg-surface-warm rounded w-1/4 mb-2" />
-                <div className="h-3 bg-surface-warm rounded w-1/3" />
+              <div key={i} className="px-card p-5">
+                <div className="h-3 px-shimmer w-1/3 mb-2" />
+                <div className="h-2 px-shimmer w-1/4" />
               </div>
             ))}
           </div>
         ) : records.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-border bg-white p-16 text-center">
-            <p className="text-sm text-ink-secondary mb-1 font-display font-500">暂无发布记录</p>
-            <p className="text-xs text-ink-faint">发布文章后，记录会显示在这里</p>
+          <div className="px-card border-dashed border-px-border p-16 text-center px-fade-in">
+            <Inbox size={24} className="mx-auto text-tx-faint mb-4 px-float" strokeWidth={1.5} />
+            <p className="font-mono text-[11px] text-tx-mute mb-1">NO RECORDS YET</p>
+            <p className="text-[11px] text-tx-faint">发布文章后，记录会显示在这里</p>
           </div>
         ) : (
           <div className="space-y-1">
-            {records.map((r) => {
-              const st = statusConfig[r.status] || { label: r.status, dot: 'bg-gray-400' };
+            {records.map((r, idx) => {
+              const st = statusConfig[r.status] || { label: r.status, color: '#999999' };
               const color = platformColors[r.platform] || '#6b7280';
               return (
-                <div key={r.id} className="rounded-lg border border-border bg-white p-4 flex items-center gap-4 hover:shadow-card transition-shadow">
-                  <div className="relative">
-                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: color }} />
-                    <div className={`absolute -bottom-0.5 -right-0.5 w-1.5 h-1.5 rounded-full border border-white ${st.dot}`} />
+                <div
+                  key={r.id}
+                  className="px-card p-5 flex items-center gap-4 group px-fade-in"
+                  style={{ animationDelay: `${idx * 0.05}s`, animationFillMode: 'both' }}
+                >
+                  <div className="relative flex-shrink-0">
+                    <div className="px-dot" style={{ backgroundColor: color, width: 8, height: 8 }} />
+                    <div
+                      className="absolute -bottom-0.5 -right-0.5 w-[6px] h-[6px] rounded-full border-2 border-white"
+                      style={{ backgroundColor: st.color }}
+                    />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-0.5">
-                      <span className="font-display font-500 text-sm text-ink">{r.platformName}</span>
-                      <span className="text-[10px] text-ink-muted bg-surface-warm px-1.5 py-0.5 rounded">{st.label}</span>
+                      <span className="font-mono font-bold text-xs text-tx">{r.platformName}</span>
+                      <span className="px-tag" style={{ color: st.color, backgroundColor: `${st.color}12` }}>{st.label}</span>
                     </div>
                     {r.message && (
-                      <p className="text-[11px] text-ink-faint truncate">{r.message}</p>
+                      <p className="text-[11px] text-tx-faint truncate">{r.message}</p>
                     )}
                   </div>
-                  <div className="text-[11px] text-ink-faint shrink-0 flex items-center gap-2 font-mono">
+                  <div className="text-[11px] text-tx-faint shrink-0 flex items-center gap-2 font-mono">
                     {new Date(r.publishedAt).toLocaleString('zh-CN')}
                     {r.mockUrl && (
                       <a href={r.mockUrl} target="_blank" rel="noopener noreferrer"
-                        className="text-accent hover:text-accent-hover transition-colors">
+                        className="text-tx-dim hover:text-tx transition-colors">
                         <ExternalLink size={13} />
                       </a>
                     )}
