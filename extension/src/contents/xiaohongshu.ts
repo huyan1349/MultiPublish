@@ -294,8 +294,22 @@ async function clickPublish(): Promise<boolean> {
 
 async function findPublishButton(timeout: number): Promise<HTMLElement | null> {
   return waitForElement(() => {
-    const byText = findButtonByText(['发布', '立即发布', '发布笔记']);
-    if (byText) return byText;
+    const allBtns = Array.from(document.querySelectorAll<HTMLElement>('button, [role="button"], div, span, a'))
+      .filter((el) => el.getBoundingClientRect().width > 0 && el.getBoundingClientRect().height > 0);
+
+    const exactMatches = allBtns.filter((el) => {
+      const text = compactText(el.innerText || el.textContent || '');
+      return text === '发布' || text === '立即发布';
+    });
+
+    if (exactMatches.length > 0) {
+      exactMatches.sort((a, b) => {
+        const ra = a.getBoundingClientRect();
+        const rb = b.getBoundingClientRect();
+        return (rb.top + rb.left) - (ra.top + ra.left);
+      });
+      return exactMatches[0];
+    }
 
     const xhsBtn = document.querySelector('xhs-publish-btn');
     if (xhsBtn && xhsBtn.shadowRoot) {
@@ -303,19 +317,6 @@ async function findPublishButton(timeout: number): Promise<HTMLElement | null> {
       if (btn) return btn;
       const anyBtn = xhsBtn.shadowRoot.querySelector<HTMLElement>('[role="button"], .ce-btn');
       if (anyBtn) return anyBtn;
-    }
-
-    const allBtns = Array.from(document.querySelectorAll<HTMLElement>('button, [role="button"]'))
-      .filter(isVisible)
-      .filter((el) => !isDisabled(el));
-    for (const btn of allBtns) {
-      if (/发布/.test(compactText(btn.textContent || ''))) return btn;
-    }
-
-    const allEls = Array.from(document.querySelectorAll<HTMLElement>('div, span, a, li'))
-      .filter((el) => el.getBoundingClientRect().width > 0 && el.getBoundingClientRect().height > 0);
-    for (const el of allEls) {
-      if (compactText(el.innerText || '') === '发布') return el;
     }
 
     return null;
