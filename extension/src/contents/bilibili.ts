@@ -3,6 +3,7 @@ import { showContentBridgeToast } from '../shared/contentToast';
 
 export const config: PlasmoCSConfig = {
   matches: ['https://member.bilibili.com/*'],
+  all_frames: true,
   run_at: 'document_idle',
 };
 
@@ -21,6 +22,7 @@ const PUBLISH_TIMEOUT = 30000;
 
     const filled = await tryFill(title, body, tags);
     if (!filled) {
+      if (window.top !== window) return;
       await chrome.storage.local.remove('contentbridge_fill');
       await chrome.storage.local.set({
         contentbridge_result: { platform: PLATFORM, platformName: NAME, success: false, message: '未找到B站图文编辑器' },
@@ -52,30 +54,11 @@ const PUBLISH_TIMEOUT = 30000;
 })();
 
 async function tryFill(title: string, body: string, tags: string[]): Promise<boolean> {
-  const titleEl = await waitFor<HTMLInputElement | HTMLTextAreaElement>(
-    [
-      'input[placeholder*="标题"]',
-      'textarea[placeholder*="标题"]',
-      'input[class*="title"]',
-      'textarea[class*="title"]',
-    ].join(','),
-    FILL_TIMEOUT,
-  );
-  if (titleEl) setNativeValue(titleEl, title);
+  const titleEl = await waitForElement(findTitleEditor, FILL_TIMEOUT);
+  if (titleEl) await fillTextTarget(titleEl, title);
 
-  const ed = await waitFor<HTMLElement>(
-    [
-      '.ql-editor',
-      '.ProseMirror',
-      '[data-slate-editor="true"]',
-      '[contenteditable="true"]',
-      'textarea[placeholder*="正文"]',
-      'textarea[placeholder*="内容"]',
-      'textarea[placeholder*="请输入"]',
-    ].join(','),
-    FILL_TIMEOUT,
-  );
-  if (ed) await fillEditor(ed, body);
+  const ed = await waitForElement(findBodyEditor, FILL_TIMEOUT);
+  if (ed) await fillTextTarget(ed, body);
 
   await fillTags(tags);
 
@@ -135,6 +118,50 @@ function findConfirmButton(): HTMLElement | null {
   return findButtonByText(['确认发布', '确认', '确定', '提交']);
 }
 
+function findTitleEditor(): HTMLElement | null {
+  const selectors = [
+    'input[placeholder*="标题"]',
+    'textarea[placeholder*="标题"]',
+    'input[class*="title"]',
+    'textarea[class*="title"]',
+    '[contenteditable="true"][data-placeholder*="标题"]',
+    '[contenteditable="true"][placeholder*="标题"]',
+    '[contenteditable="true"][class*="title"]',
+  ];
+  return firstVisible(selectors);
+}
+
+function findBodyEditor(): HTMLElement | null {
+  const direct = firstVisible([
+    '.ql-editor',
+    '.ProseMirror',
+    '[data-slate-editor="true"]',
+    'textarea[placeholder*="正文"]',
+    'textarea[placeholder*="内容"]',
+    'textarea[placeholder*="请输入"]',
+    '[contenteditable="true"][data-placeholder*="正文"]',
+    '[contenteditable="true"][data-placeholder*="内容"]',
+  ]);
+  if (direct) return direct;
+
+  const titleEl = findTitleEditor();
+  const editors = Array.from(document.querySelectorAll<HTMLElement>('[contenteditable="true"]'))
+    .filter(isVisible)
+    .filter((el) => el !== titleEl && !el.contains(titleEl) && !titleEl?.contains(el))
+    .map((el) => ({ el, area: el.getBoundingClientRect().width * el.getBoundingClientRect().height }))
+    .sort((a, b) => b.area - a.area);
+
+  return editors[0]?.el || null;
+}
+
+function firstVisible(selectors: string[]): HTMLElement | null {
+  for (const selector of selectors) {
+    const el = Array.from(document.querySelectorAll<HTMLElement>(selector)).find(isVisible);
+    if (el) return el;
+  }
+  return null;
+}
+
 /* ── Helpers ── */
 
 function findButtonByText(labels: string[], root: ParentNode = document): HTMLElement | null {
@@ -155,7 +182,7 @@ function hasPublishSuccessSignal(): boolean {
   return /发布成功|投稿成功|已发布|提交成功|审核中|已提交/.test(text);
 }
 
-async function fillEditor(el: HTMLElement, body: string): Promise<void> {
+async function fillTextTarget(el: HTMLElement, body: string): Promise<void> {
   el.scrollIntoView({ block: 'center', inline: 'center' });
   el.focus();
 
