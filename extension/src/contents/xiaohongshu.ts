@@ -162,56 +162,46 @@ async function tryFillLongArticle(
 }
 
 function findTitleInput(): HTMLElement | null {
-  const inputSelectors = [
-    'input[placeholder*="标题"]',
-    'input[placeholder*="填写标题"]',
-    '#title',
-    'input[maxlength="20"]',
-    '.title-input',
-    'input[class*="title"]',
+  const selectors = [
+    'textarea.d-text[placeholder="输入标题"]',
+    'textarea[placeholder*="标题"]',
+    'textarea[placeholder*="输入标题"]',
+    'textarea.d-text',
   ];
-  for (const sel of inputSelectors) {
-    const el = document.querySelector<HTMLElement>(sel);
-    if (el && isVisible(el)) return el;
+  for (const sel of selectors) {
+    const el = document.querySelector<HTMLTextAreaElement>(sel);
+    if (el && isVisible(el) && !el.classList.contains('d-textarea-shadow')) return el;
   }
-  const ceSelectors = [
-    'div[contenteditable="true"][placeholder*="标题"]',
-    'div[contenteditable="true"][class*="title"]',
-    'div[contenteditable="true"][data-placeholder*="标题"]',
-  ];
-  for (const sel of ceSelectors) {
-    const el = document.querySelector<HTMLElement>(sel);
-    if (el && isVisible(el)) return el;
-  }
-  return null;
+  const textareas = Array.from(document.querySelectorAll<HTMLTextAreaElement>('textarea'))
+    .filter(isVisible)
+    .filter((el) => !el.classList.contains('d-textarea-shadow'))
+    .filter((el) => /标题|title/i.test(el.placeholder || ''));
+  return textareas[0] || null;
 }
 
 function findBodyEditor(): HTMLElement | null {
-  const ceSelectors = [
-    'div[contenteditable="true"][class*="editor"]',
-    'div[contenteditable="true"][class*="content"]',
-    'div[contenteditable="true"][class*="body"]',
-    'div[contenteditable="true"][placeholder*="正文"]',
-    'div[contenteditable="true"][placeholder*="输入"]',
-    'div[contenteditable="true"][data-placeholder*="正文"]',
-    '.ql-editor',
-    '.public-DraftEditor-content',
+  const selectors = [
     '.ProseMirror',
+    '.tiptap.ProseMirror',
+    'div.tiptap',
+    'div[contenteditable="true"].ProseMirror',
   ];
-  for (const sel of ceSelectors) {
-    const els = Array.from(document.querySelectorAll<HTMLElement>(sel)).filter(isVisible);
-    if (els.length > 0) return els[0];
-  }
-  const textareaSelectors = [
-    'textarea[placeholder*="正文"]',
-    'textarea[placeholder*="笔记"]',
-    'textarea[placeholder*="输入"]',
-    'textarea[class*="content"]',
-    'textarea',
-  ];
-  for (const sel of textareaSelectors) {
-    const el = document.querySelector<HTMLTextAreaElement>(sel);
+  for (const sel of selectors) {
+    const el = document.querySelector<HTMLElement>(sel);
     if (el && isVisible(el)) return el;
+  }
+  const ceByDataPh = document.querySelectorAll<HTMLElement>(
+    'div[contenteditable="true"] [data-placeholder*="输入文字"]',
+  );
+  for (const el of ceByDataPh) {
+    const parent = el.closest<HTMLElement>('[contenteditable="true"]');
+    if (parent && isVisible(parent)) return parent;
+  }
+  const ceFallback = Array.from(document.querySelectorAll<HTMLElement>(
+    'div[contenteditable="true"]',
+  )).filter(isVisible);
+  for (const el of ceFallback) {
+    if (!/标题|title/i.test(el.getAttribute('data-placeholder') || '')) return el;
   }
   return null;
 }
@@ -290,7 +280,22 @@ async function fillNativeInput(
 
 async function fillContentEditable(editor: HTMLElement, value: string): Promise<boolean> {
   editor.focus();
-  await sleep(200);
+  await sleep(300);
+
+  const isEmpty = !editor.textContent || compactText(editor.textContent).length === 0;
+  if (!isEmpty) {
+    const sel = window.getSelection();
+    if (sel) {
+      const range = document.createRange();
+      range.selectNodeContents(editor);
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }
+  }
+
+  document.execCommand('insertText', false, value);
+  await sleep(600);
+  if (editorContains(editor, value.substring(0, 10))) return true;
 
   try {
     const dt = new DataTransfer();
@@ -300,22 +305,15 @@ async function fillContentEditable(editor: HTMLElement, value: string): Promise<
     if (editorContains(editor, value.substring(0, 10))) return true;
   } catch { /* fallback */ }
 
-  editor.focus();
-  document.execCommand('selectAll', false);
-  document.execCommand('insertText', false, value);
-  await sleep(500);
-  if (editorContains(editor, value.substring(0, 10))) return true;
-
-  editor.focus();
-  const sel = window.getSelection();
-  if (sel) {
-    const range = document.createRange();
-    range.selectNodeContents(editor);
-    sel.removeAllRanges();
-    sel.addRange(range);
+  const paragraphs = value.split('\n').filter(Boolean);
+  for (let i = 0; i < paragraphs.length; i++) {
+    document.execCommand('insertText', false, paragraphs[i]);
+    if (i < paragraphs.length - 1) {
+      document.execCommand('insertParagraph');
+    }
+    await sleep(100);
   }
-  document.execCommand('insertText', false, value);
-  await sleep(500);
+  await sleep(400);
 
   return editorContains(editor, value.substring(0, 10));
 }
