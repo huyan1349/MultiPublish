@@ -21,3 +21,4 @@ test-profile/
 .chrome-automation-profile/
 extension/test/screenshots/
 handoffgo
+.claude/
