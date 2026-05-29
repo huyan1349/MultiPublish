@@ -53,7 +53,7 @@ export default function Preview() {
 
     if (!isExtensionAvailable()) {
       setPublishStates(prev => new Map(prev).set(platform, 'failed'));
-      setPublishMessages(prev => new Map(prev).set(platform, '请安装 ContentBridge 扩展并在 Chrome 中打开此页面'));
+      setPublishMessages(prev => new Map(prev).set(platform, '请安装 ContentBridge 扩展'));
       return;
     }
 
@@ -74,7 +74,7 @@ export default function Preview() {
   if (loading) {
     return (
       <div className="h-full flex items-center justify-center">
-        <RefreshCw size={24} className="text-ink-faint animate-spin" strokeWidth={1.5} />
+        <RefreshCw size={16} className="text-tx-faint animate-spin" strokeWidth={1.5} />
       </div>
     );
   }
@@ -82,120 +82,111 @@ export default function Preview() {
   if (!content) {
     return (
       <div className="h-full flex items-center justify-center">
-        <p className="text-ink-muted text-sm">文章不存在</p>
+        <p className="font-mono text-xs text-tx-mute">NOT FOUND</p>
       </div>
     );
   }
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="max-w-[880px] mx-auto px-10 py-12">
+      <div className="max-w-[860px] mx-auto px-10 py-14">
         <div className="flex items-center gap-3 mb-10">
-          <button onClick={() => navigate('/')} className="text-ink-muted hover:text-ink transition-colors p-1">
-            <ArrowLeft size={17} strokeWidth={1.5} />
+          <button onClick={() => navigate('/')} className="text-tx-mute hover:text-tx transition-colors p-1">
+            <ArrowLeft size={14} strokeWidth={1.5} />
           </button>
           <div className="flex-1 min-w-0">
-            <h1 className="font-display text-[24px] font-700 text-ink tracking-tight truncate">{content.title}</h1>
+            <h1 className="font-mono font-bold text-lg text-tx tracking-wide truncate">{content.title}</h1>
             <div className="flex gap-1.5 mt-2">
               {content.tags.map((t, i) => (
-                <span key={i} className="text-[11px] text-ink-muted bg-surface-warm px-2 py-0.5 rounded">{t}</span>
+                <span key={i} className="font-mono text-[9px] text-tx-faint bg-px-surface px-1.5 py-0.5">{t}</span>
               ))}
             </div>
           </div>
         </div>
 
-        <div className="card p-6 mb-10">
-          <div className="section-label">原始内容</div>
-          <div className="prose prose-sm max-w-none text-ink-secondary text-sm leading-relaxed"
+        <div className="px-card p-5 mb-10">
+          <div className="px-label mb-3">RAW CONTENT</div>
+          <div className="text-sm text-tx-dim leading-relaxed"
             dangerouslySetInnerHTML={{ __html: content.rawMarkdown }} />
         </div>
 
-        <div className="section-label">平台适配预览</div>
+        <div className="px-label mb-4">ADAPTED OUTPUT</div>
         {outputs.length === 0 ? (
-          <p className="text-sm text-ink-muted">暂无适配输出，请先从编辑器保存内容。</p>
+          <p className="font-mono text-[11px] text-tx-mute">NO OUTPUT — SAVE FROM EDITOR FIRST</p>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-2">
             {outputs.map((output) => {
               const state = publishStates.get(output.platform) || 'idle';
-              const color = platformColors[output.platform] || '#6b7280';
+              const color = platformColors[output.platform] || '#555555';
               return (
-                <div key={output.id} className="card overflow-hidden">
-                  <div className="h-[3px]" style={{ backgroundColor: color }} />
-                  <div className="p-5">
+                <div key={output.id} className="px-card overflow-hidden">
+                  <div className="h-px" style={{ backgroundColor: color }} />
+                  <div className="p-4">
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center gap-3">
-                        <div
-                          className="w-8 h-8 rounded-md flex items-center justify-center text-white font-display font-700 text-xs"
-                          style={{ backgroundColor: color }}
-                        >
-                          {output.platformName.charAt(0)}
-                        </div>
-                        <div>
-                          <span className="font-display font-600 text-sm text-ink">{output.platformName}</span>
-                          <span className="text-[11px] text-ink-faint ml-2">
-                            {output.validationMessages.length > 0
-                              ? `${output.validationMessages.length} 个提示`
-                              : '无校验问题'}
-                          </span>
-                        </div>
+                        <div className="w-[6px] h-[6px]" style={{ backgroundColor: color }} />
+                        <span className="font-mono font-bold text-[11px] text-tx tracking-wide">{output.platformName}</span>
+                        {output.validationMessages.length > 0 && (
+                          <span className="font-mono text-[9px] text-tx-faint">{output.validationMessages.length} ALERTS</span>
+                        )}
                       </div>
                       <button
                         onClick={() => handlePublish(output)}
                         disabled={state === 'publishing'}
-                        className={`btn text-xs ${
-                          state === 'success' ? 'bg-emerald-500 text-white' :
-                          state === 'failed' ? 'bg-red-500 text-white' :
-                          'btn-primary'
+                        className={`px-btn text-[9px] ${
+                          state === 'success' ? 'border-emerald-500 text-emerald-500' :
+                          state === 'failed' ? 'border-dot-red text-dot-red' :
+                          'px-btn-primary'
                         }`}
                       >
                         {state === 'publishing' ? (
-                          <><RefreshCw size={13} className="animate-spin" /> 发布中</>
+                          <><RefreshCw size={11} className="animate-spin" /> SENDING</>
                         ) : state === 'success' ? (
-                          <>已发布</>
+                          <>SENT</>
                         ) : state === 'failed' ? (
-                          <>重试</>
+                          <>RETRY</>
                         ) : (
-                          <><ExternalLink size={13} /> 发布</>
+                          <><ExternalLink size={11} /> PUBLISH</>
                         )}
                       </button>
                     </div>
 
                     {output.validationMessages.length > 0 && (
-                      <div className="mb-3 space-y-0.5">
+                      <div className="mb-3 space-y-0.5 border-l border-px-border pl-3">
                         {output.validationMessages.map((m, i) => (
-                          <p key={i} className={`text-[11px] ${
-                            m.level === 'error' ? 'text-red-500' :
-                            m.level === 'warning' ? 'text-amber-500' : 'text-blue-500'
+                          <p key={i} className={`font-mono text-[10px] ${
+                            m.level === 'error' ? 'text-dot-red' :
+                            m.level === 'warning' ? 'text-amber-500' : 'text-tx-dim'
                           }`}>
-                            {m.level === 'error' ? '⚠' : m.level === 'warning' ? '⚡' : 'ℹ'} {m.message}
+                            [{m.level.toUpperCase()}] {m.message}
                           </p>
                         ))}
                       </div>
                     )}
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-2 gap-4 mb-3">
                       <div>
-                        <p className="text-[11px] text-ink-faint mb-1">标题</p>
-                        <p className="text-sm text-ink font-500">{output.title}</p>
+                        <span className="font-mono text-[9px] text-tx-faint">TITLE</span>
+                        <p className="font-mono text-xs text-tx mt-0.5">{output.title}</p>
                       </div>
                       <div>
-                        <p className="text-[11px] text-ink-faint mb-1">标签</p>
-                        <div className="flex flex-wrap gap-1">
+                        <span className="font-mono text-[9px] text-tx-faint">TAGS</span>
+                        <div className="flex flex-wrap gap-1 mt-0.5">
                           {output.tags.map((t, i) => (
-                            <span key={i} className="text-[11px] bg-surface-warm text-ink-muted px-1.5 py-0.5 rounded">{t}</span>
+                            <span key={i} className="font-mono text-[9px] text-tx-dim bg-px-surface px-1.5 py-0.5">{t}</span>
                           ))}
                         </div>
                       </div>
                     </div>
-                    <div className="mt-3">
-                      <p className="text-[11px] text-ink-faint mb-1">正文</p>
-                      <pre className="text-[12px] text-ink-secondary bg-surface-warm rounded-lg p-3 whitespace-pre-wrap font-mono leading-relaxed max-h-48 overflow-y-auto border border-border">
+                    <div>
+                      <span className="font-mono text-[9px] text-tx-faint">BODY</span>
+                      <pre className="font-mono text-[11px] text-tx-dim bg-px-surface p-3 mt-0.5 leading-relaxed max-h-40 overflow-y-auto border border-px-border-subtle whitespace-pre-wrap">
                         {output.body}
                       </pre>
                     </div>
 
                     {publishMessages.has(output.platform) && (
-                      <p className={`mt-3 text-xs ${state === 'success' ? 'text-emerald-600' : 'text-red-500'}`}>
+                      <p className={`mt-3 font-mono text-[10px] ${state === 'success' ? 'text-emerald-500' : 'text-dot-red'}`}>
                         {publishMessages.get(output.platform)}
                       </p>
                     )}
