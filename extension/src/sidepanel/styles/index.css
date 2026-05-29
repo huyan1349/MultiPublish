@@ -133,6 +133,7 @@ body {
   border: 1px solid var(--border); background: var(--bg-input);
   cursor: pointer; transition: all 0.2s; font-size: 11px;
   color: var(--text-secondary); user-select: none;
+  font-family: var(--font-body);
 }
 .platform-pill.active {
   color: var(--text); border-color: var(--border-active);
@@ -143,12 +144,19 @@ body {
 /* ═══ Platform Cards (Dashboard) ═══ */
 .platform-cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
 .platform-card {
-  padding: 14px; border-radius: var(--radius); cursor: default;
+  padding: 14px; border-radius: var(--radius); cursor: pointer;
   border: 1px solid var(--border); background: var(--bg-card);
   transition: box-shadow 0.25s, background 0.2s;
   box-shadow: var(--shadow-sm);
+  text-align: left;
+  font-family: var(--font-body);
 }
-.platform-card:hover { box-shadow: 0 6px 24px rgba(0,0,0,0.25); background: var(--bg-card-hover); }
+.platform-card:hover { box-shadow: 0 6px 24px rgba(0,0,0,0.25); background: var(--bg-card-hover); transform: translateY(-1px); }
+.platform-card:focus-visible, .platform-pill:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
 .platform-card-icon {
   width: 32px; height: 32px; border-radius: 8px;
   display: flex; align-items: center; justify-content: center;
