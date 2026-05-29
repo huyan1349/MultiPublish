@@ -30,6 +30,12 @@ const FILL_FLAG_KEY = 'contentbridge_wechat_filled';
 
   // Main frame: fill title → fill body → auto publish
   try {
+    if (!await checkLogin()) {
+      await chrome.storage.local.remove('contentbridge_fill');
+      await report(false, '未检测到公众号登录状态，请先在浏览器中登录 mp.weixin.qq.com 后再发布');
+      return;
+    }
+
     const filled = await tryFillMain(title, body, tags || []);
     if (!filled.success) {
       await chrome.storage.local.remove('contentbridge_fill');
@@ -206,7 +212,30 @@ function isDisabled(el: HTMLElement): boolean {
 }
 
 function compactText(value: string): string {
-  return value.replace(/ /g, ' ').replace(/\s+/g, ' ').trim();
+  return value.replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+async function checkLogin(): Promise<boolean> {
+  const loginIndicators = [
+    '.weui-desktop-header__nav',
+    '.header_info',
+    '.account_setting_item',
+    '[class*="account"]',
+    '[class*="header_user"]',
+    '.weui-desktop-header',
+  ];
+  for (const sel of loginIndicators) {
+    if (document.querySelector(sel)) return true;
+  }
+  await sleep(3000);
+  for (const sel of loginIndicators) {
+    if (document.querySelector(sel)) return true;
+  }
+  const loginForm = document.querySelector('.login_input, #loginForm, input[placeholder*="账号"]');
+  if (loginForm) return false;
+  const bodyText = compactText(document.body.innerText || '');
+  if (/请重新登录|请登录|登录后使用/.test(bodyText)) return false;
+  return true;
 }
 
 function sleep(ms: number): Promise<void> {

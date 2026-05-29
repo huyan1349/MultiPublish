@@ -32,24 +32,42 @@ async function handlePublish(payload: PublishPayload): Promise<PublishResult> {
   if (!url) throw new Error(`Unknown platform: ${platform}`);
 
   try {
-    // Write fill data to storage before opening tab
     await chrome.storage.local.set({
       contentbridge_fill: { platform, content, autoLayout: payload.autoLayout, timestamp: Date.now() },
     });
 
-    // Open platform editor
-    const tab = await chrome.tabs.create({ url, active: false });
-    if (!tab.id) throw new Error('Failed to create tab');
+    let tabId: number;
 
-    // Wait for fill/publish result from content script (via storage polling)
-    const result = await waitForFillResult(tab.id, platform, platformName);
+    if (platform === 'wechat') {
+      const existing = await findExistingPlatformTab('mp.weixin.qq.com');
+      if (existing) {
+        await chrome.tabs.update(existing.id!, { url, active: false });
+        tabId = existing.id!;
+      } else {
+        const tab = await chrome.tabs.create({ url, active: false });
+        if (!tab.id) throw new Error('Failed to create tab');
+        tabId = tab.id;
+      }
+    } else {
+      const tab = await chrome.tabs.create({ url, active: false });
+      if (!tab.id) throw new Error('Failed to create tab');
+      tabId = tab.id;
+    }
 
-    await chrome.tabs.update(tab.id, { active: true });
+    const result = await waitForFillResult(tabId, platform, platformName);
+
+    await chrome.tabs.update(tabId, { active: true });
     return result;
   } catch (err) {
     const msg = err instanceof Error ? err.message : '发布失败';
     return { platform, platformName, status: 'failed', message: msg };
   }
+}
+
+async function findExistingPlatformTab(domain: string): Promise<chrome.tabs.Tab | null> {
+  const tabs = await chrome.tabs.query({ url: `https://${domain}/*` });
+  if (tabs.length > 0) return tabs[0];
+  return null;
 }
 
 function waitForFillResult(tabId: number, platform: PlatformType, platformName: string): Promise<PublishResult> {
