@@ -1,12 +1,13 @@
 import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Sparkles, AlertCircle, Save, ArrowLeft } from 'lucide-react';
+import { Sparkles, AlertCircle, Save, ArrowLeft, Wand2, RefreshCw } from 'lucide-react';
 import { useContentStore } from '../stores/contentStore';
 import TiptapEditor from '../components/editor/TiptapEditor';
 import PlatformCard from '../components/publish/PlatformCard';
 import PublishButton from '../components/publish/PublishButton';
 import ToastContainer, { showToast } from '../components/publish/Toast';
 import { publishToPlatform, isExtensionAvailable } from '../utils/extensionBridge';
+import { generateTitle, suggestTags } from '../services/deepseek';
 import { api } from '../api/client';
 import type { PlatformType } from '../adapters/types';
 
@@ -22,11 +23,40 @@ export default function Editor() {
 
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [aiLoading, setAiLoading] = useState<string | null>(null);
 
   const handleEditorChange = useCallback((html: string, _text: string) => {
     setDraft({ htmlContent: html });
     setError('');
   }, [setDraft]);
+
+  const handleAiTitle = async () => {
+    setAiLoading('title');
+    try {
+      const titles = await generateTitle(draft.htmlContent);
+      if (titles.length > 0) setDraft({ title: titles[0] });
+      showToast('success', '标题已生成', `共 ${titles.length} 个候选`);
+    } catch (err) {
+      showToast('error', '标题生成失败', err instanceof Error ? err.message : '');
+    } finally { setAiLoading(null); }
+  };
+
+  const handleAiTags = async () => {
+    setAiLoading('tags');
+    try {
+      const tags = await suggestTags(draft.title, draft.htmlContent);
+      if (tags.length > 0) setDraft({ tags: tags.join(', ') });
+      showToast('success', '标签已生成', tags.join('、'));
+    } catch (err) {
+      showToast('error', '标签生成失败', err instanceof Error ? err.message : '');
+    } finally { setAiLoading(null); }
+  };
+
+  const handleBeautified = useCallback((platform: PlatformType) => async (title: string, body: string, tags: string[]) => {
+    const state = platformStates.get(platform);
+    if (!state) return;
+    showToast('success', `${state.platformName} 美化完成`, '内容已适配平台风格');
+  }, [platformStates]);
 
   const handleSaveToBackend = async () => {
     if (!draft.title.trim()) { setError('请输入标题'); return; }
@@ -38,9 +68,7 @@ export default function Editor() {
       navigate(`/contents/${content.id}/preview`);
     } catch (err) {
       setError(err instanceof Error ? err.message : '保存失败');
-    } finally {
-      setSaving(false);
-    }
+    } finally { setSaving(false); }
   };
 
   const handlePublish = async () => {
@@ -50,23 +78,17 @@ export default function Editor() {
       setError('标题和正文不能为空'); return;
     }
     if (!isExtensionAvailable()) {
-      showToast('error', '扩展未检测到', '请确保已安装 ContentBridge 扩展并在 Chrome 中打开此页面');
+      showToast('error', '扩展未检测到', '请确保已安装 ContentBridge 扩展');
       return;
     }
-
     setError('');
     resetPublishStates();
-
     for (const platform of selected) {
       const state = platformStates.get(platform);
       if (!state) continue;
       setPlatformPublishStatus(platform, 'publishing');
-
       try {
-        const result = await publishToPlatform({
-          platform, platformName: state.platformName,
-          content: state.output, autoLayout: true,
-        });
+        const result = await publishToPlatform({ platform, platformName: state.platformName, content: state.output, autoLayout: true });
         if (result.status === 'success') {
           setPlatformPublishStatus(platform, 'success', result.message);
           showToast('success', `${state.platformName} 发布成功`, result.message);
@@ -87,102 +109,76 @@ export default function Editor() {
   return (
     <div className="h-full flex flex-col">
       <ToastContainer />
-
-      <header className="flex items-center justify-between px-6 py-3 border-b border-border bg-white/90 backdrop-blur-sm shrink-0">
+      <header className="flex items-center justify-between px-5 py-2.5 border-b border-px-border bg-px-bg shrink-0">
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate('/')} className="text-ink-muted hover:text-ink transition-colors p-1">
-            <ArrowLeft size={17} strokeWidth={1.5} />
+          <button onClick={() => navigate('/')} className="text-tx-mute hover:text-tx transition-colors p-1">
+            <ArrowLeft size={14} strokeWidth={1.5} />
           </button>
-          <span className="font-display font-600 text-ink text-sm">编辑器</span>
+          <span className="font-mono font-bold text-[10px] text-tx tracking-pixel">EDITOR</span>
         </div>
         <div className="flex items-center gap-2">
           {!isExtensionAvailable() && (
-            <span className="flex items-center gap-1.5 text-[11px] text-amber-600 bg-amber-50 px-2.5 py-1 rounded-md border border-amber-200/60">
-              <AlertCircle size={12} /> 未连接扩展
+            <span className="flex items-center gap-1 font-mono text-[9px] text-amber-500 bg-amber-500/10 px-2 py-1 border border-amber-500/20">
+              <AlertCircle size={10} /> NO EXT
             </span>
           )}
-          <button onClick={loadDemo} className="btn-ghost text-xs">
-            <Sparkles size={13} /> Demo
+          <button onClick={handleAiTitle} disabled={!!aiLoading} className="px-btn-ghost text-[9px]">
+            {aiLoading === 'title' ? <RefreshCw size={11} className="animate-spin" /> : <Wand2 size={11} />} AI TITLE
           </button>
-          <button onClick={handleSaveToBackend} disabled={saving} className="btn-primary text-xs">
-            <Save size={13} /> {saving ? '保存中…' : '保存并预览'}
+          <button onClick={handleAiTags} disabled={!!aiLoading} className="px-btn-ghost text-[9px]">
+            {aiLoading === 'tags' ? <RefreshCw size={11} className="animate-spin" /> : <Sparkles size={11} />} AI TAGS
+          </button>
+          <button onClick={loadDemo} className="px-btn-ghost text-[9px]">DEMO</button>
+          <button onClick={handleSaveToBackend} disabled={saving} className="px-btn-primary text-[9px]">
+            <Save size={11} /> {saving ? 'SAVING…' : 'SAVE'}
           </button>
         </div>
       </header>
-
       <div className="flex-1 flex overflow-hidden">
-        <div className="flex-[5] flex flex-col min-w-0 border-r border-border">
+        <div className="flex-[5] flex flex-col min-w-0 border-r border-px-border">
           <div className="px-8 pt-6 pb-3 space-y-3">
-            <input
-              type="text" value={draft.title}
-              onChange={e => { setDraft({ title: e.target.value }); setError(''); }}
-              placeholder="输入文章标题…"
-              className="w-full bg-transparent text-[22px] font-display font-700 text-ink placeholder:text-ink-faint outline-none tracking-tight"
-            />
+            <input type="text" value={draft.title} onChange={e => { setDraft({ title: e.target.value }); setError(''); }}
+              placeholder="TITLE" className="w-full bg-transparent font-mono font-bold text-lg text-tx placeholder:text-tx-faint outline-none tracking-wide" />
             <div className="flex gap-3">
               <input type="text" value={draft.tags} onChange={e => setDraft({ tags: e.target.value })}
-                placeholder="标签，逗号分隔…" className="input flex-1" />
+                placeholder="TAGS (comma separated)" className="px-input flex-1" />
               <input type="text" value={draft.coverImage} onChange={e => setDraft({ coverImage: e.target.value })}
-                placeholder="封面图 URL（可选）" className="input flex-1" />
+                placeholder="COVER URL" className="px-input flex-1" />
             </div>
           </div>
-          <div className="flex-1 overflow-y-auto px-8 pb-8">
-            <TiptapEditor content={draft.htmlContent}
-              placeholder="输入正文内容…支持 Markdown 快捷输入：输入 # 加空格创建标题、**加粗**、- 列表…"
-              onChange={handleEditorChange} />
+          <div className="flex-1 overflow-y-auto px-8 pb-8 scrollbar-thin">
+            <TiptapEditor content={draft.htmlContent} placeholder="Start writing… # heading, **bold**, - list…" onChange={handleEditorChange} />
           </div>
         </div>
-
-        <div className="flex-[2] flex flex-col min-w-[300px] max-w-[380px]">
-          <div className="px-5 pt-6 pb-3">
-            <h2 className="font-display font-600 text-ink text-sm mb-0.5">目标平台</h2>
-            <p className="text-[11px] text-ink-muted">选择发布平台，实时预览适配效果</p>
-          </div>
-
-          <div className="flex-1 overflow-y-auto px-5 space-y-2 pb-4">
+        <div className="flex-[2] flex flex-col min-w-[280px] max-w-[360px]">
+          <div className="px-4 pt-5 pb-2"><span className="px-label">TARGET PLATFORMS</span></div>
+          <div className="flex-1 overflow-y-auto px-4 space-y-2 pb-4 scrollbar-thin">
             {allPlatforms.map(platform => {
               const state = platformStates.get(platform);
               if (!state) return null;
               return (
-                <PlatformCard
-                  key={platform}
-                  platform={platform}
-                  platformName={state.platformName}
-                  selected={selectedPlatforms.has(platform)}
-                  onToggle={() => togglePlatform(platform)}
-                  status={state.status}
-                  statusMessage={state.message}
-                  titleCount={state.meta.titleCharCount}
-                  titleMax={state.meta.maxTitleLength}
-                  bodyCount={state.meta.bodyCharCount}
-                  bodyMax={state.meta.maxBodyLength}
-                  tagCount={state.meta.tagCount}
-                  tagMax={state.meta.maxTags}
-                  messages={state.validation.messages}
-                  previewBody={state.output.body}
-                  previewTags={state.output.tags}
-                />
+                <PlatformCard key={platform} platform={platform} platformName={state.platformName}
+                  selected={selectedPlatforms.has(platform)} onToggle={() => togglePlatform(platform)}
+                  status={state.status} statusMessage={state.message}
+                  titleCount={state.meta.titleCharCount} titleMax={state.meta.maxTitleLength}
+                  bodyCount={state.meta.bodyCharCount} bodyMax={state.meta.maxBodyLength}
+                  tagCount={state.meta.tagCount} tagMax={state.meta.maxTags}
+                  messages={state.validation.messages} previewBody={state.output.body} previewTags={state.output.tags}
+                  onBeautified={handleBeautified(platform)} />
               );
             })}
           </div>
-
           {error && (
-            <div className="px-5 pb-2 animate-fade-in">
-              <div className="p-3 rounded-lg bg-red-50 border border-red-200/60 text-red-600 text-xs flex items-center gap-2">
-                <AlertCircle size={13} /> {error}
+            <div className="px-4 pb-2 px-fade-in">
+              <div className="p-2.5 border border-dot-red/30 bg-dot-red/5 text-dot-red text-[11px] font-mono flex items-center gap-2">
+                <AlertCircle size={11} /> {error}
               </div>
             </div>
           )}
-
-          <div className="px-5 py-4 border-t border-border">
-            <PublishButton
-              publishing={publishing}
-              selectedCount={Array.from(selectedPlatforms).length}
-              platformStatuses={new Map(
-                Array.from(selectedPlatforms).map(p => [p, platformStates.get(p)?.status || 'idle'])
-              )}
-              onPublish={handlePublish}
-            />
+          <div className="px-4 py-3 border-t border-px-border">
+            <PublishButton publishing={publishing} selectedCount={Array.from(selectedPlatforms).length}
+              platformStatuses={new Map(Array.from(selectedPlatforms).map(p => [p, platformStates.get(p)?.status || 'idle']))}
+              onPublish={handlePublish} />
           </div>
         </div>
       </div>
