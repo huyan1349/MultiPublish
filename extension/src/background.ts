@@ -1,9 +1,9 @@
-import type { PublishPayload, PublishResult } from './shared/types';
+import type { PlatformType, PublishPayload, PublishResult } from './shared/types';
 
 const PLATFORM_URLS: Record<string, string> = {
-  wechat: 'https://mp.weixin.qq.com/cgi-bin/appmsg?t=media/appmsg_edit_v2&action=edit',
+  wechat: 'https://mp.weixin.qq.com/cgi-bin/appmsg?t=media/appmsg_edit_v2&action=edit&isNew=1&type=77',
   zhihu: 'https://zhuanlan.zhihu.com/write',
-  bilibili: 'https://member.bilibili.com/platform/upload/text/edit',
+  bilibili: 'https://member.bilibili.com/platform/upload/video/frame',
   xiaohongshu: 'https://creator.xiaohongshu.com/publish/publish',
 };
 
@@ -31,7 +31,7 @@ async function handlePublish(payload: PublishPayload): Promise<PublishResult> {
     const tab = await chrome.tabs.create({ url, active: false });
     if (!tab.id) throw new Error('Failed to create tab');
 
-    // Wait for fill result from content script (via storage polling)
+    // Wait for fill/publish result from content script (via storage polling)
     const result = await waitForFillResult(tab.id, platform, platformName);
 
     await chrome.tabs.update(tab.id, { active: true });
@@ -42,12 +42,12 @@ async function handlePublish(payload: PublishPayload): Promise<PublishResult> {
   }
 }
 
-function waitForFillResult(tabId: number, platform: string, platformName: string): Promise<PublishResult> {
+function waitForFillResult(tabId: number, platform: PlatformType, platformName: string): Promise<PublishResult> {
   return new Promise((resolve) => {
     const timeout = setTimeout(() => {
       chrome.storage.onChanged.removeListener(listener);
-      resolve({ platform, platformName, status: 'failed', message: '填充超时，请手动粘贴' });
-    }, 30000);
+      resolve({ platform, platformName, status: 'failed', message: `${platformName}自动发布超时，请检查是否已登录或页面结构是否变化` });
+    }, 90000);
 
     const listener = (changes: Record<string, chrome.storage.StorageChange>, areaName: string) => {
       if (areaName !== 'local') return;
@@ -61,8 +61,8 @@ function waitForFillResult(tabId: number, platform: string, platformName: string
         platform: result.platform,
         platformName: result.platformName || platformName,
         status: result.success ? 'success' : 'failed',
-        message: result.success ? `已填入${platformName}编辑器，请确认并手动发布` : (result.error || '填充失败'),
-        mockUrl: result.success ? `${PLATFORM_URLS[platform]}/post_preview` : undefined,
+        message: result.message || (result.success ? `已自动提交${platformName}发布流程` : (result.error || '发布失败')),
+        mockUrl: result.success ? PLATFORM_URLS[platform] : undefined,
       });
     };
 

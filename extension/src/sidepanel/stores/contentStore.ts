@@ -1,7 +1,12 @@
 import { create } from 'zustand';
 import { Storage } from '@plasmohq/storage';
+import type { ValidationMessage } from '../../shared/types';
 
-const storage = new Storage();
+const storage = new Storage({ area: 'local' });
+const CONTENT_INDEX_KEY = 'content_index';
+const RECORD_INDEX_KEY = 'record_index';
+const CONTENT_PREFIX = 'c_';
+const RECORD_PREFIX = 'r_';
 
 interface ContentItem {
   id: string;
@@ -22,8 +27,10 @@ interface PlatformOutputItem {
   summary?: string;
   body: string;
   tags: string[];
+  coverImage?: string;
+  extra?: Record<string, unknown>;
   status: string;
-  validationMessages: Array<{ level: string; field: string; message: string }>;
+  validationMessages: ValidationMessage[];
 }
 
 interface PublishRecord {
@@ -53,7 +60,6 @@ interface ContentState {
   resetDraft: () => void;
   loadDemo: () => void;
   saveContent: (content: ContentItem) => Promise<void>;
-  addOutput: (contentId: string, output: PlatformOutputItem) => Promise<void>;
   loadContents: () => Promise<void>;
   addRecord: (record: PublishRecord) => Promise<void>;
   loadRecords: () => Promise<void>;
@@ -84,31 +90,50 @@ export const useContentStore = create<ContentState>((set, get) => ({
 
   saveContent: async (content) => {
     const contents = [...get().contents, content];
-    await storage.set('contents', contents);
-    set({ contents });
-  },
-
-  addOutput: async (contentId, output) => {
-    const contents = get().contents.map((c) =>
-      c.id === contentId ? { ...c, outputs: [...(c.outputs || []), output] } : c
-    );
-    await storage.set('contents', contents);
+    // Store content under its own key to avoid per-key quota
+    await storage.set(CONTENT_PREFIX + content.id, content);
+    // Store lightweight index
+    const index = contents.map((c) => c.id);
+    await storage.set(CONTENT_INDEX_KEY, index);
     set({ contents });
   },
 
   loadContents: async () => {
-    const contents = (await storage.get<ContentItem[]>('contents')) || [];
-    set({ contents });
+    try {
+      const index = (await storage.get<string[]>(CONTENT_INDEX_KEY)) || [];
+      if (index.length === 0) { set({ contents: [] }); return; }
+      // Load each content item individually
+      const items: ContentItem[] = [];
+      for (const id of index) {
+        const item = await storage.get<ContentItem>(CONTENT_PREFIX + id);
+        if (item) items.push(item);
+      }
+      set({ contents: items.sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || '')) });
+    } catch {
+      set({ contents: [] });
+    }
   },
 
   addRecord: async (record) => {
     const records = [...get().records, record];
-    await storage.set('records', records);
+    await storage.set(RECORD_PREFIX + record.id, record);
+    const index = records.map((r) => r.id);
+    await storage.set(RECORD_INDEX_KEY, index);
     set({ records });
   },
 
   loadRecords: async () => {
-    const records = (await storage.get<PublishRecord[]>('records')) || [];
-    set({ records });
+    try {
+      const index = (await storage.get<string[]>(RECORD_INDEX_KEY)) || [];
+      if (index.length === 0) { set({ records: [] }); return; }
+      const items: PublishRecord[] = [];
+      for (const id of index) {
+        const item = await storage.get<PublishRecord>(RECORD_PREFIX + id);
+        if (item) items.push(item);
+      }
+      set({ records: items.sort((a, b) => (a.publishedAt || '').localeCompare(b.publishedAt || '')) });
+    } catch {
+      set({ records: [] });
+    }
   },
 }));
