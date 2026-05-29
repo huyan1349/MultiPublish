@@ -19,73 +19,74 @@ const FILL_FLAG_KEY = 'contentbridge_wechat_filled';
   if (!fill || fill.platform !== PLATFORM) return;
 
   const { title, body, tags } = fill.content as { title: string; body: string; tags?: string[] };
+  const autoLayout = !!fill.autoLayout;
   const isMain = window.self === window.top;
 
   if (!isMain) {
-    // Iframe: fill body only, then signal completion
     await fillBodyInIframe(body);
     await chrome.storage.local.set({ [FILL_FLAG_KEY]: true });
     return;
   }
 
-  // Main frame: fill title → fill body → auto publish
   try {
     const filled = await tryFillMain(title, body, tags || []);
     if (!filled.success) {
       await chrome.storage.local.remove('contentbridge_fill');
-      await chrome.storage.local.set({
-        contentbridge_result: { platform: PLATFORM, platformName: NAME, success: false, message: filled.error || '填充失败' },
-      });
-      showContentBridgeToast(`ContentBridge 填充失败：${filled.error}`, 'error');
+      await report(false, filled.error || '公众号填充失败');
       return;
     }
 
+    if (!autoLayout) {
+      await chrome.storage.local.remove('contentbridge_fill');
+      await chrome.storage.local.remove(FILL_FLAG_KEY);
+      await report(true, '公众号内容已填充，请手动操作发布');
+      return;
+    }
+
+    showContentBridgeToast('✅ 内容已填充，开始自动发布流程...', 'success');
     const published = await tryAutoPublish();
     await chrome.storage.local.remove('contentbridge_fill');
     await chrome.storage.local.remove(FILL_FLAG_KEY);
-    await chrome.storage.local.set({
-      contentbridge_result: {
-        platform: PLATFORM,
-        platformName: NAME,
-        success: published.success,
-        message: published.message,
-        error: published.success ? undefined : published.message,
-      },
-    });
-    showContentBridgeToast(published.message, published.success ? 'success' : 'error');
+    await report(published.success, published.message);
   } catch (err) {
     await chrome.storage.local.remove('contentbridge_fill');
     await chrome.storage.local.remove(FILL_FLAG_KEY);
     const msg = err instanceof Error ? err.message : '公众号自动发布失败';
-    await chrome.storage.local.set({
-      contentbridge_result: { platform: PLATFORM, platformName: NAME, success: false, message: msg },
-    });
-    showContentBridgeToast(msg, 'error');
+    await report(false, msg);
   }
 })();
+
+async function report(success: boolean, message: string) {
+  await chrome.storage.local.set({
+    contentbridge_result: { platform: PLATFORM, platformName: NAME, success, message, error: success ? undefined : message },
+  });
+  showContentBridgeToast(message, success ? 'success' : 'error');
+}
 
 async function fillBodyInIframe(body: string) {
   const ed = await waitFor<HTMLElement>('[contenteditable="true"]', FILL_TIMEOUT);
   if (!ed) return;
   ed.innerHTML = body;
   ed.dispatchEvent(new Event('input', { bubbles: true }));
+  showContentBridgeToast('✅ 正文已填充（iframe）', 'success');
 }
 
 async function tryFillMain(title: string, body: string, _tags: string[]): Promise<{ success: boolean; error?: string }> {
-  // 1. Fill title
   const titleEl = await waitFor<HTMLTextAreaElement>('#title', FILL_TIMEOUT);
-  if (titleEl) setNativeValue(titleEl, title);
+  if (titleEl) {
+    setNativeValue(titleEl, title);
+    showContentBridgeToast('✅ 标题已填充', 'success');
+  }
 
-  // 2. Try to access the UEditor iframe directly
   const iframe = document.querySelector('#ueditor_0') as HTMLIFrameElement | null;
   if (iframe?.contentDocument) {
     const ed = iframe.contentDocument.querySelector<HTMLElement>('[contenteditable="true"]');
     if (ed) {
       ed.innerHTML = body;
       ed.dispatchEvent(new Event('input', { bubbles: true }));
+      showContentBridgeToast('✅ 正文已填充', 'success');
     }
   } else {
-    // Iframe not accessible (cross-origin or not loaded yet) — wait for iframe script to signal
     await chrome.storage.local.remove(FILL_FLAG_KEY);
     const iframeFilled = await waitForStorageFlag(FILL_FLAG_KEY, FILL_TIMEOUT);
     if (!iframeFilled && !titleEl) {
@@ -97,17 +98,20 @@ async function tryFillMain(title: string, body: string, _tags: string[]): Promis
 }
 
 async function tryAutoPublish(): Promise<{ success: boolean; message: string }> {
-  await sleep(1500);
-
-  // Step 1: Find and click the publish button
-  const publishBtn = await waitForElement(findPublishButton, PUBLISH_TIMEOUT);
-  if (!publishBtn) return { success: false, message: '未找到公众号发布按钮' };
-
-  clickElement(publishBtn);
   await sleep(2000);
 
-  // Step 2: Handle confirmation dialogs (up to 3 steps)
-  for (let i = 0; i < 3; i++) {
+  const publishBtn = await waitForElement(findPublishButton, PUBLISH_TIMEOUT);
+  if (!publishBtn) return { success: false, message: '未找到公众号发布按钮，请手动点击' };
+
+  if (isDisabled(publishBtn)) {
+    return { success: false, message: '公众号发布按钮不可用，请检查内容是否完整' };
+  }
+
+  clickElement(publishBtn);
+  showContentBridgeToast('✅ 已点击发布按钮', 'success');
+  await sleep(2000);
+
+  for (let i = 0; i < 5; i++) {
     await sleep(1500);
 
     if (hasPublishSuccessSignal()) {
@@ -115,72 +119,107 @@ async function tryAutoPublish(): Promise<{ success: boolean; message: string }> 
     }
 
     const confirmBtn = findConfirmButton();
-    if (confirmBtn) {
+    if (confirmBtn && !isDisabled(confirmBtn)) {
       clickElement(confirmBtn);
+      showContentBridgeToast('✅ 已点击确认按钮', 'success');
+      await sleep(2000);
       continue;
     }
 
-    if (hasPublishSuccessSignal()) {
-      return { success: true, message: '公众号内容已自动提交发布' };
+    const dialogBtn = findDialogConfirmButton();
+    if (dialogBtn) {
+      clickElement(dialogBtn);
+      showContentBridgeToast('✅ 已点击弹窗确认', 'success');
+      await sleep(2000);
+      continue;
     }
   }
 
   return hasPublishSuccessSignal()
     ? { success: true, message: '公众号内容已自动提交发布' }
-    : { success: true, message: '已自动点击公众号发布流程，请在页面确认最终状态' };
+    : { success: true, message: '已进入公众号发布流程，请在页面确认最终状态' };
 }
-
-/* ── DOM Finders ── */
 
 function findPublishButton(): HTMLElement | null {
-  // WeChat editor publish buttons
-  return findButtonByText(['发表', '发布', '群发', '群发消息', '提交发布']);
-}
-
-function findConfirmButton(): HTMLElement | null {
-  const dialogRoots = Array.from(document.querySelectorAll<HTMLElement>(
-    '[role="dialog"], .weui-desktop-dialog, .weui-desktop-popover, .dialog, .modal, [class*="publish"]',
-  )).filter(isVisible);
-
-  for (const root of dialogRoots) {
-    const btn = findButtonByText(['确认', '确定', '确认发布', '继续发布', '发表'], root);
-    if (btn) return btn;
-  }
-
-  return findButtonByText(['确认发布', '确认', '确定', '继续发布', '发表']);
-}
-
-function findButtonByText(labels: string[], root: ParentNode = document): HTMLElement | null {
-  const elements = Array.from(root.querySelectorAll<HTMLElement>('button, [role="button"], a, span'));
-  const candidates = elements
+  const labels = ['群发', '发表', '发布', '群发消息', '提交发布'];
+  const btns = Array.from(document.querySelectorAll<HTMLElement>('button, [role="button"], a.weui-desktop-btn, span.weui-desktop-btn__label'))
     .filter(isVisible)
-    .filter((el) => !isDisabled(el))
+    .filter((el) => !isDisabled(el));
+
+  const candidates = btns
     .map((el) => ({ el, text: compactText(el.innerText || el.textContent || '') }))
-    .filter(({ text }) => text && labels.some((label) => text === label || text.includes(label)));
+    .filter(({ text }) => text && labels.some((l) => text === l || text.includes(l)));
 
   if (candidates.length === 0) return null;
 
   candidates.sort((a, b) => {
-    const aExact = labels.some((l) => a.text === l) ? 10 : 0;
-    const bExact = labels.some((l) => b.text === l) ? 10 : 0;
-    return bExact - aExact || b.text.length - a.text.length;
+    const aScore = labels.indexOf(a.text) >= 0 ? 100 - labels.indexOf(a.text) * 10 : 0;
+    const bScore = labels.indexOf(b.text) >= 0 ? 100 - labels.indexOf(b.text) * 10 : 0;
+    return bScore - aScore;
   });
+
   return candidates[0]?.el || null;
+}
+
+function findConfirmButton(): HTMLElement | null {
+  const labels = ['群发', '确认群发', '确认发布', '确定', '确认', '继续发布', '发表'];
+  const btns = Array.from(document.querySelectorAll<HTMLElement>('button, [role="button"], a.weui-desktop-btn, span.weui-desktop-btn__label'))
+    .filter(isVisible)
+    .filter((el) => !isDisabled(el));
+
+  const candidates = btns
+    .map((el) => ({ el, text: compactText(el.innerText || el.textContent || '') }))
+    .filter(({ text }) => text && labels.some((l) => text === l || text.includes(l)));
+
+  if (candidates.length === 0) return null;
+  candidates.sort((a, b) => a.text.length - b.text.length);
+  return candidates[0]?.el || null;
+}
+
+function findDialogConfirmButton(): HTMLElement | null {
+  const dialogSelectors = [
+    '[role="dialog"]', '.weui-desktop-dialog', '.weui-desktop-popover',
+    '.weui-desktop-modal', '.dialog', '.modal', '[class*="dialog"]', '[class*="modal"]',
+    '[class*="popover"]', '[class*="publish"]',
+  ];
+
+  const dialogRoots = Array.from(document.querySelectorAll<HTMLElement>(dialogSelectors.join(',')))
+    .filter(isVisible);
+
+  const labels = ['群发', '确认群发', '确认发布', '确定', '确认', '继续', '发表', '提交'];
+
+  for (const root of dialogRoots) {
+    const btns = Array.from(root.querySelectorAll<HTMLElement>('button, [role="button"], a.weui-desktop-btn, span.weui-desktop-btn__label'))
+      .filter(isVisible)
+      .filter((el) => !isDisabled(el));
+
+    const candidates = btns
+      .map((el) => ({ el, text: compactText(el.innerText || el.textContent || '') }))
+      .filter(({ text }) => text && labels.some((l) => text === l || text.includes(l)));
+
+    if (candidates.length > 0) {
+      candidates.sort((a, b) => a.text.length - b.text.length);
+      return candidates[0]?.el || null;
+    }
+  }
+
+  return null;
 }
 
 function hasPublishSuccessSignal(): boolean {
   const text = compactText(document.body.innerText || '');
-  return /发布成功|已发布|发送成功|群发成功|操作成功/.test(text)
-    || /\/cgi-bin\/appmsg\?t=media/.test(location.href) === false;
+  if (/发布成功|已发布|发送成功|群发成功|操作成功|提交成功/.test(text)) return true;
+  if (/\/cgi-bin\/appmsg\?t=media\/appmsg_edit/.test(location.href)) return false;
+  if (!/\/cgi-bin\/appmsg/.test(location.href)) return true;
+  return false;
 }
-
-/* ── Helpers ── */
 
 function setNativeValue(el: HTMLInputElement | HTMLTextAreaElement, value: string) {
   const proto = el instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
   const desc = Object.getOwnPropertyDescriptor(proto, 'value');
   desc?.set?.call(el, value);
   el.dispatchEvent(new Event('input', { bubbles: true }));
+  el.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
 function clickElement(el: HTMLElement) {
@@ -201,12 +240,12 @@ function isDisabled(el: HTMLElement): boolean {
   return (
     el.hasAttribute('disabled')
     || el.getAttribute('aria-disabled') === 'true'
-    || /\bdisabled\b|btn_disabled/.test(el.className || '')
+    || /\bdisabled\b|btn_disabled|weui-desktop-btn_disabled/.test(el.className || '')
   );
 }
 
 function compactText(value: string): string {
-  return value.replace(/ /g, ' ').replace(/\s+/g, ' ').trim();
+  return value.replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
 function sleep(ms: number): Promise<void> {

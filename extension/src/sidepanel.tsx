@@ -67,7 +67,7 @@ export default function Sidepanel() {
   const [publishedSet, setPublishedSet] = useState<Set<PlatformType>>(new Set());
   const [publishResults, setPublishResults] = useState<Record<string, PublishResult>>({});
   const [editingOutput, setEditingOutput] = useState<EditingOutput | null>(null);
-  const [xhsAutoLayout, setXhsAutoLayout] = useState(false);
+  const [autoLayout, setAutoLayout] = useState(false);
 
   const startWithPlatform = (platform: PlatformType) => {
     setSelected(new Set([platform]));
@@ -164,7 +164,7 @@ export default function Sidepanel() {
           platform: output.platform,
           platformName: output.platformName,
           content: output,
-          autoLayout: output.platform === 'xiaohongshu' ? xhsAutoLayout : undefined,
+          autoLayout: (output.platform === 'xiaohongshu' || output.platform === 'wechat') ? autoLayout : undefined,
         },
       }) as PublishResult | undefined;
       const result: PublishResult = response || { platform: output.platform, platformName: output.platformName, status: 'failed', message: '未收到发布结果' };
@@ -310,17 +310,17 @@ export default function Sidepanel() {
                 </div>
               )}
 
-              {/* XHS Auto Layout Toggle */}
-              {active.platform === 'xiaohongshu' && (
+              {/* Auto Layout Toggle */}
+              {(active.platform === 'xiaohongshu' || active.platform === 'wechat') && (
                 <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 12, color: 'var(--text-secondary)', padding: '4px 0' }}>
                   <input
                     type="checkbox"
-                    checked={xhsAutoLayout}
-                    onChange={(e) => setXhsAutoLayout(e.target.checked)}
-                    style={{ accentColor: '#FF5A5F', width: 14, height: 14 }}
+                    checked={autoLayout}
+                    onChange={(e) => setAutoLayout(e.target.checked)}
+                    style={{ accentColor: active.platform === 'xiaohongshu' ? '#FF5A5F' : '#07C160', width: 14, height: 14 }}
                   />
-                  <Sparkles size={12} style={{ color: '#FF5A5F' }} />
-                  一键排版后自动发布（排版→下一步→发布）
+                  <Sparkles size={12} style={{ color: active.platform === 'xiaohongshu' ? '#FF5A5F' : '#07C160' }} />
+                  {active.platform === 'xiaohongshu' ? '一键排版后自动发布（排版→下一步→发布）' : '填充后自动发布（群发→确认）'}
                 </label>
               )}
 
