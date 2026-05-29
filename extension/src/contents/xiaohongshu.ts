@@ -343,6 +343,20 @@ function clickPublishViaPosition(): boolean {
   const bottomPublish = findBottomPublishButton();
   if (bottomPublish) return forceClickElement(bottomPublish);
 
+  const bottomPositions = [
+    { x: window.innerWidth * 0.58, y: window.innerHeight - 45 },
+    { x: window.innerWidth * 0.52, y: window.innerHeight - 45 },
+    { x: window.innerWidth * 0.45, y: window.innerHeight - 45 },
+    { x: window.innerWidth * 0.58, y: window.innerHeight - 65 },
+  ];
+
+  for (const pos of bottomPositions) {
+    const target = document.elementFromPoint(pos.x, pos.y) as HTMLElement | null;
+    if (!target || target === document.body || target === document.documentElement) continue;
+    dispatchCoordinateClick(pos.x, pos.y);
+    return true;
+  }
+
   const customEls = Array.from(document.querySelectorAll('*'))
     .filter((el) => el.tagName.includes('-'))
     .filter((el) => {
