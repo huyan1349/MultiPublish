@@ -268,11 +268,9 @@ async function clickNextStep(): Promise<boolean> {
 async function clickPublish(): Promise<boolean> {
   await sleep(3000);
 
-  const clicked = clickPublishViaMainWorld();
-  if (!clicked) {
-    const posClicked = clickPublishViaPosition();
-    if (!posClicked) return false;
-  }
+  const btn = await findPublishButton(PUBLISH_TIMEOUT);
+  const clicked = btn ? forceClickElement(btn) : await clickPublishViaMainWorld();
+  if (!clicked && !clickPublishViaPosition()) return false;
 
   await sleep(3000);
 
@@ -280,7 +278,7 @@ async function clickPublish(): Promise<boolean> {
     if (hasPublishSuccessSignal()) return true;
     const confirmBtn = findConfirmButton();
     if (confirmBtn) {
-      clickElement(confirmBtn);
+      forceClickElement(confirmBtn);
       await sleep(2000);
     } else {
       await sleep(1500);
@@ -290,7 +288,7 @@ async function clickPublish(): Promise<boolean> {
   return hasPublishSuccessSignal();
 }
 
-function clickPublishViaMainWorld(): boolean {
+async function clickPublishViaMainWorld(): Promise<boolean> {
   document.documentElement.removeAttribute('data-xhs-publish-result');
   document.documentElement.setAttribute('data-xhs-click-publish', '1');
 
@@ -301,8 +299,7 @@ function clickPublishViaMainWorld(): boolean {
       document.documentElement.removeAttribute('data-xhs-publish-result');
       return result === 'clicked';
     }
-    const start = Date.now();
-    while (Date.now() - start < 200) {}
+    await sleep(120);
   }
 
   document.documentElement.removeAttribute('data-xhs-click-publish');
@@ -311,27 +308,27 @@ function clickPublishViaMainWorld(): boolean {
 
 async function findPublishButton(timeout: number): Promise<HTMLElement | null> {
   return waitForElement(() => {
-    const allBtns = Array.from(document.querySelectorAll<HTMLElement>('button, [role="button"]'))
+    const allBtns = Array.from(document.querySelectorAll<HTMLElement>('button, [role="button"], a, div, span'))
       .filter(isVisible)
       .filter((el) => !isDisabled(el));
 
-    const exactMatches = allBtns.filter((el) => {
+    const exactMatches = allBtns
+      .filter((el) => {
       const text = compactText(el.textContent || '');
-      return text === '发布' || text === '立即发布';
-    });
+        return (text === '发布' || text === '立即发布') && text.length <= 8;
+      })
+      .map((el) => ({ el: closestClickable(el), score: scorePublishButton(el) }))
+      .filter(({ el }) => el && isVisible(el) && !isDisabled(el));
 
     if (exactMatches.length > 0) {
-      exactMatches.sort((a, b) => {
-        const ra = a.getBoundingClientRect();
-        const rb = b.getBoundingClientRect();
-        return (rb.top + rb.left) - (ra.top + ra.left);
-      });
-      return exactMatches[0];
+      exactMatches.sort((a, b) => b.score - a.score);
+      return exactMatches[0]?.el || null;
     }
 
     const xhsBtn = document.querySelector('xhs-publish-btn');
     if (xhsBtn && xhsBtn.shadowRoot) {
-      const btn = xhsBtn.shadowRoot.querySelector<HTMLElement>('button');
+      const btn = Array.from(xhsBtn.shadowRoot.querySelectorAll<HTMLElement>('button, [role="button"]'))
+        .find((el) => /^(发布|立即发布)$/.test(compactText(el.textContent || '')));
       if (btn) return btn;
     }
 
@@ -380,10 +377,45 @@ function clickPublishViaPosition(): boolean {
 
 function dispatchCoordinateClick(x: number, y: number) {
   const opts = { bubbles: true, cancelable: true, clientX: x, clientY: y };
-  document.dispatchEvent(new MouseEvent('mouseover', opts));
-  document.dispatchEvent(new MouseEvent('mousedown', opts));
-  document.dispatchEvent(new MouseEvent('mouseup', opts));
-  document.dispatchEvent(new MouseEvent('click', opts));
+  const target = document.elementFromPoint(x, y) as HTMLElement | null;
+  if (!target) return;
+  target.dispatchEvent(new MouseEvent('mouseover', opts));
+  target.dispatchEvent(new MouseEvent('mousemove', opts));
+  target.dispatchEvent(new MouseEvent('mousedown', opts));
+  target.dispatchEvent(new MouseEvent('mouseup', opts));
+  target.dispatchEvent(new MouseEvent('click', opts));
+}
+
+function closestClickable(el: HTMLElement): HTMLElement {
+  return el.closest<HTMLElement>('button, [role="button"], a, xhs-publish-btn, [class*="btn"], [class*="button"]') || el;
+}
+
+function scorePublishButton(el: HTMLElement): number {
+  const rect = el.getBoundingClientRect();
+  let score = 0;
+  if (rect.right > window.innerWidth * 0.55) score += 8;
+  if (rect.bottom > window.innerHeight * 0.45) score += 5;
+  if (/publish|submit|button|btn/i.test(el.className || '')) score += 4;
+  if (el.tagName === 'BUTTON') score += 3;
+  score += Math.min(rect.width, 180) / 180;
+  return score;
+}
+
+function forceClickElement(el: HTMLElement): boolean {
+  const target = closestClickable(el);
+  target.scrollIntoView({ block: 'center', inline: 'center' });
+  const rect = target.getBoundingClientRect();
+  const x = rect.left + rect.width / 2;
+  const y = rect.top + rect.height / 2;
+  const opts = { bubbles: true, cancelable: true, composed: true, clientX: x, clientY: y };
+  target.dispatchEvent(new PointerEvent('pointerover', opts));
+  target.dispatchEvent(new PointerEvent('pointerdown', opts));
+  target.dispatchEvent(new MouseEvent('mousedown', opts));
+  target.dispatchEvent(new PointerEvent('pointerup', opts));
+  target.dispatchEvent(new MouseEvent('mouseup', opts));
+  target.dispatchEvent(new MouseEvent('click', opts));
+  target.click();
+  return true;
 }
 
 function findConfirmButton(): HTMLElement | null {
