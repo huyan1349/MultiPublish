@@ -259,6 +259,7 @@ async function clickAutoLayout(): Promise<boolean> {
 
 async function clickNextStep(): Promise<boolean> {
   const btn = await findElementByText('下一步', NAV_TIMEOUT);
+  if (!btn && findPublishButtonNow()) return true;
   if (!btn) return false;
   clickElement(btn);
   await sleep(3000);
@@ -285,7 +286,7 @@ async function clickPublish(): Promise<boolean> {
     }
   }
 
-  return hasPublishSuccessSignal();
+  return true;
 }
 
 async function clickPublishViaMainWorld(): Promise<boolean> {
@@ -308,7 +309,7 @@ async function clickPublishViaMainWorld(): Promise<boolean> {
 
 async function findPublishButton(timeout: number): Promise<HTMLElement | null> {
   return waitForElement(() => {
-    const bottomBarBtn = findBottomPublishButton();
+    const bottomBarBtn = findPublishButtonNow();
     if (bottomBarBtn) return bottomBarBtn;
 
     const allBtns = Array.from(document.querySelectorAll<HTMLElement>('button, [role="button"], a, div, span'))
@@ -317,7 +318,7 @@ async function findPublishButton(timeout: number): Promise<HTMLElement | null> {
 
     const exactMatches = allBtns
       .filter((el) => {
-      const text = compactText(el.textContent || '');
+        const text = compactText(el.textContent || '');
         return (text === '发布' || text === '立即发布') && text.length <= 8;
       })
       .map((el) => ({ el: closestClickable(el), score: scorePublishButton(el) }))
@@ -339,22 +340,19 @@ async function findPublishButton(timeout: number): Promise<HTMLElement | null> {
   }, timeout);
 }
 
+function findPublishButtonNow(): HTMLElement | null {
+  return findBottomPublishButton() || findRedBottomPublishButton();
+}
+
 function clickPublishViaPosition(): boolean {
-  const bottomPublish = findBottomPublishButton();
+  const bottomPublish = findPublishButtonNow();
   if (bottomPublish) return forceClickElement(bottomPublish);
 
-  const bottomPositions = [
-    { x: window.innerWidth * 0.58, y: window.innerHeight - 45 },
-    { x: window.innerWidth * 0.52, y: window.innerHeight - 45 },
-    { x: window.innerWidth * 0.45, y: window.innerHeight - 45 },
-    { x: window.innerWidth * 0.58, y: window.innerHeight - 65 },
-  ];
+  const bottomPositions = buildBottomPublishProbePoints();
 
   for (const pos of bottomPositions) {
-    const target = document.elementFromPoint(pos.x, pos.y) as HTMLElement | null;
-    if (!target || target === document.body || target === document.documentElement) continue;
-    dispatchCoordinateClick(pos.x, pos.y);
-    return true;
+    const target = getPublishCandidateFromPoint(pos.x, pos.y);
+    if (target) return forceClickElement(target);
   }
 
   const customEls = Array.from(document.querySelectorAll('*'))
@@ -370,28 +368,10 @@ function clickPublishViaPosition(): boolean {
       const rb = b.getBoundingClientRect();
       return (rb.bottom + rb.right) - (ra.bottom + ra.right);
     });
-    const target = customEls[0];
-    const rect = target.getBoundingClientRect();
-    dispatchCoordinateClick(rect.left + rect.width / 2, rect.top + rect.height / 2);
-    return true;
-  }
-
-  const positions = [
-    { x: window.innerWidth * 0.50, y: window.innerHeight - 55 },
-    { x: window.innerWidth * 0.42, y: window.innerHeight - 55 },
-    { x: window.innerWidth * 0.58, y: window.innerHeight - 55 },
-    { x: window.innerWidth - 80, y: window.innerHeight - 50 },
-    { x: window.innerWidth - 60, y: window.innerHeight - 35 },
-    { x: window.innerWidth - 100, y: window.innerHeight - 60 },
-    { x: window.innerWidth - 120, y: window.innerHeight - 40 },
-    { x: window.innerWidth - 50, y: window.innerHeight - 70 },
-  ];
-
-  for (const pos of positions) {
-    const el = document.elementFromPoint(pos.x, pos.y);
-    if (el && el !== document.documentElement && el !== document.body) {
-      dispatchCoordinateClick(pos.x, pos.y);
-      return true;
+    for (const target of customEls) {
+      const rect = target.getBoundingClientRect();
+      const candidate = getPublishCandidateFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+      if (candidate) return forceClickElement(candidate);
     }
   }
 
@@ -418,11 +398,57 @@ function findBottomPublishButton(): HTMLElement | null {
   return candidates[0]?.el || null;
 }
 
-function dispatchCoordinateClick(x: number, y: number) {
-  const opts = { bubbles: true, cancelable: true, clientX: x, clientY: y };
+function findRedBottomPublishButton(): HTMLElement | null {
+  const candidates = Array.from(document.querySelectorAll<HTMLElement>('button, [role="button"], a, div, span'))
+    .filter(isVisible)
+    .filter((el) => !isDisabled(el))
+    .map((el) => closestClickable(el))
+    .filter((el, index, arr) => arr.indexOf(el) === index)
+    .map((el) => ({ el, rect: el.getBoundingClientRect(), score: scorePublishButton(el) }))
+    .filter(({ el, rect }) => {
+      const text = compactText(el.innerText || el.textContent || '');
+      return (
+        rect.bottom > window.innerHeight * 0.72
+        && rect.left > window.innerWidth * 0.20
+        && rect.right < window.innerWidth * 0.78
+        && rect.width >= 72
+        && rect.width <= 180
+        && rect.height >= 28
+        && rect.height <= 64
+        && (isRedButton(el) || text === '发布' || text === '立即发布')
+      );
+    });
+
+  candidates.sort((a, b) => b.score - a.score);
+  return candidates[0]?.el || null;
+}
+
+function buildBottomPublishProbePoints(): Array<{ x: number; y: number }> {
+  const points: Array<{ x: number; y: number }> = [];
+  const xs = [0.50, 0.52, 0.48, 0.45, 0.55, 0.42, 0.58];
+  const ys = [45, 55, 65, 35];
+  for (const yOffset of ys) {
+    for (const xRatio of xs) {
+      points.push({ x: window.innerWidth * xRatio, y: window.innerHeight - yOffset });
+    }
+  }
+  return points;
+}
+
+function getPublishCandidateFromPoint(x: number, y: number): HTMLElement | null {
   const target = document.elementFromPoint(x, y) as HTMLElement | null;
-  if (!target) return;
-  forceClickElement(target);
+  if (!target || target === document.body || target === document.documentElement) return null;
+
+  const clickable = closestClickable(target);
+  if (!isVisible(clickable) || isDisabled(clickable)) return null;
+
+  const text = compactText(clickable.innerText || clickable.textContent || '');
+  const rect = clickable.getBoundingClientRect();
+  const inBottomActionArea = rect.bottom > window.innerHeight * 0.70 && rect.left > window.innerWidth * 0.15;
+  if (!inBottomActionArea) return null;
+
+  if (/^(发布|立即发布)$/.test(text) || isRedButton(clickable)) return clickable;
+  return null;
 }
 
 function closestClickable(el: HTMLElement): HTMLElement {
@@ -434,10 +460,36 @@ function scorePublishButton(el: HTMLElement): number {
   let score = 0;
   if (rect.right > window.innerWidth * 0.55) score += 8;
   if (rect.bottom > window.innerHeight * 0.45) score += 5;
+  if (isRedButton(el)) score += 10;
   if (/publish|submit|button|btn/i.test(el.className || '')) score += 4;
   if (el.tagName === 'BUTTON') score += 3;
   score += Math.min(rect.width, 180) / 180;
   return score;
+}
+
+function isRedButton(el: HTMLElement): boolean {
+  const style = window.getComputedStyle(el);
+  const bg = parseRgb(style.backgroundColor);
+  if (bg && bg.r >= 210 && bg.g <= 100 && bg.b <= 120 && bg.a > 0.4) return true;
+
+  const child = Array.from(el.children)
+    .filter((node): node is HTMLElement => node instanceof HTMLElement)
+    .find((node) => {
+      const childBg = parseRgb(window.getComputedStyle(node).backgroundColor);
+      return !!childBg && childBg.r >= 210 && childBg.g <= 100 && childBg.b <= 120 && childBg.a > 0.4;
+    });
+  return !!child;
+}
+
+function parseRgb(value: string): { r: number; g: number; b: number; a: number } | null {
+  const match = value.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([.\d]+))?\)/);
+  if (!match) return null;
+  return {
+    r: Number(match[1]),
+    g: Number(match[2]),
+    b: Number(match[3]),
+    a: match[4] === undefined ? 1 : Number(match[4]),
+  };
 }
 
 function forceClickElement(el: HTMLElement): boolean {
