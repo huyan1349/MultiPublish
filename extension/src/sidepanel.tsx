@@ -28,7 +28,7 @@ type EditingOutput = {
 const PLATFORMS: Array<{ id: PlatformType; name: string; color: string; desc: string }> = [
   { id: 'wechat', name: '公众号', color: '#07C160', desc: '正式长文，层次分明' },
   { id: 'zhihu', name: '知乎', color: '#448AFF', desc: '逻辑分析，结论先行' },
-  { id: 'bilibili', name: 'B站', color: '#FB7299', desc: '视频风格，标签驱动' },
+  { id: 'bilibili', name: 'B站', color: '#FB7299', desc: '图文专栏，标签驱动' },
   { id: 'xiaohongshu', name: '小红书', color: '#FF5A5F', desc: '种草风格，短小精炼' },
 ];
 

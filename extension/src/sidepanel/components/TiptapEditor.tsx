@@ -23,6 +23,11 @@ interface TiptapEditorProps {
   onChange: (html: string, text: string) => void;
 }
 
+type UpdateEditor = {
+  getHTML: () => string;
+  getText: () => string;
+};
+
 interface ToolButtonProps {
   children: ReactNode;
   isActive?: boolean;
@@ -61,7 +66,7 @@ export default function TiptapEditor({ content, placeholder, onChange }: TiptapE
         class: 'tiptap-content',
       },
     },
-    onUpdate: ({ editor: currentEditor }) => {
+    onUpdate: ({ editor: currentEditor }: { editor: UpdateEditor }) => {
       onChange(currentEditor.getHTML(), currentEditor.getText());
     },
   });
