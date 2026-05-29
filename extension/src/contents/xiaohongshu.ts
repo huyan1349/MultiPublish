@@ -308,6 +308,9 @@ async function clickPublishViaMainWorld(): Promise<boolean> {
 
 async function findPublishButton(timeout: number): Promise<HTMLElement | null> {
   return waitForElement(() => {
+    const bottomBarBtn = findBottomPublishButton();
+    if (bottomBarBtn) return bottomBarBtn;
+
     const allBtns = Array.from(document.querySelectorAll<HTMLElement>('button, [role="button"], a, div, span'))
       .filter(isVisible)
       .filter((el) => !isDisabled(el));
@@ -337,6 +340,9 @@ async function findPublishButton(timeout: number): Promise<HTMLElement | null> {
 }
 
 function clickPublishViaPosition(): boolean {
+  const bottomPublish = findBottomPublishButton();
+  if (bottomPublish) return forceClickElement(bottomPublish);
+
   const customEls = Array.from(document.querySelectorAll('*'))
     .filter((el) => el.tagName.includes('-'))
     .filter((el) => {
@@ -357,6 +363,9 @@ function clickPublishViaPosition(): boolean {
   }
 
   const positions = [
+    { x: window.innerWidth * 0.50, y: window.innerHeight - 55 },
+    { x: window.innerWidth * 0.42, y: window.innerHeight - 55 },
+    { x: window.innerWidth * 0.58, y: window.innerHeight - 55 },
     { x: window.innerWidth - 80, y: window.innerHeight - 50 },
     { x: window.innerWidth - 60, y: window.innerHeight - 35 },
     { x: window.innerWidth - 100, y: window.innerHeight - 60 },
@@ -375,15 +384,31 @@ function clickPublishViaPosition(): boolean {
   return false;
 }
 
+function findBottomPublishButton(): HTMLElement | null {
+  const candidates = Array.from(document.querySelectorAll<HTMLElement>('button, [role="button"], a, div, span'))
+    .filter(isVisible)
+    .filter((el) => !isDisabled(el))
+    .filter((el) => /^(发布|立即发布)$/.test(compactText(el.innerText || el.textContent || '')))
+    .map((el) => closestClickable(el))
+    .filter((el, index, arr) => arr.indexOf(el) === index)
+    .map((el) => ({ el, rect: el.getBoundingClientRect() }))
+    .filter(({ rect }) => rect.bottom > window.innerHeight * 0.70)
+    .filter(({ rect }) => rect.left > window.innerWidth * 0.15 && rect.right < window.innerWidth * 0.85);
+
+  candidates.sort((a, b) => {
+    const aCenter = Math.abs((a.rect.left + a.rect.right) / 2 - window.innerWidth / 2);
+    const bCenter = Math.abs((b.rect.left + b.rect.right) / 2 - window.innerWidth / 2);
+    return b.rect.bottom - a.rect.bottom || aCenter - bCenter;
+  });
+
+  return candidates[0]?.el || null;
+}
+
 function dispatchCoordinateClick(x: number, y: number) {
   const opts = { bubbles: true, cancelable: true, clientX: x, clientY: y };
   const target = document.elementFromPoint(x, y) as HTMLElement | null;
   if (!target) return;
-  target.dispatchEvent(new MouseEvent('mouseover', opts));
-  target.dispatchEvent(new MouseEvent('mousemove', opts));
-  target.dispatchEvent(new MouseEvent('mousedown', opts));
-  target.dispatchEvent(new MouseEvent('mouseup', opts));
-  target.dispatchEvent(new MouseEvent('click', opts));
+  forceClickElement(target);
 }
 
 function closestClickable(el: HTMLElement): HTMLElement {
