@@ -34,7 +34,7 @@ async function handlePublish(payload: PublishPayload): Promise<PublishResult> {
   try {
     // Write fill data to storage before opening tab
     await chrome.storage.local.set({
-      contentbridge_fill: { platform, content, timestamp: Date.now() },
+      contentbridge_fill: { platform, content, autoLayout: payload.autoLayout, timestamp: Date.now() },
     });
 
     // Open platform editor

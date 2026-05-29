@@ -61,6 +61,7 @@ export interface PublishPayload {
   platform: PlatformType;
   platformName: string;
   content: PlatformOutputDraft;
+  autoLayout?: boolean;
 }
 
 export interface PublishResult {

@@ -10,6 +10,7 @@ const PLATFORM = 'xiaohongshu';
 const NAME = '小红书';
 const FILL_TIMEOUT = 20000;
 const NAV_TIMEOUT = 10000;
+const PUBLISH_TIMEOUT = 30000;
 
 const LOGIN_INDICATORS = [
   '.sidebar-user-info',
@@ -34,6 +35,7 @@ const LOGIN_INDICATORS = [
 
     const { title, body, tags } = fill.content as { title: string; body: string; tags: string[] };
     const plainText = htmlToPlainText(body);
+    const autoLayout = !!fill.autoLayout;
 
     if (!await navigateToLongArticleEditor()) {
       await report(false, '未能进入小红书长文编辑页面，请检查是否有"写长文"权限');
@@ -46,10 +48,34 @@ const LOGIN_INDICATORS = [
       return;
     }
 
-    showContentBridgeToast('✅ 内容已填充完成，请检查后手动点击发布', 'success');
-    await report(true, '小红书内容已填充，请手动确认发布');
+    if (!autoLayout) {
+      showContentBridgeToast('✅ 内容已填充完成，请手动操作', 'success');
+      await report(true, '小红书内容已填充，请手动排版和发布');
+      return;
+    }
+
+    showContentBridgeToast('✅ 内容已填充，开始自动排版发布流程...', 'success');
+
+    const layoutOk = await clickAutoLayout();
+    if (!layoutOk) {
+      await report(false, '未找到"一键排版"按钮，请手动点击');
+      return;
+    }
+
+    const nextOk = await clickNextStep();
+    if (!nextOk) {
+      await report(false, '未找到"下一步"按钮，请手动点击');
+      return;
+    }
+
+    const publishOk = await clickPublish();
+    if (!publishOk) {
+      await report(true, '已进入发布页面，请手动点击发布按钮');
+      return;
+    }
+
+    await report(true, '小红书笔记已自动提交发布');
   } catch (err) {
-    await chrome.storage.local.remove('contentbridge_fill');
     const msg = err instanceof Error ? err.message : '小红书填充失败';
     await report(false, msg);
   }
@@ -197,12 +223,6 @@ function findBodyEditor(): HTMLElement | null {
     const parent = el.closest<HTMLElement>('[contenteditable="true"]');
     if (parent && isVisible(parent)) return parent;
   }
-  const ceFallback = Array.from(document.querySelectorAll<HTMLElement>(
-    'div[contenteditable="true"]',
-  )).filter(isVisible);
-  for (const el of ceFallback) {
-    if (!/标题|title/i.test(el.getAttribute('data-placeholder') || '')) return el;
-  }
   return null;
 }
 
@@ -223,6 +243,89 @@ async function appendTagsToBody(editor: HTMLElement, tags: string[]): Promise<vo
   document.execCommand('insertText', false, tagText);
   await sleep(300);
   showContentBridgeToast('✅ 话题标签已追加', 'success');
+}
+
+/* ═══════════════════════════════════════════
+   自动排版发布流程
+   ═══════════════════════════════════════════ */
+
+async function clickAutoLayout(): Promise<boolean> {
+  const btn = await findElementByText('一键排版', NAV_TIMEOUT);
+  if (!btn) return false;
+  clickElement(btn);
+  await sleep(3000);
+  return true;
+}
+
+async function clickNextStep(): Promise<boolean> {
+  const btn = await findElementByText('下一步', NAV_TIMEOUT);
+  if (!btn) return false;
+  clickElement(btn);
+  await sleep(3000);
+  return true;
+}
+
+async function clickPublish(): Promise<boolean> {
+  await sleep(2000);
+
+  const publishBtn = await findPublishButton(PUBLISH_TIMEOUT);
+  if (!publishBtn) return false;
+
+  clickElement(publishBtn);
+  await sleep(3000);
+
+  for (let i = 0; i < 3; i++) {
+    if (hasPublishSuccessSignal()) return true;
+    const confirmBtn = findConfirmButton();
+    if (confirmBtn) {
+      clickElement(confirmBtn);
+      await sleep(2000);
+    } else {
+      await sleep(1500);
+    }
+  }
+
+  return hasPublishSuccessSignal();
+}
+
+async function findPublishButton(timeout: number): Promise<HTMLElement | null> {
+  return waitForElement(() => {
+    const byText = findButtonByText(['发布', '立即发布', '发布笔记']);
+    if (byText) return byText;
+
+    const xhsBtn = document.querySelector('xhs-publish-btn');
+    if (xhsBtn && xhsBtn.shadowRoot) {
+      const btn = xhsBtn.shadowRoot.querySelector<HTMLElement>('button.ce-btn.bg-red');
+      if (btn) return btn;
+    }
+
+    const allBtns = Array.from(document.querySelectorAll<HTMLElement>('button, [role="button"]'))
+      .filter(isVisible)
+      .filter((el) => !isDisabled(el));
+    for (const btn of allBtns) {
+      if (/^发布$/.test(compactText(btn.textContent || ''))) return btn;
+    }
+
+    return null;
+  }, timeout);
+}
+
+function findConfirmButton(): HTMLElement | null {
+  const dialogRoots = Array.from(document.querySelectorAll<HTMLElement>(
+    '[role="dialog"], .modal, .dialog, [class*="modal"], [class*="dialog"]',
+  )).filter(isVisible);
+
+  for (const root of dialogRoots) {
+    const btn = findButtonByText(['确认', '确定', '确认发布', '发布'], root);
+    if (btn) return btn;
+  }
+
+  return null;
+}
+
+function hasPublishSuccessSignal(): boolean {
+  const text = compactText(document.body.innerText || '');
+  return /发布成功|笔记已发布|已发布|提交成功|审核中/.test(text);
 }
 
 /* ═══════════════════════════════════════════
@@ -354,6 +457,19 @@ async function findElementByText(text: string, timeout: number): Promise<HTMLEle
   }, timeout);
 }
 
+function findButtonByText(labels: string[], root: ParentNode = document): HTMLElement | null {
+  const elements = Array.from(root.querySelectorAll<HTMLElement>('button, [role="button"], a, span, div'));
+  const candidates = elements
+    .filter(isVisible)
+    .filter((el) => !isDisabled(el))
+    .map((el) => ({ el, text: compactText(el.innerText || el.textContent || '') }))
+    .filter(({ text }) => text && labels.some((label) => text === label || text.includes(label)));
+
+  if (candidates.length === 0) return null;
+  candidates.sort((a, b) => a.text.length - b.text.length);
+  return candidates[0]?.el || null;
+}
+
 /* ═══════════════════════════════════════════
    DOM Helpers
    ═══════════════════════════════════════════ */
@@ -370,6 +486,14 @@ function isVisible(el: HTMLElement): boolean {
   const style = window.getComputedStyle(el);
   const rect = el.getBoundingClientRect();
   return style.visibility !== 'hidden' && style.display !== 'none' && rect.width > 0 && rect.height > 0;
+}
+
+function isDisabled(el: HTMLElement): boolean {
+  return (
+    el.hasAttribute('disabled')
+    || el.getAttribute('aria-disabled') === 'true'
+    || /\bdisabled\b/.test(el.className || '')
+  );
 }
 
 function compactText(value: string): string {
