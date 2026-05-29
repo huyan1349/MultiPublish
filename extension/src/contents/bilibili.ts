@@ -78,67 +78,222 @@ async function tryFill(title: string, body: string, tags: string[]): Promise<boo
   return !!(titleEl || ed);
 }
 
-/* ── Auto Publish ── */
+/* ── Auto Publish: 快照对比法 ── */
+
+interface ButtonSnapshot {
+  sig: string;
+  el: HTMLElement;
+}
 
 async function tryAutoPublish(): Promise<{ success: boolean; message: string }> {
-  // 等待页面稳定
   await sleep(2000);
 
+  // 初始快照：记录页面上所有可见按钮
+  let prevSnapshot = snapshotButtons();
+  console.log('[ContentBridge:Bilibili] 初始快照:', prevSnapshot.length, '个按钮');
+
   // 第一步：找到并点击初始发布按钮
-  const publishBtn = await waitForElement(findPublishButton, PUBLISH_TIMEOUT);
+  const publishBtn = findPublishButton();
   if (!publishBtn) {
-    console.log('[ContentBridge:Bilibili] 未找到发布按钮，dump 所有可见按钮：');
+    console.log('[ContentBridge:Bilibili] 未找到发布按钮，dump:');
     dumpButtons();
     return { success: false, message: '未找到B站图文发布按钮' };
   }
 
-  console.log('[ContentBridge:Bilibili] 点击发布按钮:', compactText(publishBtn.innerText || publishBtn.textContent || ''));
-  clickElement(publishBtn);
+  console.log('[ContentBridge:Bilibili] 点击初始发布按钮:', btnLabel(publishBtn));
+  forceClick(publishBtn);
 
-  // 第二步：轮询检测弹窗/抽屉中的确认按钮，连续尝试 8 轮（共约 60s）
-  // B站发布流程可能是：点击发布 → 弹出设置面板 → 选择分类 → 确认发布
-  for (let i = 0; i < 8; i++) {
-    await sleep(2500);
+  // 主循环：快照对比，逐轮发现新按钮
+  for (let round = 0; round < 12; round++) {
+    await sleep(2000);
 
-    // 检查是否已成功
     if (hasPublishSuccessSignal()) {
       return { success: true, message: 'B站图文已自动提交发布' };
     }
 
-    // 在弹窗/抽屉/面板中找确认按钮
-    const confirmBtn = findConfirmButton();
-    if (confirmBtn) {
-      console.log('[ContentBridge:Bilibili] 点击确认按钮:', compactText(confirmBtn.innerText || confirmBtn.textContent || ''));
-      clickElement(confirmBtn);
-      await sleep(2000);
-      if (hasPublishSuccessSignal()) {
-        return { success: true, message: 'B站图文已自动提交发布' };
+    const currentSnapshot = snapshotButtons();
+    const newButtons = findNewButtons(prevSnapshot, currentSnapshot);
+
+    if (newButtons.length > 0) {
+      console.log(
+        '[ContentBridge:Bilibili] 第', round + 1, '轮，发现新按钮:',
+        newButtons.map((b) => btnLabel(b.el)).join(', '),
+      );
+
+      // 优先点确认类按钮
+      const confirmBtn = newButtons.find((b) => {
+        const label = btnLabel(b.el);
+        return ['确认', '确定', '确认发布', '提交', '发布', '知道了', '我知道了', '好的', '是'].some((kw) => label === kw || label.includes(kw));
+      });
+
+      if (confirmBtn) {
+        console.log('[ContentBridge:Bilibili] 点击确认按钮:', btnLabel(confirmBtn.el));
+        forceClick(confirmBtn.el);
+        prevSnapshot = currentSnapshot;
+        continue;
       }
+
+      // 没有明确的确认按钮，点第一个看起来像提交的
+      const submitLike = newButtons.find((b) => {
+        const label = btnLabel(b.el);
+        return ['发布', '提交', '投稿', '保存', '下一步', '继续'].some((kw) => label === kw || label.includes(kw));
+      });
+
+      if (submitLike) {
+        console.log('[ContentBridge:Bilibili] 点击提交类按钮:', btnLabel(submitLike.el));
+        forceClick(submitLike.el);
+        prevSnapshot = currentSnapshot;
+        continue;
+      }
+
+      // 都不匹配，把新按钮全点一遍
+      for (const btn of newButtons) {
+        console.log('[ContentBridge:Bilibili] 点击未知新按钮:', btnLabel(btn.el));
+        forceClick(btn.el);
+        await sleep(800);
+        if (hasPublishSuccessSignal()) {
+          return { success: true, message: 'B站图文已自动提交发布' };
+        }
+      }
+      prevSnapshot = currentSnapshot;
       continue;
     }
 
-    // 尝试再次找发布/提交按钮（可能在面板中）
-    const panelSubmit = findButtonInPanels(['发布', '提交', '确认发布', '立即发布', '投稿', '确定']);
-    if (panelSubmit) {
-      console.log('[ContentBridge:Bilibili] 点击面板提交按钮:', compactText(panelSubmit.innerText || panelSubmit.textContent || ''));
-      clickElement(panelSubmit);
-      await sleep(2000);
-      if (hasPublishSuccessSignal()) {
-        return { success: true, message: 'B站图文已自动提交发布' };
-      }
+    // 没有新按钮，但可能页面还没反应过来，尝试在弹窗/面板中找
+    const panelBtn = findButtonInContainers([
+      '确认', '确定', '确认发布', '提交', '发布', '知道了', '投稿', '立即发布',
+    ]);
+    if (panelBtn) {
+      console.log('[ContentBridge:Bilibili] 在面板中找到按钮:', btnLabel(panelBtn));
+      forceClick(panelBtn);
+      prevSnapshot = snapshotButtons();
       continue;
     }
 
-    // dump 当前状态辅助调试
-    if (i === 3) {
-      console.log('[ContentBridge:Bilibili] 第4轮未找到按钮，dump 当前状态：');
+    // 第6轮 dump 一次辅助调试
+    if (round === 5) {
+      console.log('[ContentBridge:Bilibili] 第6轮，dump 当前状态:');
       dumpButtons();
     }
+  }
+
+  // 最终兜底：扫描所有可能跟发布有关的元素
+  console.log('[ContentBridge:Bilibili] 进入最终兜底扫描');
+  const allTargets = findAllPublishTargets();
+  for (const target of allTargets) {
+    if (hasPublishSuccessSignal()) break;
+    console.log('[ContentBridge:Bilibili] 兜底点击:', btnLabel(target));
+    forceClick(target);
+    await sleep(1500);
   }
 
   return hasPublishSuccessSignal()
     ? { success: true, message: 'B站图文已自动提交发布' }
     : { success: true, message: '已自动点击B站图文发布流程，请在页面确认最终状态' };
+}
+
+/* ── Snapshot ── */
+
+function snapshotButtons(): ButtonSnapshot[] {
+  return findAllClickables()
+    .map((el) => ({ sig: btnSignature(el), el }))
+    .filter(({ sig }) => sig.length > 0);
+}
+
+function btnSignature(el: HTMLElement): string {
+  const text = compactText(el.innerText || el.textContent || '');
+  const cls = (el.className && typeof el.className === 'string' ? el.className : '').slice(0, 60);
+  const rect = el.getBoundingClientRect();
+  const pos = `${Math.round(rect.x)},${Math.round(rect.y)}`;
+  return `${text} [${cls}] @${pos}`;
+}
+
+function btnLabel(el: HTMLElement): string {
+  return compactText(el.innerText || el.textContent || '') || el.tagName;
+}
+
+function findNewButtons(before: ButtonSnapshot[], after: ButtonSnapshot[]): ButtonSnapshot[] {
+  const beforeSigs = new Set(before.map((b) => b.sig));
+  return after.filter((b) => !beforeSigs.has(b.sig));
+}
+
+/* ── Click ── */
+
+function forceClick(el: HTMLElement) {
+  el.scrollIntoView({ block: 'center', inline: 'center' });
+  el.focus();
+  el.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+  el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+  el.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true }));
+  el.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true }));
+  el.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, cancelable: true }));
+  el.click();
+  // 对 React 组件再补一刀原生 click
+  try { (el as any).__reactInternalInstance; } catch { /* noop */ }
+}
+
+/* ── Element Finders ── */
+
+function findAllClickables(): HTMLElement[] {
+  return Array.from(document.querySelectorAll<HTMLElement>(
+    'button, [role="button"], a[href="javascript:void(0)"], a[href="#"], ' +
+    'span[class*="btn"], div[class*="btn"], span[class*="button"], div[class*="button"], ' +
+    'span[class*="submit"], div[class*="submit"], li[class*="btn"], li[class*="button"], ' +
+    'span[class*="publish"], div[class*="publish"], ' +
+    '[class*="primary"], [class*="Primary"], ' +
+    '.ant-btn, .el-button, .arco-btn, .btn, .button',
+  )).filter(isVisible).filter((el) => !isDisabled(el));
+}
+
+function findPublishButton(): HTMLElement | null {
+  return findButtonByText([
+    '发布', '立即发布', '提交', '发布文章', '发表', '投稿',
+    '确认发布', '提交发布', '发布图文',
+  ]);
+}
+
+function findButtonInContainers(labels: string[]): HTMLElement | null {
+  const containers = Array.from(document.querySelectorAll<HTMLElement>(
+    '[role="dialog"], [role="alertdialog"], ' +
+    '.modal, .dialog, .popover, .drawer, .panel, ' +
+    '[class*="modal"], [class*="dialog"], [class*="popup"], [class*="drawer"], ' +
+    '[class*="panel"], [class*="overlay"], [class*="mask"], ' +
+    '[class*="Modal"], [class*="Dialog"], [class*="Popup"], [class*="Drawer"], ' +
+    '[class*="Panel"], [class*="Overlay"]',
+  )).filter(isVisible);
+
+  for (const root of containers) {
+    const btn = findButtonByText(labels, root);
+    if (btn) return btn;
+  }
+  return null;
+}
+
+function findAllPublishTargets(): HTMLElement[] {
+  const labels = ['发布', '提交', '确认', '确定', '投稿', '发表', '知道了', '好的', '是', '保存', '下一步', '继续'];
+  return findAllClickables().filter((el) => {
+    const text = compactText(el.innerText || el.textContent || '');
+    return labels.some((l) => text === l || text.includes(l));
+  });
+}
+
+function findButtonByText(labels: string[], root: ParentNode = document): HTMLElement | null {
+  const elements = findAllClickablesInRoot(root);
+  const candidates = elements
+    .filter((el) => !isDisabled(el))
+    .map((el) => ({ el, text: compactText(el.innerText || el.textContent || '') }))
+    .filter(({ text }) => text && labels.some((label) => text === label || text.includes(label)));
+
+  if (candidates.length === 0) return null;
+  candidates.sort((a, b) => b.text.length - a.text.length);
+  return candidates[0]?.el || null;
+}
+
+function findAllClickablesInRoot(root: ParentNode): HTMLElement[] {
+  return Array.from(root.querySelectorAll<HTMLElement>(
+    'button, [role="button"], a, span, div[class*="btn"], div[class*="button"], div[class*="submit"], ' +
+    'span[class*="btn"], span[class*="button"], span[class*="submit"]',
+  )).filter(isVisible);
 }
 
 /* ── Diagnostics ── */
@@ -161,56 +316,19 @@ function dumpPageState() {
 }
 
 function dumpButtons() {
-  const buttons = Array.from(document.querySelectorAll<HTMLElement>('button, [role="button"], a, span, div[class*="btn"], div[class*="button"]'))
-    .filter(isVisible)
-    .map((el) => ({ text: compactText(el.innerText || el.textContent || ''), className: el.className?.slice(0, 40), el }))
+  const buttons = findAllClickables()
+    .map((el) => ({ text: compactText(el.innerText || el.textContent || ''), className: (el.className && typeof el.className === 'string' ? el.className : '').slice(0, 40), el }))
     .filter(({ text }) => text);
   console.log('[ContentBridge:Bilibili] 可见按钮:', buttons.length);
   buttons.forEach(({ text, className }) => console.log(`  - "${text}"  [${className}]`));
 }
 
-/* ── DOM Finders ── */
-
-function findPublishButton(): HTMLElement | null {
-  return findButtonByText([
-    '发布', '立即发布', '提交', '发布文章', '发表', '投稿',
-    '确认发布', '提交发布', '发布图文',
-  ]);
+function hasPublishSuccessSignal(): boolean {
+  const text = compactText(document.body.innerText || '');
+  return /发布成功|投稿成功|已发布|提交成功|审核中|已提交|发布完成|提交完成/.test(text);
 }
 
-function findConfirmButton(): HTMLElement | null {
-  // 在所有弹窗/抽屉/面板/对话框容器中搜索
-  const containers = Array.from(document.querySelectorAll<HTMLElement>(
-    '[role="dialog"], [role="alertdialog"], ' +
-    '.modal, .dialog, .popover, .drawer, .panel, ' +
-    '[class*="modal"], [class*="dialog"], [class*="popup"], [class*="drawer"], ' +
-    '[class*="panel"], [class*="overlay"], [class*="mask"], ' +
-    '[class*="Modal"], [class*="Dialog"], [class*="Popup"], [class*="Drawer"]',
-  )).filter(isVisible);
-
-  for (const root of containers) {
-    const btn = findButtonByText(['确认', '确定', '确认发布', '提交', '发布', '知道了', '我知道了', '好的'], root);
-    if (btn) return btn;
-  }
-
-  // 全局兜底
-  return findButtonByText(['确认发布', '确认', '确定', '提交', '知道了']);
-}
-
-function findButtonInPanels(labels: string[]): HTMLElement | null {
-  const containers = Array.from(document.querySelectorAll<HTMLElement>(
-    '[role="dialog"], [role="alertdialog"], ' +
-    '.modal, .dialog, .drawer, .panel, ' +
-    '[class*="modal"], [class*="dialog"], [class*="drawer"], [class*="panel"], ' +
-    '[class*="Modal"], [class*="Dialog"], [class*="Drawer"]',
-  )).filter(isVisible);
-
-  for (const root of containers) {
-    const btn = findButtonByText(labels, root);
-    if (btn) return btn;
-  }
-  return null;
-}
+/* ── Editor Finders ── */
 
 function findTitleEditor(): HTMLElement | null {
   return firstVisible([
@@ -252,7 +370,6 @@ function findBodyEditor(): HTMLElement | null {
     return direct;
   }
 
-  // 兜底：找最大的 contenteditable 或 textarea
   const titleEl = findTitleEditor();
   const editors = Array.from(document.querySelectorAll<HTMLElement>('[contenteditable="true"], textarea'))
     .filter(isVisible)
@@ -266,7 +383,6 @@ function findBodyEditor(): HTMLElement | null {
     return editors[0].el;
   }
 
-  // 再兜底：大 input/textarea
   const largeFields = Array.from(document.querySelectorAll<HTMLElement>('input[type="text"], textarea'))
     .filter(isVisible)
     .filter((el) => el !== titleEl)
@@ -307,7 +423,6 @@ async function fillTextTarget(el: HTMLElement, text: string): Promise<boolean> {
 
   const before = compactText(el.innerText || el.textContent || '');
 
-  // 策略1: execCommand insertText
   if (selectAllContent(el) && document.execCommand('insertText', false, text)) {
     console.log('[ContentBridge:Bilibili] 填充策略: execCommand insertText');
     await sleep(300);
@@ -315,7 +430,6 @@ async function fillTextTarget(el: HTMLElement, text: string): Promise<boolean> {
     if (after !== before && after.length > 10) return true;
   }
 
-  // 策略2: ClipboardEvent paste
   if (dispatchTextPaste(el, text)) {
     console.log('[ContentBridge:Bilibili] 填充策略: ClipboardEvent paste');
     await sleep(500);
@@ -323,7 +437,6 @@ async function fillTextTarget(el: HTMLElement, text: string): Promise<boolean> {
     if (after !== before && after.length > 10) return true;
   }
 
-  // 策略3: innerHTML + React 合成事件
   console.log('[ContentBridge:Bilibili] 填充策略: innerHTML 兜底');
   el.innerHTML = markdownToHtml(text);
   el.dispatchEvent(new InputEvent('beforeinput', { bubbles: true, inputType: 'insertText', data: text }));
@@ -337,7 +450,6 @@ async function fillTextTarget(el: HTMLElement, text: string): Promise<boolean> {
   const afterHtml = compactText(el.innerText || el.textContent || '');
   if (afterHtml !== before && afterHtml.length > 10) return true;
 
-  // 策略4: textContent 最终兜底
   console.log('[ContentBridge:Bilibili] 填充策略: textContent 兜底');
   el.textContent = text;
   el.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText' }));
@@ -394,26 +506,47 @@ function dispatchTextPaste(el: HTMLElement, text: string): boolean {
   }
 }
 
-/* ── Button helpers ── */
+/* ── DOM Utilities ── */
 
-function findButtonByText(labels: string[], root: ParentNode = document): HTMLElement | null {
-  const elements = Array.from(root.querySelectorAll<HTMLElement>(
-    'button, [role="button"], a, span, div[class*="btn"], div[class*="button"], div[class*="submit"]',
-  ));
-  const candidates = elements
-    .filter(isVisible)
-    .filter((el) => !isDisabled(el))
-    .map((el) => ({ el, text: compactText(el.innerText || el.textContent || '') }))
-    .filter(({ text }) => text && labels.some((label) => text === label || text.includes(label)));
-
-  if (candidates.length === 0) return null;
-  candidates.sort((a, b) => b.text.length - a.text.length);
-  return candidates[0]?.el || null;
+function setNativeValue(el: HTMLInputElement | HTMLTextAreaElement, value: string) {
+  const proto = el instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+  const desc = Object.getOwnPropertyDescriptor(proto, 'value');
+  desc?.set?.call(el, value);
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+  el.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
-function hasPublishSuccessSignal(): boolean {
-  const text = compactText(document.body.innerText || '');
-  return /发布成功|投稿成功|已发布|提交成功|审核中|已提交|发布完成|提交完成/.test(text);
+function isVisible(el: HTMLElement): boolean {
+  const style = window.getComputedStyle(el);
+  const rect = el.getBoundingClientRect();
+  return style.visibility !== 'hidden' && style.display !== 'none' && rect.width > 0 && rect.height > 0;
+}
+
+function isDisabled(el: HTMLElement): boolean {
+  return el.hasAttribute('disabled')
+    || el.getAttribute('aria-disabled') === 'true'
+    || /\bdisabled\b/.test(el.className || '');
+}
+
+function compactText(value: string): string {
+  return value.replace(/ /g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+function waitForElement<T extends HTMLElement>(finder: () => T | null, timeout: number): Promise<T | null> {
+  return new Promise((resolve) => {
+    const existing = finder();
+    if (existing) return resolve(existing);
+    const observer = new MutationObserver(() => {
+      const el = finder();
+      if (el) { observer.disconnect(); resolve(el); }
+    });
+    observer.observe(document.body || document.documentElement, { childList: true, subtree: true });
+    setTimeout(() => { observer.disconnect(); resolve(null); }, timeout);
+  });
 }
 
 /* ── Markdown → HTML ── */
@@ -448,56 +581,4 @@ function escapeHtml(value: string): string {
 
 function escapeAttribute(value = ''): string {
   return escapeHtml(value).replace(/`/g, '&#96;');
-}
-
-/* ── DOM Utilities ── */
-
-function setNativeValue(el: HTMLInputElement | HTMLTextAreaElement, value: string) {
-  const proto = el instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
-  const desc = Object.getOwnPropertyDescriptor(proto, 'value');
-  desc?.set?.call(el, value);
-  el.dispatchEvent(new Event('input', { bubbles: true }));
-  el.dispatchEvent(new Event('change', { bubbles: true }));
-}
-
-function clickElement(el: HTMLElement) {
-  el.scrollIntoView({ block: 'center', inline: 'center' });
-  el.focus();
-  el.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
-  el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
-  el.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true }));
-  el.click();
-}
-
-function isVisible(el: HTMLElement): boolean {
-  const style = window.getComputedStyle(el);
-  const rect = el.getBoundingClientRect();
-  return style.visibility !== 'hidden' && style.display !== 'none' && rect.width > 0 && rect.height > 0;
-}
-
-function isDisabled(el: HTMLElement): boolean {
-  return el.hasAttribute('disabled')
-    || el.getAttribute('aria-disabled') === 'true'
-    || /\bdisabled\b/.test(el.className || '');
-}
-
-function compactText(value: string): string {
-  return value.replace(/ /g, ' ').replace(/\s+/g, ' ').trim();
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((r) => setTimeout(r, ms));
-}
-
-function waitForElement<T extends HTMLElement>(finder: () => T | null, timeout: number): Promise<T | null> {
-  return new Promise((resolve) => {
-    const existing = finder();
-    if (existing) return resolve(existing);
-    const observer = new MutationObserver(() => {
-      const el = finder();
-      if (el) { observer.disconnect(); resolve(el); }
-    });
-    observer.observe(document.body || document.documentElement, { childList: true, subtree: true });
-    setTimeout(() => { observer.disconnect(); resolve(null); }, timeout);
-  });
 }
