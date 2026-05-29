@@ -329,13 +329,6 @@ async function findPublishButton(timeout: number): Promise<HTMLElement | null> {
       return exactMatches[0]?.el || null;
     }
 
-    const xhsBtn = document.querySelector('xhs-publish-btn');
-    if (xhsBtn && xhsBtn.shadowRoot) {
-      const btn = Array.from(xhsBtn.shadowRoot.querySelectorAll<HTMLElement>('button, [role="button"]'))
-        .find((el) => /^(发布|立即发布)$/.test(compactText(el.textContent || '')));
-      if (btn) return btn;
-    }
-
     return null;
   }, timeout);
 }
