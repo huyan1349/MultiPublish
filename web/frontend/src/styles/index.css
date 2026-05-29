@@ -27,53 +27,137 @@
   }
 
   .px-btn {
-    @apply inline-flex items-center gap-2 px-4 py-2.5 text-xs font-mono font-bold
-           tracking-wide border cursor-pointer select-none
-           transition-colors duration-100
-           disabled:opacity-30 disabled:cursor-not-allowed;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.625rem 1rem;
+    font-size: 0.75rem;
+    font-family: 'Space Mono', monospace;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    border: 1px solid transparent;
+    cursor: pointer;
+    user-select: none;
+    transition: all 0.1s;
     border-radius: 0;
+    background: transparent;
+  }
+  .px-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
   }
   .px-btn-primary {
-    @apply px-btn;
-    border-color: #FF3B30;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.625rem 1rem;
+    font-size: 0.75rem;
+    font-family: 'Space Mono', monospace;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    border: 1px solid #FF3B30;
     color: #FF3B30;
+    cursor: pointer;
+    user-select: none;
+    transition: all 0.1s;
+    border-radius: 0;
+    background: transparent;
   }
   .px-btn-primary:hover:not(:disabled) {
     background-color: #FF3B30;
     color: #0A0A0A;
   }
+  .px-btn-primary:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
   .px-btn-secondary {
-    @apply px-btn border-px-border text-tx-dim;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.625rem 1rem;
+    font-size: 0.75rem;
+    font-family: 'Space Mono', monospace;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    border: 1px solid #252525;
+    color: #888888;
+    cursor: pointer;
+    user-select: none;
+    transition: all 0.1s;
+    border-radius: 0;
+    background: transparent;
   }
   .px-btn-secondary:hover:not(:disabled) {
-    @apply bg-px-hover text-tx border-tx-mute;
+    background-color: #1C1C1C;
+    color: #E8E8E8;
+    border-color: #555555;
+  }
+  .px-btn-secondary:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
   }
   .px-btn-ghost {
-    @apply px-btn border-transparent text-tx-dim;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.625rem 1rem;
+    font-size: 0.75rem;
+    font-family: 'Space Mono', monospace;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    border: 1px solid transparent;
+    color: #888888;
+    cursor: pointer;
+    user-select: none;
+    transition: all 0.1s;
+    border-radius: 0;
+    background: transparent;
   }
   .px-btn-ghost:hover:not(:disabled) {
-    @apply text-tx;
+    color: #E8E8E8;
+  }
+  .px-btn-ghost:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
   }
 
   .px-card {
-    @apply bg-px-card border border-px-border;
+    background-color: #161616;
+    border: 1px solid #252525;
     border-radius: 0;
   }
 
   .px-input {
-    @apply w-full px-3 py-2 text-sm font-mono bg-px-surface border border-px-border
-           text-tx placeholder:text-tx-faint
-           focus:outline-none focus:border-tx-mute
-           transition-colors duration-100;
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    font-family: 'Space Mono', monospace;
+    background-color: #111111;
+    border: 1px solid #252525;
+    color: #E8E8E8;
+    outline: none;
+    transition: border-color 0.1s;
     border-radius: 0;
+  }
+  .px-input::placeholder {
+    color: #333333;
+  }
+  .px-input:focus {
+    border-color: #555555;
   }
 
   .px-label {
-    @apply text-[10px] font-mono font-bold text-tx-mute tracking-pixel uppercase;
+    font-size: 10px;
+    font-family: 'Space Mono', monospace;
+    font-weight: 700;
+    color: #555555;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
   }
 
   .px-divider {
-    @apply border-t border-px-border-subtle;
+    border-top: 1px solid #1A1A1A;
   }
 }
 
