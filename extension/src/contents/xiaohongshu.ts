@@ -269,13 +269,9 @@ async function clickPublish(): Promise<boolean> {
   await sleep(2000);
 
   const publishBtn = await findPublishButton(PUBLISH_TIMEOUT);
-  if (publishBtn) {
-    clickElement(publishBtn);
-  } else {
-    const clicked = clickPublishButton();
-    if (!clicked) return false;
-  }
+  if (!publishBtn) return false;
 
+  clickElement(publishBtn);
   await sleep(3000);
 
   for (let i = 0; i < 3; i++) {
@@ -294,22 +290,8 @@ async function clickPublish(): Promise<boolean> {
 
 async function findPublishButton(timeout: number): Promise<HTMLElement | null> {
   return waitForElement(() => {
-    const allBtns = Array.from(document.querySelectorAll<HTMLElement>('button, [role="button"], div, span, a'))
-      .filter((el) => el.getBoundingClientRect().width > 0 && el.getBoundingClientRect().height > 0);
-
-    const exactMatches = allBtns.filter((el) => {
-      const text = compactText(el.innerText || el.textContent || '');
-      return text === '发布' || text === '立即发布';
-    });
-
-    if (exactMatches.length > 0) {
-      exactMatches.sort((a, b) => {
-        const ra = a.getBoundingClientRect();
-        const rb = b.getBoundingClientRect();
-        return (rb.top + rb.left) - (ra.top + ra.left);
-      });
-      return exactMatches[0];
-    }
+    const byText = findButtonByText(['发布', '立即发布', '发布笔记']);
+    if (byText) return byText;
 
     const xhsBtn = document.querySelector('xhs-publish-btn');
     if (xhsBtn && xhsBtn.shadowRoot) {
@@ -319,35 +301,21 @@ async function findPublishButton(timeout: number): Promise<HTMLElement | null> {
       if (anyBtn) return anyBtn;
     }
 
+    const allBtns = Array.from(document.querySelectorAll<HTMLElement>('button, [role="button"]'))
+      .filter(isVisible)
+      .filter((el) => !isDisabled(el));
+    for (const btn of allBtns) {
+      if (/发布/.test(compactText(btn.textContent || ''))) return btn;
+    }
+
+    const allEls = Array.from(document.querySelectorAll<HTMLElement>('div, span, a, li'))
+      .filter((el) => el.getBoundingClientRect().width > 0 && el.getBoundingClientRect().height > 0);
+    for (const el of allEls) {
+      if (compactText(el.innerText || '') === '发布') return el;
+    }
+
     return null;
   }, timeout);
-}
-
-function clickPublishButton(): boolean {
-  const xhsBtn = document.querySelector('xhs-publish-btn');
-  if (xhsBtn) {
-    const rect = xhsBtn.getBoundingClientRect();
-    if (rect.width > 0 && rect.height > 0) {
-      const x = rect.left + rect.width / 2;
-      const y = rect.top + rect.height / 2;
-      const target = document.elementFromPoint(x, y);
-      if (target) {
-        (target as HTMLElement).click();
-        return true;
-      }
-    }
-    xhsBtn.click();
-    return true;
-  }
-
-  const bottomRight = { x: window.innerWidth - 80, y: window.innerHeight - 40 };
-  const el = document.elementFromPoint(bottomRight.x, bottomRight.y);
-  if (el) {
-    (el as HTMLElement).click();
-    return true;
-  }
-
-  return false;
 }
 
 function findConfirmButton(): HTMLElement | null {
