@@ -76,13 +76,12 @@ async function tryFill(title: string, body: string, tags: string[]): Promise<boo
 
   if (ed) {
     console.log('[ContentBridge:Bilibili] 正文编辑器最终匹配:', ed.tagName, (ed.className && typeof ed.className === 'string' ? ed.className : '').slice(0, 60));
-    const ok = await fillTextTarget(ed, body);
-    console.log('[ContentBridge:Bilibili] 正文填充结果:', ok);
+    // B站是 React 编辑器，优先用 React 直填（paste HTML），标准填充做兜底
+    let ok = await fillReactEditor(ed, body);
+    console.log('[ContentBridge:Bilibili] React 直填结果:', ok);
     if (!ok) {
-      // 如果 fillTextTarget 返回 false，可能 editor 是 React 组件，需要更激进的策略
-      console.log('[ContentBridge:Bilibili] 标准填充失败，尝试 React 组件直填');
-      const retryOk = await fillReactEditor(ed, body);
-      console.log('[ContentBridge:Bilibili] React 直填结果:', retryOk);
+      ok = await fillTextTarget(ed, body);
+      console.log('[ContentBridge:Bilibili] 标准填充兜底结果:', ok);
     }
   } else {
     console.log('[ContentBridge:Bilibili] 所有兜底均未找到正文编辑器');
