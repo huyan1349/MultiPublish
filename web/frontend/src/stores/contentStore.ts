@@ -1,4 +1,19 @@
 import { create } from 'zustand';
+import { getAdapter, listAdapters } from '../adapters/AdapterFactory';
+import { parseHtmlToBlocks } from '../adapters/parserService';
+import type { PlatformType, PlatformOutputDraft, ValidationResult, PreviewMeta, StandardContent } from '../adapters/types';
+
+export type PublishStatus = 'idle' | 'publishing' | 'success' | 'failed';
+
+export interface PlatformPublishState {
+  platform: PlatformType;
+  platformName: string;
+  status: PublishStatus;
+  message: string;
+  output: PlatformOutputDraft;
+  validation: ValidationResult;
+  meta: PreviewMeta;
+}
 
 interface ContentDraft {
   title: string;
@@ -8,11 +23,46 @@ interface ContentDraft {
 }
 
 interface ContentState {
+  // Draft
   draft: ContentDraft;
   setDraft: (partial: Partial<ContentDraft>) => void;
   resetDraft: () => void;
   loadDemo: () => void;
+  // Platform
+  selectedPlatforms: Set<PlatformType>;
+  platformStates: Map<PlatformType, PlatformPublishState>;
+  togglePlatform: (p: PlatformType) => void;
+  refreshPlatformOutputs: () => void;
+  setPlatformPublishStatus: (p: PlatformType, status: PublishStatus, message?: string) => void;
+  resetPublishStates: () => void;
 }
+
+function buildContent(draft: ContentDraft): StandardContent {
+  const blocks = parseHtmlToBlocks(draft.htmlContent);
+  return {
+    id: `draft-${Date.now()}`,
+    title: draft.title || '未命名',
+    rawMarkdown: draft.htmlContent,
+    blocks,
+    tags: draft.tags.split(/[,，]/).map(t => t.trim()).filter(Boolean),
+    coverImage: draft.coverImage || undefined,
+  };
+}
+
+function buildPlatformState(platform: PlatformType, content: StandardContent): PlatformPublishState {
+  const adapter = getAdapter(platform);
+  return {
+    platform,
+    platformName: adapter.displayName,
+    status: 'idle',
+    message: '',
+    output: adapter.transform(content),
+    validation: adapter.validate(content),
+    meta: adapter.getPreviewMeta(adapter.transform(content)),
+  };
+}
+
+const allPlatforms: PlatformType[] = ['wechat', 'zhihu', 'bilibili', 'xiaohongshu'];
 
 const DEMO_HTML = `<h2>多平台内容发布工具</h2>
 <p>很多创作者需要在公众号、知乎、B站、小红书等平台同步发布内容，但每个平台的格式、语气和发布字段都不一样。</p>
@@ -28,16 +78,61 @@ const DEMO_HTML = `<h2>多平台内容发布工具</h2>
 <p>系统采用标准内容模型和平台适配器模式。新增平台时，只需要增加新的 Adapter，不需要重写整个系统。</p>
 <blockquote><p>一次创作，多端适配。让内容在不同平台中保持一致表达，同时适配各自的平台生态。</p></blockquote>`;
 
-export const useContentStore = create<ContentState>((set) => ({
+function buildInitialStates(): Map<PlatformType, PlatformPublishState> {
+  const content = buildContent({ title: '', htmlContent: '', tags: '', coverImage: '' });
+  const map = new Map<PlatformType, PlatformPublishState>();
+  for (const p of allPlatforms) map.set(p, buildPlatformState(p, content));
+  return map;
+}
+
+export const useContentStore = create<ContentState>((set, get) => ({
+  // Draft
   draft: { title: '', htmlContent: '', tags: '', coverImage: '' },
-  setDraft: (partial) => set((s) => ({ draft: { ...s.draft, ...partial } })),
-  resetDraft: () => set({ draft: { title: '', htmlContent: '', tags: '', coverImage: '' } }),
-  loadDemo: () => set({
-    draft: {
-      title: '我做了一个多平台内容发布工具',
-      htmlContent: DEMO_HTML,
-      tags: '内容创作, 效率工具, 自媒体, 多平台',
-      coverImage: '',
-    },
+  setDraft: (partial) => {
+    set((s) => ({ draft: { ...s.draft, ...partial } }));
+    get().refreshPlatformOutputs();
+  },
+  resetDraft: () => {
+    set({ draft: { title: '', htmlContent: '', tags: '', coverImage: '' } });
+    get().refreshPlatformOutputs();
+  },
+  loadDemo: () => {
+    set({
+      draft: {
+        title: '我做了一个多平台内容发布工具',
+        htmlContent: DEMO_HTML,
+        tags: '内容创作, 效率工具, 自媒体, 多平台',
+        coverImage: '',
+      },
+    });
+    get().refreshPlatformOutputs();
+  },
+
+  // Platform
+  selectedPlatforms: new Set(allPlatforms),
+  platformStates: buildInitialStates(),
+  togglePlatform: (p) => set((s) => {
+    const next = new Set(s.selectedPlatforms);
+    next.has(p) ? next.delete(p) : next.add(p);
+    return { selectedPlatforms: next };
+  }),
+  refreshPlatformOutputs: () => {
+    const content = buildContent(get().draft);
+    const map = new Map<PlatformType, PlatformPublishState>();
+    for (const p of allPlatforms) map.set(p, buildPlatformState(p, content));
+    set({ platformStates: map });
+  },
+  setPlatformPublishStatus: (p, status, message = '') => set((s) => {
+    const next = new Map(s.platformStates);
+    const cur = next.get(p);
+    if (cur) next.set(p, { ...cur, status, message });
+    return { platformStates: next };
+  }),
+  resetPublishStates: () => set((s) => {
+    const next = new Map(s.platformStates);
+    for (const [p, st] of next) {
+      if (st.status !== 'publishing') next.set(p, { ...st, status: 'idle', message: '' });
+    }
+    return { platformStates: next };
   }),
 }));
