@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { PenLine, LayoutDashboard, FileText, Sparkles } from 'lucide-react';
+import { PenLine, LayoutDashboard, FileText, Sparkles, Settings as SettingsIcon } from 'lucide-react';
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'HOME' },
@@ -49,7 +49,21 @@ export default function Sidebar() {
         ))}
       </nav>
 
-      <div className="font-mono text-[8px] text-tx-faint tracking-pixel">V2.0</div>
+      <NavLink
+        to="/settings"
+        className={({ isActive }) =>
+          `w-10 h-10 flex items-center justify-center transition-all duration-150 mb-2
+          ${isActive
+            ? 'bg-px-surface border-l-[2px] border-tx text-tx'
+            : 'border-l-[2px] border-transparent text-tx-mute hover:text-tx-dim hover:bg-px-surface'
+          }`
+        }
+        title="SETTINGS"
+      >
+        <SettingsIcon size={16} strokeWidth={1.5} />
+      </NavLink>
+
+      <div className="font-mono text-[8px] text-tx-faint tracking-pixel">V2.1</div>
     </aside>
   );
 }

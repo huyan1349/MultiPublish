@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ExternalLink } from 'lucide-react';
+import { ExternalLink, Inbox } from 'lucide-react';
 import { api } from '../api/client';
 
 interface PublishRecord {
@@ -37,36 +37,41 @@ export default function Records() {
   return (
     <div className="h-full overflow-y-auto scrollbar-thin">
       <div className="max-w-[860px] mx-auto px-12 py-16">
-        <div className="flex items-center gap-3 mb-3">
+        <div className="flex items-center gap-3 mb-3 px-fade-in">
           <div className="px-dot" style={{ backgroundColor: '#FF3B30' }} />
           <span className="px-label">RECORDS</span>
         </div>
-        <h1 className="font-mono font-bold text-[28px] text-tx tracking-tight mb-2">
+        <h1 className="font-mono font-bold text-[28px] text-tx tracking-tight mb-2 px-fade-in">
           发布记录
         </h1>
-        <p className="text-[12px] text-tx-dim mb-12">追踪所有平台的发布历史</p>
+        <p className="text-[12px] text-tx-dim mb-12 px-fade-in px-stagger-1" style={{ animationFillMode: 'both' }}>追踪所有平台的发布历史</p>
 
         {loading ? (
           <div className="space-y-2">
             {[1, 2, 3].map(i => (
-              <div key={i} className="px-card p-5 animate-pulse">
-                <div className="h-3 bg-px-surface w-1/3 mb-2" />
-                <div className="h-2 bg-px-surface w-1/4" />
+              <div key={i} className="px-card p-5">
+                <div className="h-3 px-shimmer w-1/3 mb-2" />
+                <div className="h-2 px-shimmer w-1/4" />
               </div>
             ))}
           </div>
         ) : records.length === 0 ? (
-          <div className="px-card border-dashed border-px-border p-16 text-center">
+          <div className="px-card border-dashed border-px-border p-16 text-center px-fade-in">
+            <Inbox size={24} className="mx-auto text-tx-faint mb-4 px-float" strokeWidth={1.5} />
             <p className="font-mono text-[11px] text-tx-mute mb-1">NO RECORDS YET</p>
             <p className="text-[11px] text-tx-faint">发布文章后，记录会显示在这里</p>
           </div>
         ) : (
           <div className="space-y-1">
-            {records.map((r) => {
+            {records.map((r, idx) => {
               const st = statusConfig[r.status] || { label: r.status, color: '#999999' };
               const color = platformColors[r.platform] || '#6b7280';
               return (
-                <div key={r.id} className="px-card p-5 flex items-center gap-4 group">
+                <div
+                  key={r.id}
+                  className="px-card p-5 flex items-center gap-4 group px-fade-in"
+                  style={{ animationDelay: `${idx * 0.05}s`, animationFillMode: 'both' }}
+                >
                   <div className="relative flex-shrink-0">
                     <div className="px-dot" style={{ backgroundColor: color, width: 8, height: 8 }} />
                     <div

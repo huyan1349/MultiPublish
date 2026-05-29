@@ -46,7 +46,7 @@ export default function PublishButton({ publishing: _externalPublishing, selecte
     <button
       onClick={onPublish}
       disabled={publishing || selectedCount === 0}
-      className={`w-full py-3 px-4 font-mono font-bold text-[11px] tracking-wide flex items-center justify-center gap-2 transition-all duration-150 active:scale-[0.98] disabled:opacity-30 disabled:cursor-not-allowed disabled:scale-100 ${variantClass}`}
+      className={`w-full py-3 px-4 font-mono font-bold text-[11px] tracking-wide flex items-center justify-center gap-2 transition-all duration-150 active:scale-[0.96] disabled:opacity-30 disabled:cursor-not-allowed disabled:active:scale-100 ${variantClass}`}
     >
       {publishing ? <Icon size={15} className="animate-spin" /> : <Icon size={15} />}
       {label}

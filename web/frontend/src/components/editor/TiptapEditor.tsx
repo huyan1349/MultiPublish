@@ -17,9 +17,9 @@ const ToolButton = ({ onClick, isActive, title, children }: {
     type="button"
     onClick={onClick}
     title={title}
-    className={`p-1.5 transition-colors duration-100 ${
+    className={`p-1.5 transition-all duration-100 active:scale-90 ${
       isActive
-        ? 'bg-tx text-white'
+        ? 'bg-tx text-white shadow-[0_1px_3px_rgba(0,0,0,0.15)]'
         : 'text-tx-dim hover:bg-px-surface hover:text-tx'
     }`}
   >

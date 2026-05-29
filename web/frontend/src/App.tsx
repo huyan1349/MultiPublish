@@ -5,6 +5,7 @@ import Editor from './pages/Editor';
 import Preview from './pages/Preview';
 import Records from './pages/Records';
 import Inspiration from './pages/Inspiration';
+import Settings from './pages/Settings';
 
 export default function App() {
   return (
@@ -15,6 +16,7 @@ export default function App() {
         <Route path="/inspiration" element={<Inspiration />} />
         <Route path="/contents/:id/preview" element={<Preview />} />
         <Route path="/records" element={<Records />} />
+        <Route path="/settings" element={<Settings />} />
       </Routes>
     </Layout>
   );

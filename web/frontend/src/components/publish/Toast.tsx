@@ -42,20 +42,27 @@ export default function ToastContainer() {
 
   return (
     <div className="fixed top-5 right-5 z-50 flex flex-col gap-2 pointer-events-none">
-      <AnimatePresence>
+      <AnimatePresence mode="popLayout">
         {toasts.map((toast) => {
           const Icon = iconMap[toast.type];
           return (
             <motion.div
               key={toast.id}
+              layout
               initial={{ opacity: 0, x: 40, scale: 0.96 }}
               animate={{ opacity: 1, x: 0, scale: 1 }}
-              exit={{ opacity: 0, x: 40, scale: 0.96 }}
-              transition={{ duration: 0.2 }}
+              exit={{ opacity: 0, x: 30, scale: 0.96 }}
+              transition={{ duration: 0.18, ease: [0.25, 0.1, 0.25, 1] }}
               className="pointer-events-auto flex items-start gap-3 p-4 bg-white border min-w-[300px] shadow-[0_2px_12px_rgba(0,0,0,0.08)]"
               style={{ borderLeftWidth: 3, borderLeftColor: borderColor[toast.type], borderColor: '#E2E2E0' }}
             >
-              <Icon size={16} style={{ color: iconColor[toast.type] }} />
+              <motion.div
+                initial={{ scale: 0.5, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ delay: 0.05, duration: 0.2 }}
+              >
+                <Icon size={16} style={{ color: iconColor[toast.type] }} />
+              </motion.div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-tx">{toast.title}</p>
                 <p className="text-[11px] text-tx-dim mt-0.5">{toast.message}</p>
