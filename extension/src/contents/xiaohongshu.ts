@@ -291,41 +291,22 @@ async function clickPublish(): Promise<boolean> {
 }
 
 function clickPublishViaMainWorld(): boolean {
-  const script = document.createElement('script');
-  script.textContent = [
-    '(function(){',
-    '  var found=false;',
-    '  var allEls=document.querySelectorAll("*");',
-    '  for(var i=0;i<allEls.length;i++){',
-    '    var el=allEls[i];',
-    '    if(el.__shadowRoot__){',
-    '      var btns=el.__shadowRoot__.querySelectorAll("button, [role=button]");',
-    '      for(var j=0;j<btns.length;j++){',
-    '        var text=btns[j].textContent.replace(/\\s+/g," ").trim();',
-    '        if(text==="发布"||text==="立即发布"){',
-    '          var rect=btns[j].getBoundingClientRect();',
-    '          if(rect.width>0&&rect.height>0){',
-    '            btns[j].scrollIntoView({block:"center"});',
-    '            btns[j].dispatchEvent(new MouseEvent("mouseover",{bubbles:true}));',
-    '            btns[j].dispatchEvent(new MouseEvent("mousedown",{bubbles:true,cancelable:true}));',
-    '            btns[j].dispatchEvent(new MouseEvent("mouseup",{bubbles:true,cancelable:true}));',
-    '            btns[j].click();',
-    '            found=true;break;',
-    '          }',
-    '        }',
-    '      }',
-    '    }',
-    '    if(found)break;',
-    '  }',
-    '  document.documentElement.setAttribute("data-xhs-publish-clicked",found?"1":"0");',
-    '})();',
-  ].join('\n');
-  document.documentElement.appendChild(script);
-  script.remove();
+  document.documentElement.removeAttribute('data-xhs-publish-result');
+  document.documentElement.setAttribute('data-xhs-click-publish', '1');
 
-  const result = document.documentElement.getAttribute('data-xhs-publish-clicked');
-  document.documentElement.removeAttribute('data-xhs-publish-clicked');
-  return result === '1';
+  const deadline = Date.now() + 5000;
+  while (Date.now() < deadline) {
+    const result = document.documentElement.getAttribute('data-xhs-publish-result');
+    if (result) {
+      document.documentElement.removeAttribute('data-xhs-publish-result');
+      return result === 'clicked';
+    }
+    const start = Date.now();
+    while (Date.now() - start < 200) {}
+  }
+
+  document.documentElement.removeAttribute('data-xhs-click-publish');
+  return false;
 }
 
 async function findPublishButton(timeout: number): Promise<HTMLElement | null> {
