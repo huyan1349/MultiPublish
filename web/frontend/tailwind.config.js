@@ -3,24 +3,23 @@ export default {
   theme: {
     extend: {
       colors: {
-        brand: {
-          DEFAULT: '#4F46E5',
-          light: '#EEF2FF',
-          hover: '#4338CA',
+        px: {
+          bg: '#0A0A0A',
+          surface: '#111111',
+          card: '#161616',
+          hover: '#1C1C1C',
+          border: '#252525',
+          'border-subtle': '#1A1A1A',
         },
-        surface: {
-          DEFAULT: '#F8F9FC',
-          card: '#FFFFFF',
-          hover: '#F1F3F9',
+        tx: {
+          DEFAULT: '#E8E8E8',
+          dim: '#888888',
+          mute: '#555555',
+          faint: '#333333',
         },
-        ink: {
-          DEFAULT: '#13141A',
-          secondary: '#5B5E6B',
-          muted: '#9498A4',
-        },
-        border: {
-          DEFAULT: '#E8EAEF',
-          light: '#F2F3F6',
+        dot: {
+          red: '#FF3B30',
+          'red-dim': '#FF3B3018',
         },
         wechat: '#07C160',
         zhihu: '#0066FF',
@@ -28,13 +27,16 @@ export default {
         xiaohongshu: '#FF2442',
       },
       fontFamily: {
-        sans: ['"Inter"', 'system-ui', '-apple-system', 'sans-serif'],
-        mono: ['"JetBrains Mono"', '"SF Mono"', 'monospace'],
+        mono: ['"Space Mono"', 'monospace'],
+        sans: ['"Manrope"', 'system-ui', 'sans-serif'],
       },
-      boxShadow: {
-        card: '0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.06)',
-        'card-hover': '0 4px 12px rgba(0,0,0,0.06), 0 2px 4px rgba(0,0,0,0.04)',
-        popover: '0 8px 32px rgba(0,0,0,0.08), 0 2px 8px rgba(0,0,0,0.04)',
+      borderRadius: {
+        none: '0px',
+        sm: '2px',
+      },
+      letterSpacing: {
+        pixel: '0.15em',
+        wide: '0.08em',
       },
     },
   },

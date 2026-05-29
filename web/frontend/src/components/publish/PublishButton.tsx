@@ -4,12 +4,13 @@ import type { PlatformType } from '../../adapters/types';
 type Status = 'idle' | 'publishing' | 'success' | 'failed';
 
 interface PublishButtonProps {
+  publishing?: boolean;
   selectedCount: number;
   platformStatuses: Map<PlatformType, Status>;
   onPublish: () => void;
 }
 
-export default function PublishButton({ selectedCount, platformStatuses, onPublish }: PublishButtonProps) {
+export default function PublishButton({ publishing: _externalPublishing, selectedCount, platformStatuses, onPublish }: PublishButtonProps) {
   const statuses = Array.from(platformStatuses.values());
   const publishing = statuses.some((s) => s === 'publishing');
   const allDone = statuses.length > 0 && statuses.every((s) => s === 'success' || s === 'failed');
@@ -35,10 +36,10 @@ export default function PublishButton({ selectedCount, platformStatuses, onPubli
     }
   }
 
-  const baseClass = 'w-full py-3 px-4 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed disabled:scale-100';
+  const baseClass = 'w-full py-3 px-4 rounded-lg font-display font-600 text-sm flex items-center justify-center gap-2 transition-all duration-150 active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed disabled:scale-100';
 
   const variantClass = variant === 'primary'
-    ? 'bg-brand text-white hover:bg-brand-hover'
+    ? 'bg-accent text-white hover:bg-accent-hover'
     : variant === 'success'
       ? 'bg-emerald-500 text-white'
       : 'bg-red-500 text-white';
@@ -49,10 +50,10 @@ export default function PublishButton({ selectedCount, platformStatuses, onPubli
       disabled={publishing || selectedCount === 0}
       className={`${baseClass} ${variantClass}`}
     >
-      {publishing ? <Icon size={18} className="animate-spin" /> : <Icon size={18} />}
+      {publishing ? <Icon size={17} className="animate-spin" /> : <Icon size={17} />}
       {label}
       {!publishing && !allDone && selectedCount > 0 && (
-        <span className="opacity-60 text-xs">({selectedCount})</span>
+        <span className="opacity-50 text-xs font-mono">({selectedCount})</span>
       )}
     </button>
   );

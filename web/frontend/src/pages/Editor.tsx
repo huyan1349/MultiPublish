@@ -1,7 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Sparkles, AlertCircle, Save, ArrowLeft } from 'lucide-react';
-import { motion } from 'framer-motion';
 import { useContentStore } from '../stores/contentStore';
 import TiptapEditor from '../components/editor/TiptapEditor';
 import PlatformCard from '../components/publish/PlatformCard';
@@ -89,39 +88,36 @@ export default function Editor() {
     <div className="h-full flex flex-col">
       <ToastContainer />
 
-      {/* Top Bar */}
-      <header className="flex items-center justify-between px-6 py-3 border-b border-border bg-white/80 backdrop-blur-sm shrink-0">
+      <header className="flex items-center justify-between px-6 py-3 border-b border-border bg-white/90 backdrop-blur-sm shrink-0">
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate('/')} className="text-ink-muted hover:text-ink transition-colors">
-            <ArrowLeft size={18} />
+          <button onClick={() => navigate('/')} className="text-ink-muted hover:text-ink transition-colors p-1">
+            <ArrowLeft size={17} strokeWidth={1.5} />
           </button>
-          <span className="font-semibold text-ink text-sm">编辑器</span>
+          <span className="font-display font-600 text-ink text-sm">编辑器</span>
         </div>
         <div className="flex items-center gap-2">
           {!isExtensionAvailable() && (
-            <span className="flex items-center gap-1.5 text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded-lg">
-              <AlertCircle size={13} /> 未连接扩展
+            <span className="flex items-center gap-1.5 text-[11px] text-amber-600 bg-amber-50 px-2.5 py-1 rounded-md border border-amber-200/60">
+              <AlertCircle size={12} /> 未连接扩展
             </span>
           )}
           <button onClick={loadDemo} className="btn-ghost text-xs">
-            <Sparkles size={14} /> Demo
+            <Sparkles size={13} /> Demo
           </button>
           <button onClick={handleSaveToBackend} disabled={saving} className="btn-primary text-xs">
-            <Save size={14} /> {saving ? '保存中…' : '保存并预览'}
+            <Save size={13} /> {saving ? '保存中…' : '保存并预览'}
           </button>
         </div>
       </header>
 
-      {/* Three columns */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Left: Editor */}
         <div className="flex-[5] flex flex-col min-w-0 border-r border-border">
-          <div className="px-6 pt-5 pb-3 space-y-3">
+          <div className="px-8 pt-6 pb-3 space-y-3">
             <input
               type="text" value={draft.title}
               onChange={e => { setDraft({ title: e.target.value }); setError(''); }}
               placeholder="输入文章标题…"
-              className="w-full bg-transparent text-2xl font-semibold text-ink placeholder:text-ink-muted outline-none"
+              className="w-full bg-transparent text-[22px] font-display font-700 text-ink placeholder:text-ink-faint outline-none tracking-tight"
             />
             <div className="flex gap-3">
               <input type="text" value={draft.tags} onChange={e => setDraft({ tags: e.target.value })}
@@ -130,21 +126,20 @@ export default function Editor() {
                 placeholder="封面图 URL（可选）" className="input flex-1" />
             </div>
           </div>
-          <div className="flex-1 overflow-y-auto px-6 pb-6">
+          <div className="flex-1 overflow-y-auto px-8 pb-8">
             <TiptapEditor content={draft.htmlContent}
               placeholder="输入正文内容…支持 Markdown 快捷输入：输入 # 加空格创建标题、**加粗**、- 列表…"
               onChange={handleEditorChange} />
           </div>
         </div>
 
-        {/* Right: Platform Panel */}
         <div className="flex-[2] flex flex-col min-w-[300px] max-w-[380px]">
-          <div className="px-4 pt-5 pb-3">
-            <h2 className="font-semibold text-ink text-sm mb-0.5">目标平台</h2>
-            <p className="text-xs text-ink-muted">选择发布平台，实时预览适配效果</p>
+          <div className="px-5 pt-6 pb-3">
+            <h2 className="font-display font-600 text-ink text-sm mb-0.5">目标平台</h2>
+            <p className="text-[11px] text-ink-muted">选择发布平台，实时预览适配效果</p>
           </div>
 
-          <div className="flex-1 overflow-y-auto px-4 space-y-2.5 pb-4">
+          <div className="flex-1 overflow-y-auto px-5 space-y-2 pb-4">
             {allPlatforms.map(platform => {
               const state = platformStates.get(platform);
               if (!state) return null;
@@ -172,14 +167,14 @@ export default function Editor() {
           </div>
 
           {error && (
-            <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="px-4 pb-2">
-              <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-600 text-xs flex items-center gap-2">
-                <AlertCircle size={14} /> {error}
+            <div className="px-5 pb-2 animate-fade-in">
+              <div className="p-3 rounded-lg bg-red-50 border border-red-200/60 text-red-600 text-xs flex items-center gap-2">
+                <AlertCircle size={13} /> {error}
               </div>
-            </motion.div>
+            </div>
           )}
 
-          <div className="px-4 py-4 border-t border-border">
+          <div className="px-5 py-4 border-t border-border">
             <PublishButton
               publishing={publishing}
               selectedCount={Array.from(selectedPlatforms).length}
