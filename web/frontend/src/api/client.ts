@@ -29,6 +29,9 @@ export const api = {
   updateContent(id: string, data: Record<string, unknown>) {
     return request(`/contents/${id}`, { method: 'PUT', body: JSON.stringify(data) });
   },
+  deleteContent(id: string) {
+    return request(`/contents/${id}`, { method: 'DELETE' });
+  },
 
   // Adaptation
   adaptContent(id: string, platforms: string[]) {
@@ -37,27 +40,42 @@ export const api = {
     });
   },
   getOutputs(id: string) {
-    return request<Array<{ id: string; platform: string; platformName: string; title: string; summary?: string; body: string; tags: string[]; coverImage?: string; extra?: Record<string, unknown>; validationMessages: Array<{ level: string; field: string; message: string }>; status: string }>>(`/contents/${id}/outputs`);
+    return request<Array<{
+      id: string; platform: string; platformName: string;
+      title: string; summary?: string; body: string; tags: string[];
+      coverImage?: string; extra?: Record<string, unknown>;
+      validationMessages: Array<{ level: string; field: string; message: string }>;
+      status: string;
+    }>>(`/contents/${id}/outputs`);
   },
   updateOutput(id: string, data: { title?: string; body?: string; tags?: string[]; summary?: string }) {
     return request(`/platform-outputs/${id}`, { method: 'PUT', body: JSON.stringify(data) });
   },
 
   // Publishing
-  publish(outputId: string) {
+  publishMock(outputId: string) {
     return request<{ platform: string; platformName: string; status: string; message: string; mockUrl?: string }>('/publish', {
       method: 'POST', body: JSON.stringify({ outputId }),
     });
   },
-  batchPublish(outputIds: string[]) {
+  batchPublishMock(outputIds: string[]) {
     return request<Array<{ platform: string; platformName: string; status: string; mockUrl?: string }>>('/publish/batch', {
       method: 'POST', body: JSON.stringify({ outputIds }),
     });
   },
-  getPublishRecords() {
-    return request<Array<{ id: string; contentId: string; platform: string; platformName: string; status: string; message: string; mockUrl?: string; publishedAt: string }>>('/publish-records');
+  getPublishRecords(contentId?: string) {
+    const qs = contentId ? `?contentId=${contentId}` : '';
+    return request<Array<{
+      id: string; contentId: string; platform: string; platformName: string;
+      status: string; message: string; mockUrl?: string; publishedAt: string;
+    }>>(`/publish-records${qs}`);
   },
   getPlatforms() {
     return request<Array<{ id: string; name: string; color: string }>>('/platforms');
+  },
+
+  // Health
+  health() {
+    return request<{ status: string }>('/health').catch(() => ({ status: 'error' }));
   },
 };

@@ -2,11 +2,9 @@ import { create } from 'zustand';
 
 interface ContentDraft {
   title: string;
-  rawMarkdown: string;
   htmlContent: string;
   tags: string;
   coverImage: string;
-  summary: string;
 }
 
 interface ContentState {
@@ -23,7 +21,7 @@ const DEMO_HTML = `<h2>多平台内容发布工具</h2>
 <ul>
   <li><p>统一编辑：在一个界面输入标题、正文和标签</p></li>
   <li><p>智能适配：自动转换为各平台最佳排版</p></li>
-  <li><p>一键发布：模拟发布到多个平台</p></li>
+  <li><p>一键发布：通过 Chrome 扩展真实发布到多个平台</p></li>
   <li><p>发布记录：追踪所有历史发布</p></li>
 </ul>
 <h3>架构设计</h3>
@@ -31,16 +29,15 @@ const DEMO_HTML = `<h2>多平台内容发布工具</h2>
 <blockquote><p>一次创作，多端适配。让内容在不同平台中保持一致表达，同时适配各自的平台生态。</p></blockquote>`;
 
 export const useContentStore = create<ContentState>((set) => ({
-  draft: { title: '', rawMarkdown: '', htmlContent: '', tags: '', coverImage: '', summary: '' },
+  draft: { title: '', htmlContent: '', tags: '', coverImage: '' },
   setDraft: (partial) => set((s) => ({ draft: { ...s.draft, ...partial } })),
-  resetDraft: () => set({ draft: { title: '', rawMarkdown: '', htmlContent: '', tags: '', coverImage: '', summary: '' } }),
-  loadDemo: () => set({ draft: { ...DEMO_CONTENT, htmlContent: DEMO_HTML } }),
+  resetDraft: () => set({ draft: { title: '', htmlContent: '', tags: '', coverImage: '' } }),
+  loadDemo: () => set({
+    draft: {
+      title: '我做了一个多平台内容发布工具',
+      htmlContent: DEMO_HTML,
+      tags: '内容创作, 效率工具, 自媒体, 多平台',
+      coverImage: '',
+    },
+  }),
 }));
-
-const DEMO_CONTENT = {
-  title: '我做了一个多平台内容发布工具',
-  summary: '一个帮助创作者提升多平台发布效率的工具',
-  rawMarkdown: DEMO_HTML,
-  tags: '内容创作,效率工具,自媒体,多平台',
-  coverImage: '',
-};

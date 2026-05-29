@@ -1,7 +1,7 @@
 {
   "name": "contentbridge-extension",
   "displayName": "ContentBridge — 多平台内容发布",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "一次创作，多端适配。自动发布到公众号、知乎、B站、小红书",
   "author": "xyh202131",
   "scripts": {
@@ -45,6 +45,10 @@
       "scripting",
       "alarms",
       "clipboardWrite"
-    ]
+    ],
+    "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA+KIwRBjzViSrveW+zPsJ6kIeEuWy140g1f2MNpjL9u2ASnD/hzq7hWsawPa3UnZZpkT7p3ijpMbtK6rJUY8m7wLou9ZHB1qvouVbsjYm4g9LNGGyCnTdNjBLDTLNeDNEkS3WmbHE/avpAmbdDlOGDRcxhs9ie/KSEmYiT5Ezsn4jH6uYGNHotr7mN7HEFBVyL6TM2duCGqMgb2+QiQT60qVLgfi44KqvzWkUnT8Pvgsu+TyPrc7UmtrRrMVK92F81mshwkcfWiJGYmRjAuwOFqPrf3KOEni058qraLzrqS9IKzuwCprp3jJ7xIOjZOOekt0ZctgP6/xiiyzh3fagmwIDAQAB",
+    "externally_connectable": {
+      "matches": ["http://localhost:5173/*"]
+    }
   }
 }

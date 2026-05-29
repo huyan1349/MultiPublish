@@ -26,6 +26,15 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
 });
 
+chrome.runtime.onMessageExternal.addListener((message, _sender, sendResponse) => {
+  if (message.type === 'PUBLISH_TO_PLATFORM') {
+    handlePublish(message.payload as PublishPayload)
+      .then(sendResponse)
+      .catch((err) => sendResponse({ status: 'failed', message: err.message }));
+    return true;
+  }
+});
+
 async function handlePublish(payload: PublishPayload): Promise<PublishResult> {
   const { platform, platformName, content } = payload;
   const url = PLATFORM_URLS[platform];

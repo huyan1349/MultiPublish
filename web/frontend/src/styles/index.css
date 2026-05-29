@@ -1,45 +1,91 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
+  * { box-sizing: border-box; }
   body {
-    @apply antialiased;
+    @apply antialiased bg-surface text-ink font-sans;
+    margin: 0;
   }
 }
 
 @layer components {
+  .btn {
+    @apply inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm
+           transition-all duration-200 cursor-pointer select-none
+           active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed disabled:scale-100;
+  }
   .btn-primary {
-    @apply bg-accent text-white px-5 py-2.5 rounded-lg font-medium
-           hover:bg-accent-hover active:scale-[0.98]
-           transition-all duration-200 ease-out;
-    box-shadow: 0 0 0 0 transparent;
+    @apply btn bg-brand text-white;
   }
-  .btn-primary:focus {
-    outline: none;
-    box-shadow: 0 0 0 3px rgba(59, 76, 202, 0.4);
+  .btn-primary:hover:not(:disabled) {
+    @apply bg-brand-hover;
+    box-shadow: 0 0 0 4px rgba(79,70,229,0.12);
   }
-
   .btn-secondary {
-    @apply text-ink px-5 py-2.5 rounded-lg font-medium
-           hover:bg-black/5 active:scale-[0.98]
-           transition-all duration-200 ease-out;
-    border: 1px solid rgba(26, 26, 27, 0.12);
+    @apply btn bg-white text-ink-secondary border border-border;
+  }
+  .btn-secondary:hover:not(:disabled) {
+    @apply bg-surface-hover text-ink border-border;
+  }
+  .btn-ghost {
+    @apply btn text-ink-muted;
+  }
+  .btn-ghost:hover:not(:disabled) {
+    @apply bg-surface-hover text-ink-secondary;
   }
 
   .card {
-    @apply bg-white rounded-2xl;
-    border: 1px solid rgba(26, 26, 27, 0.06);
-    box-shadow: 0 2px 16px rgba(0, 0, 0, 0.04);
+    @apply bg-white rounded-2xl border border-border shadow-card;
+  }
+  .card-hover {
+    @apply card transition-all duration-200;
+  }
+  .card-hover:hover {
+    @apply shadow-card-hover border-transparent;
   }
 
-  .platform-tab {
-    @apply px-4 py-2.5 text-sm font-medium rounded-lg
-           transition-all duration-200 ease-out cursor-pointer;
-    border: 1px solid transparent;
-  }
-
-  .platform-tab-active {
-    border-color: currentColor;
+  .input {
+    @apply w-full px-3.5 py-2.5 rounded-xl text-sm bg-white border border-border
+           text-ink placeholder:text-ink-muted
+           focus:outline-none focus:border-brand focus:ring-4 focus:ring-brand/10
+           transition-all duration-200;
   }
 }
+
+/* Tiptap dark removed — clean light editor */
+.ProseMirror {
+  @apply text-ink leading-relaxed;
+  min-height: 320px;
+  padding: 16px;
+  outline: none;
+  font-size: 15px;
+}
+.ProseMirror p { @apply my-1.5; }
+.ProseMirror h2 { @apply text-xl font-semibold mt-6 mb-3 text-ink; }
+.ProseMirror h3 { @apply text-lg font-semibold mt-4 mb-2 text-ink; }
+.ProseMirror blockquote {
+  @apply border-l-2 border-brand/30 pl-4 my-3 text-ink-secondary italic;
+}
+.ProseMirror ul { @apply list-disc pl-6 my-2; }
+.ProseMirror ol { @apply list-decimal pl-6 my-2; }
+.ProseMirror li { @apply my-0.5; }
+.ProseMirror code {
+  @apply bg-brand-light text-brand px-1.5 py-0.5 rounded text-sm font-mono;
+}
+.ProseMirror pre {
+  @apply bg-surface rounded-lg p-4 my-3 overflow-x-auto border border-border;
+}
+.ProseMirror pre code { @apply bg-transparent text-ink p-0; }
+.ProseMirror a { @apply text-brand underline; }
+.ProseMirror p.is-editor-empty:first-child::before {
+  @apply text-ink-muted;
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+.ProseMirror img { @apply rounded-lg max-w-full; }
