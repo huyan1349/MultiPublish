@@ -268,12 +268,10 @@ async function clickNextStep(): Promise<boolean> {
 async function clickPublish(): Promise<boolean> {
   await sleep(3000);
 
-  const publishBtn = await findPublishButton(PUBLISH_TIMEOUT);
-  if (publishBtn) {
-    clickElement(publishBtn);
-  } else {
-    const clicked = clickPublishViaPosition();
-    if (!clicked) return false;
+  const clicked = clickPublishViaMainWorld();
+  if (!clicked) {
+    const posClicked = clickPublishViaPosition();
+    if (!posClicked) return false;
   }
 
   await sleep(3000);
@@ -290,6 +288,44 @@ async function clickPublish(): Promise<boolean> {
   }
 
   return hasPublishSuccessSignal();
+}
+
+function clickPublishViaMainWorld(): boolean {
+  const script = document.createElement('script');
+  script.textContent = [
+    '(function(){',
+    '  var found=false;',
+    '  var allEls=document.querySelectorAll("*");',
+    '  for(var i=0;i<allEls.length;i++){',
+    '    var el=allEls[i];',
+    '    if(el.__shadowRoot__){',
+    '      var btns=el.__shadowRoot__.querySelectorAll("button, [role=button]");',
+    '      for(var j=0;j<btns.length;j++){',
+    '        var text=btns[j].textContent.replace(/\\s+/g," ").trim();',
+    '        if(text==="发布"||text==="立即发布"){',
+    '          var rect=btns[j].getBoundingClientRect();',
+    '          if(rect.width>0&&rect.height>0){',
+    '            btns[j].scrollIntoView({block:"center"});',
+    '            btns[j].dispatchEvent(new MouseEvent("mouseover",{bubbles:true}));',
+    '            btns[j].dispatchEvent(new MouseEvent("mousedown",{bubbles:true,cancelable:true}));',
+    '            btns[j].dispatchEvent(new MouseEvent("mouseup",{bubbles:true,cancelable:true}));',
+    '            btns[j].click();',
+    '            found=true;break;',
+    '          }',
+    '        }',
+    '      }',
+    '    }',
+    '    if(found)break;',
+    '  }',
+    '  document.documentElement.setAttribute("data-xhs-publish-clicked",found?"1":"0");',
+    '})();',
+  ].join('\n');
+  document.documentElement.appendChild(script);
+  script.remove();
+
+  const result = document.documentElement.getAttribute('data-xhs-publish-clicked');
+  document.documentElement.removeAttribute('data-xhs-publish-clicked');
+  return result === '1';
 }
 
 async function findPublishButton(timeout: number): Promise<HTMLElement | null> {
@@ -323,20 +359,11 @@ async function findPublishButton(timeout: number): Promise<HTMLElement | null> {
 }
 
 function clickPublishViaPosition(): boolean {
-  const xhsBtn = document.querySelector('xhs-publish-btn');
-  if (xhsBtn) {
-    const rect = xhsBtn.getBoundingClientRect();
-    if (rect.width > 0 && rect.height > 0) {
-      xhsBtn.click();
-      return true;
-    }
-  }
-
   const customEls = Array.from(document.querySelectorAll('*'))
     .filter((el) => el.tagName.includes('-'))
     .filter((el) => {
       const r = el.getBoundingClientRect();
-      return r.width > 0 && r.height > 0 && r.right > window.innerWidth * 0.6 && r.bottom > window.innerHeight * 0.7;
+      return r.width > 0 && r.height > 0 && r.right > window.innerWidth * 0.5 && r.bottom > window.innerHeight * 0.6;
     });
 
   if (customEls.length > 0) {
@@ -345,19 +372,37 @@ function clickPublishViaPosition(): boolean {
       const rb = b.getBoundingClientRect();
       return (rb.bottom + rb.right) - (ra.bottom + ra.right);
     });
-    customEls[0].click();
+    const target = customEls[0];
+    const rect = target.getBoundingClientRect();
+    dispatchCoordinateClick(rect.left + rect.width / 2, rect.top + rect.height / 2);
     return true;
   }
 
-  const x = window.innerWidth - 60;
-  const y = window.innerHeight - 35;
-  const el = document.elementFromPoint(x, y);
-  if (el && el !== document.documentElement && el !== document.body) {
-    (el as HTMLElement).click();
-    return true;
+  const positions = [
+    { x: window.innerWidth - 80, y: window.innerHeight - 50 },
+    { x: window.innerWidth - 60, y: window.innerHeight - 35 },
+    { x: window.innerWidth - 100, y: window.innerHeight - 60 },
+    { x: window.innerWidth - 120, y: window.innerHeight - 40 },
+    { x: window.innerWidth - 50, y: window.innerHeight - 70 },
+  ];
+
+  for (const pos of positions) {
+    const el = document.elementFromPoint(pos.x, pos.y);
+    if (el && el !== document.documentElement && el !== document.body) {
+      dispatchCoordinateClick(pos.x, pos.y);
+      return true;
+    }
   }
 
   return false;
+}
+
+function dispatchCoordinateClick(x: number, y: number) {
+  const opts = { bubbles: true, cancelable: true, clientX: x, clientY: y };
+  document.dispatchEvent(new MouseEvent('mouseover', opts));
+  document.dispatchEvent(new MouseEvent('mousedown', opts));
+  document.dispatchEvent(new MouseEvent('mouseup', opts));
+  document.dispatchEvent(new MouseEvent('click', opts));
 }
 
 function findConfirmButton(): HTMLElement | null {
