@@ -48,7 +48,7 @@
     ],
     "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA+KIwRBjzViSrveW+zPsJ6kIeEuWy140g1f2MNpjL9u2ASnD/hzq7hWsawPa3UnZZpkT7p3ijpMbtK6rJUY8m7wLou9ZHB1qvouVbsjYm4g9LNGGyCnTdNjBLDTLNeDNEkS3WmbHE/avpAmbdDlOGDRcxhs9ie/KSEmYiT5Ezsn4jH6uYGNHotr7mN7HEFBVyL6TM2duCGqMgb2+QiQT60qVLgfi44KqvzWkUnT8Pvgsu+TyPrc7UmtrRrMVK92F81mshwkcfWiJGYmRjAuwOFqPrf3KOEni058qraLzrqS9IKzuwCprp3jJ7xIOjZOOekt0ZctgP6/xiiyzh3fagmwIDAQAB",
     "externally_connectable": {
-      "matches": ["http://localhost:5173/*"]
+      "matches": ["http://localhost:5173/*", "http://localhost:5174/*", "http://localhost:5175/*"]
     }
   }
 }
