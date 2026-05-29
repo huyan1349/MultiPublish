@@ -1,45 +1,161 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
+  * { box-sizing: border-box; }
   body {
-    @apply antialiased;
+    @apply antialiased bg-surface text-slate-100 font-body;
+    margin: 0;
   }
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
 }
 
 @layer components {
+  /* Glass card */
+  .glass-card {
+    @apply rounded-2xl;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+  }
+  .glass-card:hover {
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+
+  /* Glass card with glow on hover */
+  .glass-card-glow {
+    @apply glass-card transition-all duration-300;
+  }
+  .glass-card-glow:hover {
+    box-shadow: 0 0 24px rgba(59, 130, 246, 0.1), 0 8px 32px rgba(0, 0, 0, 0.3);
+    transform: translateY(-1px);
+  }
+
+  /* Primary button */
   .btn-primary {
-    @apply bg-accent text-white px-5 py-2.5 rounded-lg font-medium
-           hover:bg-accent-hover active:scale-[0.98]
-           transition-all duration-200 ease-out;
-    box-shadow: 0 0 0 0 transparent;
+    @apply relative px-5 py-2.5 rounded-xl font-medium text-white text-sm
+           transition-all duration-300 ease-out
+           active:scale-[0.98];
+    background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
   }
-  .btn-primary:focus {
-    outline: none;
-    box-shadow: 0 0 0 3px rgba(59, 76, 202, 0.4);
+  .btn-primary:hover {
+    box-shadow: 0 0 24px rgba(59, 130, 246, 0.35);
+    transform: translateY(-1px);
+  }
+  .btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
   }
 
+  /* Secondary button */
   .btn-secondary {
-    @apply text-ink px-5 py-2.5 rounded-lg font-medium
-           hover:bg-black/5 active:scale-[0.98]
-           transition-all duration-200 ease-out;
-    border: 1px solid rgba(26, 26, 27, 0.12);
+    @apply px-5 py-2.5 rounded-xl font-medium text-sm
+           transition-all duration-300 ease-out
+           active:scale-[0.98];
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: #94a3b8;
+  }
+  .btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #e2e8f0;
+    border-color: rgba(255, 255, 255, 0.15);
   }
 
-  .card {
-    @apply bg-white rounded-2xl;
-    border: 1px solid rgba(26, 26, 27, 0.06);
-    box-shadow: 0 2px 16px rgba(0, 0, 0, 0.04);
+  /* Input */
+  .input-dark {
+    @apply w-full px-4 py-2.5 rounded-xl text-sm transition-all duration-200;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: #e2e8f0;
+  }
+  .input-dark::placeholder { color: #64748b; }
+  .input-dark:focus {
+    outline: none;
+    border-color: rgba(59, 130, 246, 0.5);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
   }
 
-  .platform-tab {
-    @apply px-4 py-2.5 text-sm font-medium rounded-lg
-           transition-all duration-200 ease-out cursor-pointer;
-    border: 1px solid transparent;
+  /* Platform indicator */
+  .platform-dot {
+    @apply w-2 h-2 rounded-full;
   }
 
-  .platform-tab-active {
-    border-color: currentColor;
+  /* Status badge */
+  .status-badge {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium;
+  }
+  .status-badge-success {
+    background: rgba(16, 185, 129, 0.15);
+    color: #34d399;
+    border: 1px solid rgba(16, 185, 129, 0.2);
+  }
+  .status-badge-error {
+    background: rgba(239, 68, 68, 0.15);
+    color: #f87171;
+    border: 1px solid rgba(239, 68, 68, 0.2);
+  }
+  .status-badge-warning {
+    background: rgba(245, 158, 11, 0.15);
+    color: #fbbf24;
+    border: 1px solid rgba(245, 158, 11, 0.2);
+  }
+  .status-badge-pending {
+    background: rgba(59, 130, 246, 0.15);
+    color: #60a5fa;
+    border: 1px solid rgba(59, 130, 246, 0.2);
+  }
+
+  /* Shimmer loading */
+  .shimmer {
+    background: linear-gradient(90deg,
+      rgba(255,255,255,0.03) 0%,
+      rgba(255,255,255,0.06) 50%,
+      rgba(255,255,255,0.03) 100%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 2s infinite;
   }
 }
+
+/* Tiptap dark theme overrides */
+.ProseMirror {
+  @apply text-slate-200 leading-relaxed;
+  min-height: 320px;
+  padding: 16px;
+  outline: none;
+}
+.ProseMirror p { @apply my-1.5; }
+.ProseMirror h2 { @apply text-xl font-semibold mt-6 mb-3 text-white; }
+.ProseMirror h3 { @apply text-lg font-semibold mt-4 mb-2 text-slate-100; }
+.ProseMirror blockquote {
+  @apply border-l-2 border-blue-500/40 pl-4 my-3 text-slate-400 italic;
+}
+.ProseMirror ul { @apply list-disc pl-6 my-2; }
+.ProseMirror ol { @apply list-decimal pl-6 my-2; }
+.ProseMirror li { @apply my-0.5; }
+.ProseMirror code {
+  @apply bg-white/10 text-pink-300 px-1.5 py-0.5 rounded text-sm font-mono;
+}
+.ProseMirror pre {
+  @apply bg-white/5 rounded-lg p-4 my-3 overflow-x-auto;
+}
+.ProseMirror pre code { @apply bg-transparent text-slate-300 p-0; }
+.ProseMirror a { @apply text-blue-400 underline; }
+.ProseMirror p.is-editor-empty:first-child::before {
+  @apply text-slate-500;
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+.ProseMirror img { @apply rounded-lg max-w-full; }
