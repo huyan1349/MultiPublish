@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { X, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { X, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react';
 
-export interface ToastData {
+interface ToastData {
   id: number;
   type: 'success' | 'error' | 'warning';
   title: string;
@@ -16,11 +16,16 @@ export function showToast(type: ToastData['type'], title: string, message: strin
   addToastFn?.({ type, title, message });
 }
 
-const iconMap = { success: CheckCircle, error: XCircle, warning: AlertTriangle };
-const colorMap = {
-  success: 'border-emerald-500/30 bg-emerald-500/10',
-  error: 'border-red-500/30 bg-red-500/10',
-  warning: 'border-amber-500/30 bg-amber-500/10',
+const iconMap = { success: CheckCircle2, error: XCircle, warning: AlertTriangle };
+const styleMap = {
+  success: 'border-emerald-200 bg-emerald-50',
+  error: 'border-red-200 bg-red-50',
+  warning: 'border-amber-200 bg-amber-50',
+};
+const iconColor = {
+  success: 'text-emerald-500',
+  error: 'text-red-500',
+  warning: 'text-amber-500',
 };
 
 export default function ToastContainer() {
@@ -30,9 +35,7 @@ export default function ToastContainer() {
     addToastFn = (t) => {
       const id = ++toastId;
       setToasts((prev) => [...prev, { ...t, id }]);
-      setTimeout(() => {
-        setToasts((prev) => prev.filter((toast) => toast.id !== id));
-      }, 4000);
+      setTimeout(() => setToasts((prev) => prev.filter((x) => x.id !== id)), 4000);
     };
     return () => { addToastFn = null; };
   }, []);
@@ -45,24 +48,17 @@ export default function ToastContainer() {
           return (
             <motion.div
               key={toast.id}
-              initial={{ opacity: 0, x: 80, scale: 0.95 }}
+              initial={{ opacity: 0, x: 48, scale: 0.95 }}
               animate={{ opacity: 1, x: 0, scale: 1 }}
-              exit={{ opacity: 0, x: 80, scale: 0.95 }}
-              className={`pointer-events-auto flex items-start gap-3 p-4 rounded-xl border backdrop-blur-xl ${colorMap[toast.type]} min-w-[320px]`}
-              style={{ background: 'rgba(15, 23, 42, 0.9)' }}
+              exit={{ opacity: 0, x: 48, scale: 0.95 }}
+              className={`pointer-events-auto flex items-start gap-3 p-4 rounded-xl border shadow-popover min-w-[320px] ${styleMap[toast.type]}`}
             >
-              <Icon size={18} className={
-                toast.type === 'success' ? 'text-emerald-400' :
-                toast.type === 'error' ? 'text-red-400' : 'text-amber-400'
-              } />
+              <Icon size={18} className={iconColor[toast.type]} />
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-slate-100">{toast.title}</p>
-                <p className="text-xs text-slate-400 mt-0.5">{toast.message}</p>
+                <p className="text-sm font-medium text-ink">{toast.title}</p>
+                <p className="text-xs text-ink-secondary mt-0.5">{toast.message}</p>
               </div>
-              <button
-                onClick={() => setToasts((prev) => prev.filter((t) => t.id !== toast.id))}
-                className="text-slate-500 hover:text-slate-300"
-              >
+              <button onClick={() => setToasts((prev) => prev.filter((t) => t.id !== toast.id))} className="text-ink-muted hover:text-ink">
                 <X size={14} />
               </button>
             </motion.div>

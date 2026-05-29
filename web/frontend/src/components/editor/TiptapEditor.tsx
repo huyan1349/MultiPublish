@@ -17,11 +17,7 @@ const ToolButton = ({ onClick, isActive, title, children }: {
     type="button"
     onClick={onClick}
     title={title}
-    className={`p-1.5 rounded-md transition-all duration-200
-      ${isActive
-        ? 'bg-blue-500/20 text-blue-400'
-        : 'text-slate-500 hover:bg-white/5 hover:text-slate-300'
-      }`}
+    className={`p-1.5 rounded-md transition-colors ${isActive ? 'bg-brand-light text-brand' : 'text-ink-muted hover:bg-surface-hover hover:text-ink'}`}
   >
     {children}
   </button>
@@ -35,21 +31,18 @@ export default function TiptapEditor({ content, placeholder, onChange }: TiptapE
       Link.configure({ openOnClick: false }),
     ],
     content: content || '',
-    onUpdate: ({ editor }) => {
-      onChange(editor.getHTML(), editor.getText());
-    },
+    onUpdate: ({ editor }) => onChange(editor.getHTML(), editor.getText()),
   });
 
   if (!editor) return null;
 
   return (
-    <div className="rounded-xl border border-white/6 bg-white/[0.02] overflow-hidden backdrop-blur-sm">
-      {/* Toolbar */}
-      <div className="flex items-center gap-0.5 px-2 py-1.5 border-b border-white/5 bg-white/[0.02] flex-wrap">
-        <ToolButton onClick={() => editor.chain().focus().toggleBold().run()} isActive={editor.isActive('bold')} title="加粗 (Ctrl+B)">
+    <div className="rounded-xl border border-border bg-white overflow-hidden">
+      <div className="flex items-center gap-0.5 px-2 py-1.5 border-b border-border bg-surface/50 flex-wrap">
+        <ToolButton onClick={() => editor.chain().focus().toggleBold().run()} isActive={editor.isActive('bold')} title="加粗">
           <Bold size={16} />
         </ToolButton>
-        <ToolButton onClick={() => editor.chain().focus().toggleItalic().run()} isActive={editor.isActive('italic')} title="斜体 (Ctrl+I)">
+        <ToolButton onClick={() => editor.chain().focus().toggleItalic().run()} isActive={editor.isActive('italic')} title="斜体">
           <Italic size={16} />
         </ToolButton>
         <ToolButton onClick={() => editor.chain().focus().toggleStrike().run()} isActive={editor.isActive('strike')} title="删除线">
@@ -58,14 +51,14 @@ export default function TiptapEditor({ content, placeholder, onChange }: TiptapE
         <ToolButton onClick={() => editor.chain().focus().toggleCode().run()} isActive={editor.isActive('code')} title="行内代码">
           <Code size={16} />
         </ToolButton>
-        <span className="w-px h-5 bg-white/8 mx-1" />
+        <span className="w-px h-5 bg-border mx-1" />
         <ToolButton onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} isActive={editor.isActive('heading', { level: 2 })} title="二级标题">
           <Heading2 size={16} />
         </ToolButton>
         <ToolButton onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()} isActive={editor.isActive('heading', { level: 3 })} title="三级标题">
           <Heading3 size={16} />
         </ToolButton>
-        <span className="w-px h-5 bg-white/8 mx-1" />
+        <span className="w-px h-5 bg-border mx-1" />
         <ToolButton onClick={() => editor.chain().focus().toggleBulletList().run()} isActive={editor.isActive('bulletList')} title="无序列表">
           <List size={16} />
         </ToolButton>
@@ -83,7 +76,6 @@ export default function TiptapEditor({ content, placeholder, onChange }: TiptapE
           <Redo size={16} />
         </ToolButton>
       </div>
-      {/* Content */}
       <EditorContent editor={editor} />
     </div>
   );
