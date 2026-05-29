@@ -266,26 +266,20 @@ async function clickNextStep(): Promise<boolean> {
 }
 
 async function clickPublish(): Promise<boolean> {
-  await sleep(3000);
+  await sleep(2000);
 
   const publishBtn = await findPublishButton(PUBLISH_TIMEOUT);
-  if (!publishBtn) {
-    console.log('[ContentBridge:XHS] 未找到发布按钮，全量dump:');
-    dumpAllElements();
-    return false;
-  }
+  if (!publishBtn) return false;
 
-  console.log('[ContentBridge:XHS] 找到发布按钮，准备点击:', compactText(publishBtn.innerText || publishBtn.textContent || ''));
-  forceClickElement(publishBtn);
+  clickElement(publishBtn);
   await sleep(3000);
 
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < 3; i++) {
     if (hasPublishSuccessSignal()) return true;
     const confirmBtn = findConfirmButton();
     if (confirmBtn) {
-      console.log('[ContentBridge:XHS] 点击确认按钮:', compactText(confirmBtn.innerText || confirmBtn.textContent || ''));
-      forceClickElement(confirmBtn);
-      await sleep(2500);
+      clickElement(confirmBtn);
+      await sleep(2000);
     } else {
       await sleep(1500);
     }
@@ -296,102 +290,32 @@ async function clickPublish(): Promise<boolean> {
 
 async function findPublishButton(timeout: number): Promise<HTMLElement | null> {
   return waitForElement(() => {
-    const result = bruteFindPublishButton();
-    if (result) console.log('[ContentBridge:XHS] findPublishButton命中:', result.tag, result.source);
-    return result?.el || null;
+    const byText = findButtonByText(['发布', '立即发布', '发布笔记']);
+    if (byText) return byText;
+
+    const xhsBtn = document.querySelector('xhs-publish-btn');
+    if (xhsBtn && xhsBtn.shadowRoot) {
+      const btn = xhsBtn.shadowRoot.querySelector<HTMLElement>('button');
+      if (btn) return btn;
+      const anyBtn = xhsBtn.shadowRoot.querySelector<HTMLElement>('[role="button"], .ce-btn');
+      if (anyBtn) return anyBtn;
+    }
+
+    const allBtns = Array.from(document.querySelectorAll<HTMLElement>('button, [role="button"]'))
+      .filter(isVisible)
+      .filter((el) => !isDisabled(el));
+    for (const btn of allBtns) {
+      if (/发布/.test(compactText(btn.textContent || ''))) return btn;
+    }
+
+    const allEls = Array.from(document.querySelectorAll<HTMLElement>('div, span, a, li'))
+      .filter((el) => el.getBoundingClientRect().width > 0 && el.getBoundingClientRect().height > 0);
+    for (const el of allEls) {
+      if (compactText(el.innerText || '') === '发布') return el;
+    }
+
+    return null;
   }, timeout);
-}
-
-function bruteFindPublishButton(): { el: HTMLElement; tag: string; source: string } | null {
-  const all = Array.from(document.querySelectorAll<HTMLElement>(
-    'button, [role="button"], a, div, span, li, p, h1, h2, h3, h4, h5, h6, label, section'
-  ));
-
-  const exactMatches: Array<{ el: HTMLElement; priority: number; source: string }> = [];
-
-  for (const el of all) {
-    const text = compactText(el.innerText || el.textContent || '');
-    if (text !== '发布' && text !== '立即发布' && text !== '发布笔记') continue;
-
-    const style = window.getComputedStyle(el);
-    const bg = (style.backgroundColor || '').toLowerCase();
-    const color = (style.color || '').toLowerCase();
-    const isRed = bg.includes('255') || bg.includes('ff') || color.includes('255') || color.includes('ff');
-    const isBtn = el.tagName === 'BUTTON' || el.getAttribute('role') === 'button';
-    const rect = el.getBoundingClientRect();
-    const size = rect.width * rect.height;
-
-    let priority = size;
-    if (isRed) priority += 100000;
-    if (isBtn) priority += 50000;
-
-    exactMatches.push({ el, priority, source: `tag=${el.tagName} bg=${bg.slice(0, 20)} size=${Math.round(size)}` });
-  }
-
-  if (exactMatches.length > 0) {
-    exactMatches.sort((a, b) => b.priority - a.priority);
-    return { el: exactMatches[0].el, tag: exactMatches[0].el.tagName, source: exactMatches[0].source };
-  }
-
-  for (const el of all) {
-    const text = compactText(el.innerText || el.textContent || '');
-    if (!text.includes('发布')) continue;
-    const rect = el.getBoundingClientRect();
-    if (rect.width > 0 && rect.height > 0) {
-      return { el, tag: el.tagName, source: `contains-text="${text.slice(0, 20)}"` };
-    }
-  }
-
-  const shadows = Array.from(document.querySelectorAll('*')).filter((el) => el.shadowRoot);
-  for (const host of shadows) {
-    const sr = host.shadowRoot!;
-    const btns = sr.querySelectorAll<HTMLElement>('button, [role="button"], div, span');
-    for (const btn of btns) {
-      const text = compactText(btn.textContent || '');
-      if (text === '发布' || text === '立即发布' || text.includes('发布')) {
-        return { el: btn, tag: `${host.tagName.toLowerCase()}::${btn.tagName}`, source: `shadow-text="${text.slice(0, 20)}"` };
-      }
-    }
-  }
-
-  return null;
-}
-
-function forceClickElement(el: HTMLElement) {
-  el.scrollIntoView({ block: 'center', inline: 'center' });
-  el.focus();
-  el.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
-  el.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
-  el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
-  el.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true }));
-  el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
-  el.click();
-}
-
-function dumpAllElements() {
-  const all = Array.from(document.querySelectorAll<HTMLElement>('button, [role="button"], div, span'));
-  const withText = all
-    .filter((el) => el.getBoundingClientRect().width > 0 && el.getBoundingClientRect().height > 0)
-    .filter((el) => compactText(el.textContent || '').length > 0 && compactText(el.textContent || '').length < 30)
-    .slice(0, 50);
-  console.log(`[ContentBridge:XHS] 页面可见短文本元素(前50):`);
-  withText.forEach((el, i) => {
-    const style = window.getComputedStyle(el);
-    console.log(`  [${i}] <${el.tagName}> "${compactText(el.textContent || '')}" bg=${(style.backgroundColor || '').slice(0, 15)} w=${Math.round(el.getBoundingClientRect().width)}`);
-  });
-
-  const shadows = Array.from(document.querySelectorAll('*')).filter((el) => el.shadowRoot);
-  console.log(`[ContentBridge:XHS] Shadow DOM宿主(${shadows.length}个):`, shadows.map((el) => el.tagName.toLowerCase()).join(', '));
-  for (const host of shadows) {
-    const sr = host.shadowRoot!;
-    const inner = Array.from(sr.querySelectorAll<HTMLElement>('button, div, span'))
-      .filter((el) => compactText(el.textContent || '').length > 0 && compactText(el.textContent || '').length < 30)
-      .slice(0, 10);
-    console.log(`  ${host.tagName.toLowerCase()} shadow内容:`);
-    inner.forEach((el, i) => {
-      console.log(`    [${i}] <${el.tagName}> "${compactText(el.textContent || '')}"`);
-    });
-  }
 }
 
 function findConfirmButton(): HTMLElement | null {
