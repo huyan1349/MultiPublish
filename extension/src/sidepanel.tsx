@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   AlertCircle, ArrowLeft, Camera, CheckCircle, ChevronRight,
-  Download, Edit3, FileText, LayoutDashboard, Loader2,
-  PenLine, RefreshCw, Rocket, Save, Send, Sparkles, X, XCircle,
+  Download, Edit3, FileText, Github, LayoutDashboard, Loader2,
+  PenLine, RefreshCw, Rocket, Save, Send, Settings, Sparkles, X, XCircle,
 } from 'lucide-react';
 import { useContentStore } from './sidepanel/stores/contentStore';
 import { parseMarkdownToBlocks } from './sidepanel/adapters/parserService';
@@ -12,7 +12,7 @@ import { createZipBlob, downloadBlob, type ZipFile } from './sidepanel/utils/exp
 import type { PlatformOutputDraft, PlatformType, PublishResult, StandardContent, ValidationMessage } from './shared/types';
 import './sidepanel/styles/index.css';
 
-type Page = 'dashboard' | 'editor' | 'preview' | 'records';
+type Page = 'dashboard' | 'editor' | 'preview' | 'records' | 'settings';
 type Notice = { type: 'success' | 'error' | 'info'; message: string };
 
 type PreviewOutput = PlatformOutputDraft & {
@@ -67,6 +67,7 @@ export default function Sidepanel() {
   const [publishedSet, setPublishedSet] = useState<Set<PlatformType>>(new Set());
   const [publishResults, setPublishResults] = useState<Record<string, PublishResult>>({});
   const [editingOutput, setEditingOutput] = useState<EditingOutput | null>(null);
+  const [xhsAutoLayout, setXhsAutoLayout] = useState(false);
 
   const startWithPlatform = (platform: PlatformType) => {
     setSelected(new Set([platform]));
@@ -159,7 +160,12 @@ export default function Sidepanel() {
     try {
       const response = await chrome.runtime.sendMessage({
         type: 'PUBLISH_TO_PLATFORM',
-        payload: { platform: output.platform, platformName: output.platformName, content: output },
+        payload: {
+          platform: output.platform,
+          platformName: output.platformName,
+          content: output,
+          autoLayout: output.platform === 'xiaohongshu' ? xhsAutoLayout : undefined,
+        },
       }) as PublishResult | undefined;
       const result: PublishResult = response || { platform: output.platform, platformName: output.platformName, status: 'failed', message: '未收到发布结果' };
       setPublishedSet((prev) => { const n = new Set(prev); result.status === 'success' ? n.add(output.platform) : n.delete(output.platform); return n; });
@@ -302,6 +308,20 @@ export default function Sidepanel() {
                     </div>
                   ))}
                 </div>
+              )}
+
+              {/* XHS Auto Layout Toggle */}
+              {active.platform === 'xiaohongshu' && (
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 12, color: 'var(--text-secondary)', padding: '4px 0' }}>
+                  <input
+                    type="checkbox"
+                    checked={xhsAutoLayout}
+                    onChange={(e) => setXhsAutoLayout(e.target.checked)}
+                    style={{ accentColor: '#FF5A5F', width: 14, height: 14 }}
+                  />
+                  <Sparkles size={12} style={{ color: '#FF5A5F' }} />
+                  一键排版后自动发布（排版→下一步→发布）
+                </label>
               )}
 
               {/* Action Buttons */}
@@ -505,6 +525,9 @@ export default function Sidepanel() {
         <button onClick={captureScreenshot} className="btn btn-ghost btn-sm" style={{ flex: 1 }}>
           <Camera size={12} />截图
         </button>
+        <button onClick={() => setPage('settings')} className="btn btn-ghost btn-sm" style={{ flex: 1 }}>
+          <Settings size={12} />设置
+        </button>
       </div>
 
       {/* Recent Contents */}
@@ -532,4 +555,62 @@ export default function Sidepanel() {
       )}
     </div>
   );
+
+  /* ══════════════ SETTINGS PAGE ══════════════ */
+  if (page === 'settings') {
+    const platformStatus = [
+      { id: 'wechat' as PlatformType, name: '公众号', color: '#07C160', status: '填充可用', detail: '手动确认发布', done: false },
+      { id: 'zhihu' as PlatformType, name: '知乎', color: '#448AFF', status: '完整发布链路', detail: '自动填充 + 自动发布', done: true },
+      { id: 'bilibili' as PlatformType, name: 'B站', color: '#FB7299', status: '填充可用', detail: '手动确认发布', done: false },
+      { id: 'xiaohongshu' as PlatformType, name: '小红书', color: '#FF5A5F', status: '完整发布链路', detail: '自动填充 + 一键排版 + 自动发布', done: true },
+    ];
+
+    return (
+      <div className="page">
+        <div className="header">
+          <div className="header-left">
+            <button onClick={() => setPage('dashboard')} className="btn btn-ghost btn-sm"><ArrowLeft size={15} /></button>
+            <h2 className="title">设置</h2>
+          </div>
+        </div>
+
+        <div className="card" style={{ textAlign: 'center', padding: 20 }}>
+          <div className="logo" style={{ margin: '0 auto 10px', width: 40, height: 40, fontSize: 20 }}>M</div>
+          <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700 }}>MultiPublish</div>
+          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>v1.1.0</div>
+          <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4 }}>一次创作 · 多端适配 · 真实发布</div>
+        </div>
+
+        <div>
+          <div className="help-text" style={{ marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.04em' }}>平台功能状态</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {platformStatus.map((p) => (
+              <div key={p.id} className="card card-flat" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px' }}>
+                <span className="dot" style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: p.color, flexShrink: 0 }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 600, fontSize: 12 }}>{p.name}</div>
+                  <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{p.detail}</div>
+                </div>
+                <span style={{ fontSize: 10, color: p.done ? 'var(--success)' : 'var(--text-secondary)', fontWeight: 600 }}>
+                  {p.done ? '✅' : '⚠️'} {p.status}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="card card-flat" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px' }}>
+          <Github size={14} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+          <a href="https://github.com/huyan1349/MultiPublish" target="_blank" rel="noopener noreferrer"
+            style={{ fontSize: 11, color: 'var(--accent)', textDecoration: 'none' }}>
+            github.com/huyan1349/MultiPublish
+          </a>
+        </div>
+
+        <button onClick={() => setPage('dashboard')} className="btn btn-ghost btn-sm btn-block">
+          <ArrowLeft size={12} />返回首页
+        </button>
+      </div>
+    );
+  }
 }
