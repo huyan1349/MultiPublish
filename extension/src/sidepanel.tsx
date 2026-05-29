@@ -577,7 +577,7 @@ export default function Sidepanel() {
         <div className="card" style={{ textAlign: 'center', padding: 20 }}>
           <div className="logo" style={{ margin: '0 auto 10px', width: 40, height: 40, fontSize: 20 }}>M</div>
           <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700 }}>MultiPublish</div>
-          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>v1.3.0</div>
+          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>v2.0.0</div>
           <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4 }}>一次创作 · 多端适配 · 真实发布</div>
         </div>
 
