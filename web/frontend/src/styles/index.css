@@ -34,10 +34,13 @@
     border-radius: 0;
   }
   .px-btn-primary {
-    @apply px-btn border-dot-red text-dot-red;
+    @apply px-btn;
+    border-color: #FF3B30;
+    color: #FF3B30;
   }
   .px-btn-primary:hover:not(:disabled) {
-    @apply bg-dot-red text-px-bg;
+    background-color: #FF3B30;
+    color: #0A0A0A;
   }
   .px-btn-secondary {
     @apply px-btn border-px-border text-tx-dim;
