@@ -65,13 +65,27 @@ async function tryFill(title: string, body: string, tags: string[]): Promise<boo
     console.log('[ContentBridge:Bilibili] 标题填充:', ok);
   }
 
-  const ed = await waitForElement(findBodyEditor, FILL_TIMEOUT);
-  if (ed) {
-    const ok = await fillTextTarget(ed, body);
-    console.log('[ContentBridge:Bilibili] 正文填充:', ok);
-  } else {
-    console.log('[ContentBridge:Bilibili] 未找到正文编辑器');
+  // 正文编辑器：多重兜底
+  let ed = await waitForElement(findBodyEditor, FILL_TIMEOUT);
+  if (!ed) {
+    console.log('[ContentBridge:Bilibili] 正文编辑器未匹配，dump 页面状态:');
     dumpPageState();
+    // 激进兜底：找页面上最大的 contenteditable（排除标题）
+    ed = findFallbackEditor();
+  }
+
+  if (ed) {
+    console.log('[ContentBridge:Bilibili] 正文编辑器最终匹配:', ed.tagName, (ed.className && typeof ed.className === 'string' ? ed.className : '').slice(0, 60));
+    const ok = await fillTextTarget(ed, body);
+    console.log('[ContentBridge:Bilibili] 正文填充结果:', ok);
+    if (!ok) {
+      // 如果 fillTextTarget 返回 false，可能 editor 是 React 组件，需要更激进的策略
+      console.log('[ContentBridge:Bilibili] 标准填充失败，尝试 React 组件直填');
+      const retryOk = await fillReactEditor(ed, body);
+      console.log('[ContentBridge:Bilibili] React 直填结果:', retryOk);
+    }
+  } else {
+    console.log('[ContentBridge:Bilibili] 所有兜底均未找到正文编辑器');
   }
 
   await fillTags(tags);
@@ -486,6 +500,26 @@ function findBodyEditor(): HTMLElement | null {
   return null;
 }
 
+function findFallbackEditor(): HTMLElement | null {
+  const titleEl = findTitleEditor();
+  // 找所有可见的 contenteditable 或大 textarea，排除标题
+  const candidates = Array.from(document.querySelectorAll<HTMLElement>(
+    '[contenteditable="true"], textarea, [role="textbox"], div[class*="editor"], div[class*="Editor"]',
+  ))
+    .filter(isVisible)
+    .filter((el) => el !== titleEl && !titleEl?.contains(el) && !el.contains(titleEl!))
+    .map((el) => ({ el, area: el.getBoundingClientRect().width * el.getBoundingClientRect().height }))
+    .filter(({ area }) => area > 1000)
+    .sort((a, b) => b.area - a.area);
+
+  console.log('[ContentBridge:Bilibili] 兜底候选编辑器:', candidates.length, '个');
+  candidates.slice(0, 5).forEach((c, i) => {
+    console.log(`  [${i}] ${c.el.tagName} ${(c.el.className && typeof c.el.className === 'string' ? c.el.className : '').slice(0, 50)} area=${c.area}`);
+  });
+
+  return candidates[0]?.el || null;
+}
+
 function firstVisible(selectors: string[]): HTMLElement | null {
   for (const selector of selectors) {
     try {
@@ -557,6 +591,72 @@ function selectAllContent(el: HTMLElement): boolean {
   } catch {
     return false;
   }
+}
+
+async function fillReactEditor(el: HTMLElement, text: string): Promise<boolean> {
+  // React 编辑器（如 Slate.js / ProseMirror / Quill）可能不响应 innerHTML 直接赋值
+  // 策略：通过 React fiber 找到 state updater 或直接触发原生输入事件序列
+  el.scrollIntoView({ block: 'center', inline: 'center' });
+  el.focus();
+  await sleep(200);
+
+  const before = compactText(el.innerText || el.textContent || '');
+
+  // 策略 A: 选中全部 + execCommand（适用 contenteditable）
+  if (selectAllContent(el)) {
+    document.execCommand('selectAll', false);
+    document.execCommand('insertText', false, text);
+    await sleep(300);
+    const after = compactText(el.innerText || el.textContent || '');
+    if (after !== before && after.length > 10) {
+      console.log('[ContentBridge:Bilibili] React 填充: execCommand 成功');
+      return true;
+    }
+  }
+
+  // 策略 B: 逐字符输入（模拟键盘，触发 React onChange）
+  // 先清空
+  if (selectAllContent(el)) {
+    document.execCommand('delete', false);
+  }
+  el.dispatchEvent(new InputEvent('beforeinput', { bubbles: true, inputType: 'deleteContent' }));
+  el.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'deleteContent' }));
+  await sleep(100);
+
+  // 逐段输入
+  const chunks = text.match(/.{1,200}/g) || [text];
+  for (const chunk of chunks) {
+    const data = new DataTransfer();
+    data.setData('text/plain', chunk);
+    data.setData('text/html', markdownToHtml(chunk));
+    el.dispatchEvent(new ClipboardEvent('paste', {
+      bubbles: true, cancelable: true, clipboardData: data,
+    }));
+    await sleep(100);
+  }
+
+  // 触发了 input 事件后等 React 更新
+  el.dispatchEvent(new Event('change', { bubbles: true }));
+  el.dispatchEvent(new CompositionEvent('compositionend', { bubbles: true, data: text }));
+  el.blur();
+  el.focus();
+  await sleep(500);
+
+  const after = compactText(el.innerText || el.textContent || '');
+  if (after !== before && after.length > 10) {
+    console.log('[ContentBridge:Bilibili] React 填充: 分段 paste 成功');
+    return true;
+  }
+
+  // 策略 C: 直接设置 textContent + dispatch input
+  el.textContent = text;
+  el.dispatchEvent(new InputEvent('beforeinput', { bubbles: true, inputType: 'insertText', data: text }));
+  el.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: text }));
+  el.dispatchEvent(new Event('change', { bubbles: true }));
+  await sleep(300);
+
+  const after2 = compactText(el.innerText || el.textContent || '');
+  return after2 !== before && after2.length > 10;
 }
 
 async function fillTags(tags: string[]): Promise<void> {
