@@ -269,9 +269,13 @@ async function clickPublish(): Promise<boolean> {
   await sleep(2000);
 
   const publishBtn = await findPublishButton(PUBLISH_TIMEOUT);
-  if (!publishBtn) return false;
+  if (publishBtn) {
+    clickElement(publishBtn);
+  } else {
+    const clicked = clickPublishButton();
+    if (!clicked) return false;
+  }
 
-  clickElement(publishBtn);
   await sleep(3000);
 
   for (let i = 0; i < 3; i++) {
@@ -316,6 +320,33 @@ async function findPublishButton(timeout: number): Promise<HTMLElement | null> {
 
     return null;
   }, timeout);
+}
+
+function clickPublishButton(): boolean {
+  const xhsBtn = document.querySelector('xhs-publish-btn');
+  if (xhsBtn) {
+    const rect = xhsBtn.getBoundingClientRect();
+    if (rect.width > 0 && rect.height > 0) {
+      const x = rect.left + rect.width / 2;
+      const y = rect.top + rect.height / 2;
+      const target = document.elementFromPoint(x, y);
+      if (target) {
+        (target as HTMLElement).click();
+        return true;
+      }
+    }
+    xhsBtn.click();
+    return true;
+  }
+
+  const bottomRight = { x: window.innerWidth - 80, y: window.innerHeight - 40 };
+  const el = document.elementFromPoint(bottomRight.x, bottomRight.y);
+  if (el) {
+    (el as HTMLElement).click();
+    return true;
+  }
+
+  return false;
 }
 
 function findConfirmButton(): HTMLElement | null {
