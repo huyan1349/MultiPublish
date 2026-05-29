@@ -1,4 +1,4 @@
-# CLAUDE.md
+# AGENTS.md
 
 > MultiPublish — "一次编写，全平台触达"
 > Chrome 浏览器扩展，多平台内容真实发布工具
