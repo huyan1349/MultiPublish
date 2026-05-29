@@ -3,6 +3,7 @@ import { showContentBridgeToast } from '../shared/contentToast';
 
 export const config: PlasmoCSConfig = {
   matches: ['https://member.bilibili.com/*'],
+  all_frames: true,
   run_at: 'document_idle',
 };
 
@@ -21,11 +22,12 @@ const PUBLISH_TIMEOUT = 30000;
 
     const filled = await tryFill(title, body, tags);
     if (!filled) {
+      if (window.top !== window) return;
       await chrome.storage.local.remove('contentbridge_fill');
       await chrome.storage.local.set({
-        contentbridge_result: { platform: PLATFORM, platformName: NAME, success: false, message: '未找到B站编辑器' },
+        contentbridge_result: { platform: PLATFORM, platformName: NAME, success: false, message: '未找到B站图文编辑器' },
       });
-      showContentBridgeToast('ContentBridge 填充失败：未找到B站编辑器', 'error');
+      showContentBridgeToast('ContentBridge 填充失败：未找到B站图文编辑器', 'error');
       return;
     }
 
@@ -43,7 +45,7 @@ const PUBLISH_TIMEOUT = 30000;
     showContentBridgeToast(published.message, published.success ? 'success' : 'error');
   } catch (err) {
     await chrome.storage.local.remove('contentbridge_fill');
-    const msg = err instanceof Error ? err.message : 'B站自动发布失败';
+    const msg = err instanceof Error ? err.message : 'B站图文自动发布失败';
     await chrome.storage.local.set({
       contentbridge_result: { platform: PLATFORM, platformName: NAME, success: false, message: msg },
     });
@@ -52,17 +54,13 @@ const PUBLISH_TIMEOUT = 30000;
 })();
 
 async function tryFill(title: string, body: string, tags: string[]): Promise<boolean> {
-  const titleEl = await waitFor<HTMLInputElement>('input[placeholder*="标题"]', FILL_TIMEOUT);
-  if (titleEl) setNativeValue(titleEl, title);
+  const titleEl = await waitForElement(findTitleEditor, FILL_TIMEOUT);
+  if (titleEl) await fillTextTarget(titleEl, title);
 
-  const ed = await waitFor<HTMLElement>('.ql-editor, [contenteditable="true"]', FILL_TIMEOUT);
-  if (ed) {
-    ed.innerHTML = body.replace(/\n\n/g, '<p><br></p>').replace(/\n/g, '<br>');
-    ed.dispatchEvent(new Event('input', { bubbles: true }));
-  }
+  const ed = await waitForElement(findBodyEditor, FILL_TIMEOUT);
+  if (ed) await fillTextTarget(ed, body);
 
-  const tagInput = document.querySelector<HTMLInputElement>('input[placeholder*="标签"]');
-  if (tagInput) setNativeValue(tagInput, tags.join(','));
+  await fillTags(tags);
 
   return !!(titleEl || ed);
 }
@@ -72,7 +70,7 @@ async function tryAutoPublish(): Promise<{ success: boolean; message: string }> 
 
   // Step 1: Find and click publish button
   const publishBtn = await waitForElement(findPublishButton, PUBLISH_TIMEOUT);
-  if (!publishBtn) return { success: false, message: '未找到B站发布按钮' };
+  if (!publishBtn) return { success: false, message: '未找到B站图文发布按钮' };
 
   clickElement(publishBtn);
   await sleep(2000);
@@ -82,7 +80,7 @@ async function tryAutoPublish(): Promise<{ success: boolean; message: string }> 
     await sleep(1500);
 
     if (hasPublishSuccessSignal()) {
-      return { success: true, message: 'B站专栏已自动提交发布' };
+      return { success: true, message: 'B站图文已自动提交发布' };
     }
 
     const confirmBtn = findConfirmButton();
@@ -92,19 +90,19 @@ async function tryAutoPublish(): Promise<{ success: boolean; message: string }> 
     }
 
     if (hasPublishSuccessSignal()) {
-      return { success: true, message: 'B站专栏已自动提交发布' };
+      return { success: true, message: 'B站图文已自动提交发布' };
     }
   }
 
   return hasPublishSuccessSignal()
-    ? { success: true, message: 'B站专栏已自动提交发布' }
-    : { success: true, message: '已自动点击B站发布流程，请在页面确认最终状态' };
+    ? { success: true, message: 'B站图文已自动提交发布' }
+    : { success: true, message: '已自动点击B站图文发布流程，请在页面确认最终状态' };
 }
 
 /* ── DOM Finders ── */
 
 function findPublishButton(): HTMLElement | null {
-  return findButtonByText(['发布', '立即发布', '提交', '发布文章', '发表']);
+  return findButtonByText(['发布', '立即发布', '提交', '发布文章', '发表', '投稿']);
 }
 
 function findConfirmButton(): HTMLElement | null {
@@ -118,6 +116,50 @@ function findConfirmButton(): HTMLElement | null {
   }
 
   return findButtonByText(['确认发布', '确认', '确定', '提交']);
+}
+
+function findTitleEditor(): HTMLElement | null {
+  const selectors = [
+    'input[placeholder*="标题"]',
+    'textarea[placeholder*="标题"]',
+    'input[class*="title"]',
+    'textarea[class*="title"]',
+    '[contenteditable="true"][data-placeholder*="标题"]',
+    '[contenteditable="true"][placeholder*="标题"]',
+    '[contenteditable="true"][class*="title"]',
+  ];
+  return firstVisible(selectors);
+}
+
+function findBodyEditor(): HTMLElement | null {
+  const direct = firstVisible([
+    '.ql-editor',
+    '.ProseMirror',
+    '[data-slate-editor="true"]',
+    'textarea[placeholder*="正文"]',
+    'textarea[placeholder*="内容"]',
+    'textarea[placeholder*="请输入"]',
+    '[contenteditable="true"][data-placeholder*="正文"]',
+    '[contenteditable="true"][data-placeholder*="内容"]',
+  ]);
+  if (direct) return direct;
+
+  const titleEl = findTitleEditor();
+  const editors = Array.from(document.querySelectorAll<HTMLElement>('[contenteditable="true"]'))
+    .filter(isVisible)
+    .filter((el) => el !== titleEl && !el.contains(titleEl) && !titleEl?.contains(el))
+    .map((el) => ({ el, area: el.getBoundingClientRect().width * el.getBoundingClientRect().height }))
+    .sort((a, b) => b.area - a.area);
+
+  return editors[0]?.el || null;
+}
+
+function firstVisible(selectors: string[]): HTMLElement | null {
+  for (const selector of selectors) {
+    const el = Array.from(document.querySelectorAll<HTMLElement>(selector)).find(isVisible);
+    if (el) return el;
+  }
+  return null;
 }
 
 /* ── Helpers ── */
@@ -137,7 +179,99 @@ function findButtonByText(labels: string[], root: ParentNode = document): HTMLEl
 
 function hasPublishSuccessSignal(): boolean {
   const text = compactText(document.body.innerText || '');
-  return /发布成功|投稿成功|已发布|提交成功|审核中/.test(text);
+  return /发布成功|投稿成功|已发布|提交成功|审核中|已提交/.test(text);
+}
+
+async function fillTextTarget(el: HTMLElement, body: string): Promise<void> {
+  el.scrollIntoView({ block: 'center', inline: 'center' });
+  el.focus();
+
+  if (el instanceof HTMLTextAreaElement || el instanceof HTMLInputElement) {
+    setNativeValue(el, body);
+    return;
+  }
+
+  const pasted = dispatchTextPaste(el, body);
+  await sleep(300);
+  if ((pasted || compactText(el.innerText || el.textContent || '').length > 0)
+    && compactText(el.innerText || el.textContent || '').length > 0) {
+    return;
+  }
+
+  el.innerHTML = markdownToHtml(body);
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+  el.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+async function fillTags(tags: string[]): Promise<void> {
+  const cleanTags = tags.map((tag) => tag.replace(/^#/, '').trim()).filter(Boolean);
+  if (cleanTags.length === 0) return;
+
+  const tagInput = document.querySelector<HTMLInputElement>(
+    [
+      'input[placeholder*="标签"]',
+      'input[placeholder*="tag"]',
+      'input[class*="tag"]',
+      'input[class*="Tag"]',
+    ].join(','),
+  );
+  if (!tagInput) return;
+
+  tagInput.focus();
+  for (const tag of cleanTags) {
+    setNativeValue(tagInput, tag);
+    tagInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true }));
+    tagInput.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', bubbles: true }));
+    await sleep(120);
+  }
+}
+
+function dispatchTextPaste(el: HTMLElement, text: string): boolean {
+  try {
+    const data = new DataTransfer();
+    data.setData('text/plain', text);
+    data.setData('text/html', markdownToHtml(text));
+    return el.dispatchEvent(new ClipboardEvent('paste', { bubbles: true, cancelable: true, clipboardData: data }));
+  } catch {
+    return false;
+  }
+}
+
+function markdownToHtml(markdown: string): string {
+  return markdown
+    .split(/\n{2,}/)
+    .map((chunk) => chunk.trim())
+    .filter(Boolean)
+    .map((chunk) => {
+      if (/^#{1,6}\s+/.test(chunk)) {
+        const level = Math.min(chunk.match(/^#+/)?.[0].length || 2, 3);
+        return `<h${level}>${escapeHtml(chunk.replace(/^#{1,6}\s+/, ''))}</h${level}>`;
+      }
+      if (/^>\s*/.test(chunk)) return `<blockquote>${escapeHtml(chunk.replace(/^>\s*/, ''))}</blockquote>`;
+      if (/^-\s+/m.test(chunk)) {
+        const items = chunk.split('\n').map((line) => line.replace(/^-\s+/, '').trim()).filter(Boolean);
+        return `<ul>${items.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>`;
+      }
+      const imageMatch = chunk.match(/^!\[([^\]]*)\]\(([^)]+)\)$/);
+      if (imageMatch) {
+        return `<p><img src="${escapeAttribute(imageMatch[2])}" alt="${escapeAttribute(imageMatch[1])}"></p>`;
+      }
+      return `<p>${escapeHtml(chunk).replace(/\n/g, '<br>')}</p>`;
+    })
+    .join('');
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function escapeAttribute(value = ''): string {
+  return escapeHtml(value).replace(/`/g, '&#96;');
 }
 
 function setNativeValue(el: HTMLInputElement | HTMLTextAreaElement, value: string) {

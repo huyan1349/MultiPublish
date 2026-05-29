@@ -28,7 +28,7 @@ type EditingOutput = {
 const PLATFORMS: Array<{ id: PlatformType; name: string; color: string; desc: string }> = [
   { id: 'wechat', name: '公众号', color: '#07C160', desc: '正式长文，层次分明' },
   { id: 'zhihu', name: '知乎', color: '#448AFF', desc: '逻辑分析，结论先行' },
-  { id: 'bilibili', name: 'B站', color: '#FB7299', desc: '视频风格，标签驱动' },
+  { id: 'bilibili', name: 'B站', color: '#FB7299', desc: '图文专栏，标签驱动' },
   { id: 'xiaohongshu', name: '小红书', color: '#FF5A5F', desc: '种草风格，短小精炼' },
 ];
 
@@ -67,6 +67,13 @@ export default function Sidepanel() {
   const [publishedSet, setPublishedSet] = useState<Set<PlatformType>>(new Set());
   const [publishResults, setPublishResults] = useState<Record<string, PublishResult>>({});
   const [editingOutput, setEditingOutput] = useState<EditingOutput | null>(null);
+
+  const startWithPlatform = (platform: PlatformType) => {
+    setSelected(new Set([platform]));
+    setError('');
+    setNotice(null);
+    setPage('editor');
+  };
 
   useEffect(() => { loadContents(); loadRecords(); }, []);
 
@@ -411,13 +418,25 @@ export default function Sidepanel() {
         <div>
           <div className="help-text" style={{ marginBottom: 6 }}>目标平台 — 为每个平台生成专属风格的适配版本</div>
           <div className="platform-grid">
-            {PLATFORMS.map((p) => (
-              <div key={p.id}
-                className={`platform-pill ${selected.has(p.id) ? 'active' : ''}`}
-                onClick={() => setSelected((prev) => { const n = new Set(prev); n.has(p.id) ? n.delete(p.id) : n.add(p.id); return n; })}>
-                <span className="dot" style={{ backgroundColor: p.color }} />{p.name}
-              </div>
-            ))}
+            {PLATFORMS.map((p) => {
+              const isSelected = selected.has(p.id);
+              return (
+                <button key={p.id} type="button"
+                  className={`platform-pill ${isSelected ? 'active' : ''}`}
+                  aria-pressed={isSelected}
+                  title={isSelected ? `取消选择${p.name}` : `选择${p.name}`}
+                  style={isSelected ? { borderColor: p.color, boxShadow: `0 0 0 2px ${p.color}22` } : undefined}
+                  onClick={() => setSelected((prev) => {
+                    const n = new Set(prev);
+                    n.has(p.id) ? n.delete(p.id) : n.add(p.id);
+                    return n;
+                  })}>
+                  <span className="dot" style={{ backgroundColor: p.color }} />
+                  <span>{p.name}</span>
+                  {isSelected && <CheckCircle size={11} />}
+                </button>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -462,11 +481,12 @@ export default function Sidepanel() {
         <h3 className="help-text" style={{ marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.04em' }}>支持平台</h3>
         <div className="platform-cards">
           {PLATFORMS.map((p) => (
-            <div key={p.id} className="platform-card">
+            <button key={p.id} type="button" className="platform-card" onClick={() => startWithPlatform(p.id)}
+              aria-label={`使用${p.name}开始创作`}>
               <div className="platform-card-icon" style={{ backgroundColor: p.color }}>{p.name[0]}</div>
               <div className="platform-card-name">{p.name}</div>
               <div className="platform-card-desc">{p.desc}</div>
-            </div>
+            </button>
           ))}
         </div>
       </div>

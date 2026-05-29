@@ -8,6 +8,8 @@
 
 **🎥 Demo 视频**：[待上传]
 
+**作者与协作**：Huyan（[@huyan1349](https://github.com/huyan1349)） × Codex
+
 ---
 
 ## 一句话说清楚

@@ -3,9 +3,19 @@ import type { PlatformType, PublishPayload, PublishResult } from './shared/types
 const PLATFORM_URLS: Record<string, string> = {
   wechat: 'https://mp.weixin.qq.com/cgi-bin/appmsg?t=media/appmsg_edit_v2&action=edit&isNew=1&type=77',
   zhihu: 'https://zhuanlan.zhihu.com/write',
-  bilibili: 'https://member.bilibili.com/platform/upload/video/frame',
+  bilibili: 'https://member.bilibili.com/platform/upload/text/edit',
   xiaohongshu: 'https://creator.xiaohongshu.com/publish/publish',
 };
+
+void chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
+
+chrome.runtime.onInstalled.addListener(() => {
+  chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
+});
+
+chrome.runtime.onStartup.addListener(() => {
+  chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
+});
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.type === 'PUBLISH_TO_PLATFORM') {

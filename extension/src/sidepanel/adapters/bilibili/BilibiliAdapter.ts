@@ -1,36 +1,39 @@
 import type { PlatformAdapter, StandardContent, PlatformOutputDraft, ValidationResult, PreviewMeta } from '../PlatformAdapter.js';
 
-const LIMITS = { maxTitle: 80, maxDesc: 2000, maxTags: 8 };
+const LIMITS = { maxTitle: 80, maxBody: 100000, maxTags: 10 };
 
-function makeVideoTitle(title: string): string {
-  const hooks = ['【干货】', '【教程】', '【揭秘】', '【实战】', ''];
-  const h = hooks[Math.floor(Math.random() * hooks.length)];
-  return `${h}${title}`.substring(0, LIMITS.maxTitle);
+function makeColumnTitle(title: string): string {
+  return title.trim().substring(0, LIMITS.maxTitle);
 }
 
-function buildDescription(blocks: StandardContent['blocks']): string {
-  const lines = blocks.map((b) => {
-    switch (b.type) {
-      case 'heading': return `【${b.text}】`;
-      case 'paragraph': return (b.text || '').substring(0, 200);
-      case 'list': return (b.items || []).map((item) => `• ${item}`).join('\n');
-      case 'quote': return `「${(b.text || '').substring(0, 100)}」`;
-      default: return '';
+function buildArticleBody(blocks: StandardContent['blocks']): string {
+  const lines = blocks.map((block) => {
+    switch (block.type) {
+      case 'heading':
+        return `${'#'.repeat(block.level || 2)} ${block.text || ''}`;
+      case 'paragraph':
+        return block.text || '';
+      case 'list':
+        return (block.items || []).map((item) => `- ${item}`).join('\n');
+      case 'quote':
+        return `> ${block.text || ''}`;
+      case 'image':
+        return block.url ? `![${block.caption || block.text || '图片'}](${block.url})` : '';
+      default:
+        return '';
     }
-  }).filter(Boolean);
-  return lines.join('\n').substring(0, LIMITS.maxDesc);
+  });
+
+  return lines.filter(Boolean).join('\n\n').substring(0, LIMITS.maxBody);
 }
 
-function buildTimeline(blocks: StandardContent['blocks']): string {
-  let minute = 0;
-  const items: string[] = ['## 视频时间轴\n'];
-  for (const b of blocks) {
-    const mm = String(minute).padStart(2, '0');
-    const label = b.type === 'heading' ? b.text : (b.text || '').substring(0, 30);
-    items.push(`- ${mm}:00  ${label}`);
-    minute += b.type === 'heading' ? 1 : b.type === 'paragraph' ? 2 : 1;
-  }
-  return items.join('\n');
+function buildSummary(body: string): string {
+  return body
+    .replace(/!\[[^\]]*\]\([^)]+\)/g, '')
+    .replace(/[#>*`\-\[\]()]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .substring(0, 150);
 }
 
 export const bilibiliAdapter: PlatformAdapter = {
@@ -40,31 +43,48 @@ export const bilibiliAdapter: PlatformAdapter = {
   validate(content: StandardContent): ValidationResult {
     const messages: ValidationResult['messages'] = [];
     if (content.title.length > LIMITS.maxTitle) {
-      messages.push({ level: 'error', field: 'title', message: `标题超过${LIMITS.maxTitle}字限制` });
+      messages.push({ level: 'error', field: 'title', message: `B站专栏标题最多${LIMITS.maxTitle}字` });
     }
     if (content.tags.length > LIMITS.maxTags) {
-      messages.push({ level: 'warning', field: 'tags', message: `标签最多${LIMITS.maxTags}个` });
+      messages.push({ level: 'warning', field: 'tags', message: `B站标签建议不超过${LIMITS.maxTags}个` });
     }
-    return { valid: content.title.length <= LIMITS.maxTitle, messages };
+    if (content.blocks.length === 0) {
+      messages.push({ level: 'error', field: 'body', message: '正文不能为空' });
+    }
+
+    return { valid: messages.every((m) => m.level !== 'error'), messages };
   },
 
   transform(content: StandardContent): PlatformOutputDraft {
-    const title = makeVideoTitle(content.title);
-    const desc = buildDescription(content.blocks);
-    const timeline = buildTimeline(content.blocks);
-    const body = `${desc}\n\n${timeline}`;
+    const title = makeColumnTitle(content.title);
+    const body = buildArticleBody(content.blocks);
+    const summary = buildSummary(body);
     const tags = content.tags.slice(0, LIMITS.maxTags);
 
-    return { title, summary: desc.substring(0, 150) + '…', body, tags,
+    return {
+      title,
+      summary,
+      body,
+      tags,
       coverImage: content.coverImage,
-      extra: { category: '知识', contentType: 'video', timeline, isOriginal: true } };
+      extra: {
+        contentType: 'article',
+        publishKind: 'bilibili-column',
+        supportsMarkdown: true,
+        isOriginal: true,
+      },
+    };
   },
 
   getPreviewMeta(output: PlatformOutputDraft): PreviewMeta {
     return {
-      titleCharCount: output.title.length, bodyCharCount: output.body.length,
-      tagCount: output.tags.length, maxTitleLength: LIMITS.maxTitle,
-      maxBodyLength: LIMITS.maxDesc, maxTags: LIMITS.maxTags, needsCover: true,
+      titleCharCount: output.title.length,
+      bodyCharCount: output.body.length,
+      tagCount: output.tags.length,
+      maxTitleLength: LIMITS.maxTitle,
+      maxBodyLength: LIMITS.maxBody,
+      maxTags: LIMITS.maxTags,
+      needsCover: false,
     };
   },
 };
