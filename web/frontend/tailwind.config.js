@@ -4,22 +4,22 @@ export default {
     extend: {
       colors: {
         px: {
-          bg: '#0A0A0A',
-          surface: '#111111',
-          card: '#161616',
-          hover: '#1C1C1C',
-          border: '#252525',
-          'border-subtle': '#1A1A1A',
+          bg: '#FAFAF9',
+          surface: '#F2F2F0',
+          card: '#FFFFFF',
+          hover: '#EBEBE9',
+          border: '#E2E2E0',
+          'border-subtle': '#EAEAE8',
         },
         tx: {
-          DEFAULT: '#E8E8E8',
-          dim: '#888888',
-          mute: '#555555',
-          faint: '#333333',
+          DEFAULT: '#1A1A1A',
+          dim: '#6B6B6B',
+          mute: '#999999',
+          faint: '#C8C8C6',
         },
         dot: {
           red: '#FF3B30',
-          'red-dim': '#FF3B3018',
+          'red-dim': '#FF3B3012',
         },
         wechat: '#07C160',
         zhihu: '#0066FF',
@@ -28,7 +28,7 @@ export default {
       },
       fontFamily: {
         mono: ['"Space Mono"', 'monospace'],
-        sans: ['"Manrope"', 'system-ui', 'sans-serif'],
+        sans: ['"Inter"', 'system-ui', 'sans-serif'],
       },
       borderRadius: {
         none: '0px',

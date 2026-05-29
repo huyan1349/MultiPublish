@@ -10,7 +10,7 @@ const platformMeta: Record<string, { color: string; label: string }> = {
 };
 
 const levelIcon: Record<string, typeof XCircle> = { error: XCircle, warning: AlertTriangle, info: Info };
-const levelColor: Record<string, string> = { error: 'text-red-500', warning: 'text-amber-500', info: 'text-tx-dim' };
+const levelColor: Record<string, string> = { error: 'text-dot-red', warning: 'text-amber-500', info: 'text-tx-dim' };
 
 interface PlatformCardProps {
   platform: string;
@@ -55,14 +55,14 @@ export default function PlatformCard({
 
   return (
     <div
-      className={`border transition-colors duration-150 cursor-pointer overflow-hidden
+      className={`border transition-all duration-150 cursor-pointer overflow-hidden
         ${selected
-          ? 'bg-px-card border-px-border hover:border-tx-mute'
+          ? 'bg-white border-px-border hover:border-tx-mute'
           : 'bg-px-surface border-px-border-subtle opacity-40 hover:opacity-70'}`}
       style={{ borderRadius: 0 }}
       onClick={onToggle}
     >
-      <div className="p-3.5">
+      <div className="p-4">
         <div className="flex items-center gap-2.5 mb-2">
           <div className="px-dot" style={{ backgroundColor: meta.color }} />
           <span className="font-mono font-bold text-[10px] text-tx tracking-wide">{platformName.toUpperCase()}</span>
@@ -88,7 +88,7 @@ export default function PlatformCard({
         </div>
 
         {selected && (
-          <div className="space-y-2">
+          <div className="space-y-2.5">
             <div>
               <div className="flex items-center justify-between font-mono text-[9px] mb-1">
                 <span className="text-tx-faint">TITLE</span>
@@ -135,7 +135,7 @@ export default function PlatformCard({
       </div>
 
       {expanded && selected && (
-        <div className="border-t border-px-border-subtle px-3.5 py-3 bg-px-surface">
+        <div className="border-t border-px-border-subtle px-4 py-3 bg-px-bg">
           <span className="font-mono text-[9px] text-tx-faint">PREVIEW</span>
           <pre className="font-mono text-[10px] text-tx-dim leading-relaxed mt-1 line-clamp-4 whitespace-pre-wrap">{previewBody}</pre>
           {previewTags.length > 0 && (

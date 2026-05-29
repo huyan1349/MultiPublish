@@ -17,15 +17,15 @@ export function showToast(type: ToastData['type'], title: string, message: strin
 }
 
 const iconMap = { success: CheckCircle2, error: XCircle, warning: AlertTriangle };
-const styleMap = {
-  success: 'border-emerald-200/60 bg-white',
-  error: 'border-red-200/60 bg-white',
-  warning: 'border-amber-200/60 bg-white',
+const borderColor = {
+  success: '#07C160',
+  error: '#FF3B30',
+  warning: '#F59E0B',
 };
 const iconColor = {
-  success: 'text-emerald-500',
-  error: 'text-red-500',
-  warning: 'text-amber-500',
+  success: '#07C160',
+  error: '#FF3B30',
+  warning: '#F59E0B',
 };
 
 export default function ToastContainer() {
@@ -52,14 +52,15 @@ export default function ToastContainer() {
               animate={{ opacity: 1, x: 0, scale: 1 }}
               exit={{ opacity: 0, x: 40, scale: 0.96 }}
               transition={{ duration: 0.2 }}
-              className={`pointer-events-auto flex items-start gap-3 p-4 rounded-lg border shadow-elevated min-w-[300px] ${styleMap[toast.type]}`}
+              className="pointer-events-auto flex items-start gap-3 p-4 bg-white border min-w-[300px] shadow-[0_2px_12px_rgba(0,0,0,0.08)]"
+              style={{ borderLeftWidth: 3, borderLeftColor: borderColor[toast.type], borderColor: '#E2E2E0' }}
             >
-              <Icon size={16} className={iconColor[toast.type]} />
+              <Icon size={16} style={{ color: iconColor[toast.type] }} />
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-display font-500 text-ink">{toast.title}</p>
-                <p className="text-[11px] text-ink-muted mt-0.5">{toast.message}</p>
+                <p className="text-sm font-medium text-tx">{toast.title}</p>
+                <p className="text-[11px] text-tx-dim mt-0.5">{toast.message}</p>
               </div>
-              <button onClick={() => setToasts((prev) => prev.filter((t) => t.id !== toast.id))} className="text-ink-faint hover:text-ink transition-colors">
+              <button onClick={() => setToasts((prev) => prev.filter((t) => t.id !== toast.id))} className="text-tx-faint hover:text-tx transition-colors">
                 <X size={13} />
               </button>
             </motion.div>

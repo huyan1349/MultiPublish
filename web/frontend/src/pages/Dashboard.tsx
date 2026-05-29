@@ -31,29 +31,29 @@ export default function Dashboard() {
 
   return (
     <div className="h-full overflow-y-auto scrollbar-thin">
-      <div className="max-w-[860px] mx-auto px-10 py-14">
-        <div className="mb-14">
-          <div className="flex items-center gap-3 mb-2">
+      <div className="max-w-[860px] mx-auto px-12 py-16">
+        <div className="mb-16">
+          <div className="flex items-center gap-3 mb-3">
             <div className="px-dot" style={{ backgroundColor: '#FF3B30' }} />
             <span className="px-label">MULTIPUBLISH</span>
           </div>
-          <h1 className="font-mono font-bold text-[28px] text-tx tracking-tight leading-none">
+          <h1 className="font-mono font-bold text-[32px] text-tx tracking-tight leading-none">
             一次编写<span className="text-dot-red">,</span><br />全平台触达
           </h1>
-          <p className="font-mono text-[11px] text-tx-mute mt-3 tracking-wide">WRITE ONCE · PUBLISH EVERYWHERE</p>
+          <p className="font-mono text-[11px] text-tx-mute mt-4 tracking-wide">WRITE ONCE · PUBLISH EVERYWHERE</p>
         </div>
 
-        <div className="grid grid-cols-3 gap-3 mb-14">
+        <div className="grid grid-cols-3 gap-4 mb-16">
           <button
             onClick={() => navigate('/editor')}
-            className="group px-card p-5 text-left transition-all duration-150 hover:border-dot-red"
+            className="group px-card p-6 text-left transition-all duration-200 hover:shadow-[0_2px_8px_rgba(0,0,0,0.06)]"
           >
             <div className="flex items-center gap-2.5 mb-3">
-              <PenLine size={14} className="text-dot-red" strokeWidth={1.5} />
+              <PenLine size={14} className="text-tx" strokeWidth={1.5} />
               <span className="font-mono font-bold text-[11px] text-tx tracking-wide">NEW POST</span>
             </div>
-            <p className="text-xs text-tx-dim leading-relaxed">编写内容并发布到多平台</p>
-            <div className="mt-4 flex items-center gap-1 text-tx-faint group-hover:text-dot-red transition-colors">
+            <p className="text-[12px] text-tx-dim leading-relaxed">编写内容并发布到多平台</p>
+            <div className="mt-5 flex items-center gap-1.5 text-tx-faint group-hover:text-tx transition-colors duration-200">
               <span className="font-mono text-[10px] tracking-wide">START</span>
               <ArrowRight size={10} />
             </div>
@@ -61,14 +61,14 @@ export default function Dashboard() {
 
           <button
             onClick={() => navigate('/inspiration')}
-            className="group px-card p-5 text-left transition-all duration-150 hover:border-amber-500"
+            className="group px-card p-6 text-left transition-all duration-200 hover:shadow-[0_2px_8px_rgba(0,0,0,0.06)]"
           >
             <div className="flex items-center gap-2.5 mb-3">
-              <Sparkles size={14} className="text-amber-500" strokeWidth={1.5} />
+              <Sparkles size={14} className="text-dot-red" strokeWidth={1.5} />
               <span className="font-mono font-bold text-[11px] text-tx tracking-wide">INSPIRATION</span>
             </div>
-            <p className="text-xs text-tx-dim leading-relaxed">AI 灵感生成与辅助创作</p>
-            <div className="mt-4 flex items-center gap-1 text-tx-faint group-hover:text-amber-500 transition-colors">
+            <p className="text-[12px] text-tx-dim leading-relaxed">AI 灵感生成与辅助创作</p>
+            <div className="mt-5 flex items-center gap-1.5 text-tx-faint group-hover:text-dot-red transition-colors duration-200">
               <span className="font-mono text-[10px] tracking-wide">EXPLORE</span>
               <ArrowRight size={10} />
             </div>
@@ -76,25 +76,25 @@ export default function Dashboard() {
 
           <button
             onClick={() => navigate('/records')}
-            className="group px-card p-5 text-left transition-all duration-150 hover:border-tx-mute"
+            className="group px-card p-6 text-left transition-all duration-200 hover:shadow-[0_2px_8px_rgba(0,0,0,0.06)]"
           >
             <div className="flex items-center gap-2.5 mb-3">
               <FileText size={14} className="text-tx-dim" strokeWidth={1.5} />
               <span className="font-mono font-bold text-[11px] text-tx tracking-wide">RECORDS</span>
             </div>
-            <p className="text-xs text-tx-dim leading-relaxed">查看历史发布状态</p>
-            <div className="mt-4 flex items-center gap-1 text-tx-faint group-hover:text-tx-dim transition-colors">
+            <p className="text-[12px] text-tx-dim leading-relaxed">查看历史发布状态</p>
+            <div className="mt-5 flex items-center gap-1.5 text-tx-faint group-hover:text-tx-dim transition-colors duration-200">
               <span className="font-mono text-[10px] tracking-wide">VIEW</span>
               <ArrowRight size={10} />
             </div>
           </button>
         </div>
 
-        <div className="mb-14">
-          <div className="px-label mb-4">PLATFORMS</div>
-          <div className="flex gap-4">
+        <div className="mb-16">
+          <div className="px-label mb-5">PLATFORMS</div>
+          <div className="flex gap-6">
             {platforms.map((p) => (
-              <div key={p.key} className="flex items-center gap-2">
+              <div key={p.key} className="flex items-center gap-2.5">
                 <div className="px-dot" style={{ backgroundColor: p.color }} />
                 <span className="font-mono text-[10px] text-tx-dim tracking-wide">{p.name}</span>
               </div>
@@ -103,27 +103,27 @@ export default function Dashboard() {
         </div>
 
         <div>
-          <div className="px-label mb-4">RECENT</div>
+          <div className="px-label mb-5">RECENT</div>
           {loading ? (
             <div className="space-y-2">
               {[1, 2, 3].map(i => (
-                <div key={i} className="px-card p-4 animate-pulse">
+                <div key={i} className="px-card p-5 animate-pulse">
                   <div className="h-3 bg-px-surface w-1/3 mb-2" />
                   <div className="h-2 bg-px-surface w-1/4" />
                 </div>
               ))}
             </div>
           ) : contents.length === 0 ? (
-            <div className="px-card border-dashed border-px-border p-12 text-center">
-              <Zap size={16} className="mx-auto text-tx-faint mb-3" strokeWidth={1.5} />
+            <div className="px-card border-dashed border-px-border p-16 text-center">
+              <Zap size={18} className="mx-auto text-tx-faint mb-4" strokeWidth={1.5} />
               <p className="font-mono text-[11px] text-tx-mute mb-1">NO CONTENT YET</p>
-              <p className="text-[11px] text-tx-faint mb-5">点击 NEW POST 开始创作</p>
+              <p className="text-[11px] text-tx-faint mb-6">点击 NEW POST 开始创作</p>
               <button onClick={() => navigate('/editor')} className="px-btn-primary text-[10px]">
                 WRITE FIRST POST
               </button>
             </div>
           ) : (
-            <div className="space-y-px">
+            <div className="space-y-1">
               {contents.map((item) => (
                 <button
                   key={item.id}
@@ -131,14 +131,14 @@ export default function Dashboard() {
                   className="w-full px-card p-4 text-left flex items-center justify-between group"
                 >
                   <div className="min-w-0">
-                    <p className="font-mono text-xs text-tx truncate mb-1">{item.title || 'UNTITLED'}</p>
+                    <p className="font-mono text-xs text-tx truncate mb-1.5">{item.title || 'UNTITLED'}</p>
                     <div className="flex gap-1.5">
                       {item.tags.map((t, i) => (
                         <span key={i} className="px-tag">{t}</span>
                       ))}
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 text-tx-faint group-hover:text-dot-red transition-colors shrink-0 ml-4">
+                  <div className="flex items-center gap-3 text-tx-faint group-hover:text-tx transition-colors shrink-0 ml-4">
                     <span className="font-mono text-[10px]">{new Date(item.updatedAt).toLocaleDateString('zh-CN')}</span>
                     <ArrowRight size={10} />
                   </div>
