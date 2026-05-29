@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Manrope:wght@400;500;600;700;800&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -7,104 +7,141 @@
 @layer base {
   * { box-sizing: border-box; }
   body {
-    @apply antialiased bg-surface text-ink font-sans;
     margin: 0;
+    font-family: 'Manrope', system-ui, sans-serif;
+    background-color: #0A0A0A;
+    color: #E8E8E8;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
   ::selection {
-    background: #E8553A30;
-    color: #1A1A1A;
+    background: #FF3B3030;
+    color: #E8E8E8;
   }
 }
 
 @layer components {
-  .btn {
-    @apply inline-flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium text-sm
-           transition-all duration-150 cursor-pointer select-none
-           active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed disabled:scale-100;
-  }
-  .btn-primary {
-    @apply btn bg-accent text-white;
-  }
-  .btn-primary:hover:not(:disabled) {
-    @apply bg-accent-hover;
-    box-shadow: 0 0 0 3px #E8553A25;
-  }
-  .btn-secondary {
-    @apply btn bg-white text-ink-secondary border border-border;
-  }
-  .btn-secondary:hover:not(:disabled) {
-    @apply bg-surface-hover text-ink border-border;
-  }
-  .btn-ghost {
-    @apply btn text-ink-muted;
-  }
-  .btn-ghost:hover:not(:disabled) {
-    @apply bg-surface-hover text-ink-secondary;
+  .dot-grid {
+    background-image: radial-gradient(circle, #1a1a1a 1px, transparent 1px);
+    background-size: 20px 20px;
   }
 
-  .card {
-    @apply bg-surface-card rounded-xl border border-border shadow-card;
+  .px-btn {
+    @apply inline-flex items-center gap-2 px-4 py-2.5 text-xs font-mono font-bold
+           tracking-wide border cursor-pointer select-none
+           transition-colors duration-100
+           disabled:opacity-30 disabled:cursor-not-allowed;
+    border-radius: 0;
   }
-  .card-hover {
-    @apply card transition-all duration-200;
+  .px-btn-primary {
+    @apply px-btn border-dot-red text-dot-red;
   }
-  .card-hover:hover {
-    @apply shadow-card-hover;
-    border-color: transparent;
+  .px-btn-primary:hover:not(:disabled) {
+    @apply bg-dot-red text-px-bg;
+  }
+  .px-btn-secondary {
+    @apply px-btn border-px-border text-tx-dim;
+  }
+  .px-btn-secondary:hover:not(:disabled) {
+    @apply bg-px-hover text-tx border-tx-mute;
+  }
+  .px-btn-ghost {
+    @apply px-btn border-transparent text-tx-dim;
+  }
+  .px-btn-ghost:hover:not(:disabled) {
+    @apply text-tx;
   }
 
-  .input {
-    @apply w-full px-3.5 py-2.5 rounded-lg text-sm bg-white border border-border
-           text-ink placeholder:text-ink-faint
-           focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/10
-           transition-all duration-150;
+  .px-card {
+    @apply bg-px-card border border-px-border;
+    border-radius: 0;
   }
 
-  .section-label {
-    @apply text-[11px] font-semibold text-ink-muted uppercase tracking-[0.08em] mb-3;
+  .px-input {
+    @apply w-full px-3 py-2 text-sm font-mono bg-px-surface border border-px-border
+           text-tx placeholder:text-tx-faint
+           focus:outline-none focus:border-tx-mute
+           transition-colors duration-100;
+    border-radius: 0;
+  }
+
+  .px-label {
+    @apply text-[10px] font-mono font-bold text-tx-mute tracking-pixel uppercase;
+  }
+
+  .px-divider {
+    @apply border-t border-px-border-subtle;
   }
 }
 
 .ProseMirror {
-  @apply text-ink leading-relaxed;
-  min-height: 360px;
-  padding: 20px;
+  font-family: 'Manrope', system-ui, sans-serif;
+  color: #E8E8E8;
+  min-height: 400px;
+  padding: 24px;
   outline: none;
+  font-size: 14px;
+  line-height: 1.8;
+}
+.ProseMirror p { margin: 8px 0; }
+.ProseMirror h2 {
+  font-family: 'Space Mono', monospace;
+  font-size: 18px;
+  font-weight: 700;
+  margin: 32px 0 12px;
+  color: #E8E8E8;
+  letter-spacing: 0.02em;
+}
+.ProseMirror h3 {
+  font-family: 'Space Mono', monospace;
   font-size: 15px;
-  line-height: 1.75;
+  font-weight: 700;
+  margin: 24px 0 8px;
+  color: #E8E8E8;
 }
-.ProseMirror p { @apply my-1.5; }
-.ProseMirror h2 { @apply text-xl font-semibold mt-8 mb-3 text-ink font-display; }
-.ProseMirror h3 { @apply text-lg font-semibold mt-5 mb-2 text-ink font-display; }
 .ProseMirror blockquote {
-  @apply border-l-[3px] border-accent/30 pl-4 my-4 text-ink-secondary italic;
+  border-left: 2px solid #FF3B3050;
+  padding-left: 16px;
+  margin: 16px 0;
+  color: #888888;
+  font-style: italic;
 }
-.ProseMirror ul { @apply list-disc pl-6 my-2; }
-.ProseMirror ol { @apply list-decimal pl-6 my-2; }
-.ProseMirror li { @apply my-0.5; }
+.ProseMirror ul { list-style: disc; padding-left: 24px; margin: 8px 0; }
+.ProseMirror ol { list-style: decimal; padding-left: 24px; margin: 8px 0; }
+.ProseMirror li { margin: 4px 0; }
 .ProseMirror code {
-  @apply bg-accent-light text-accent px-1.5 py-0.5 rounded text-[13px] font-mono;
+  font-family: 'Space Mono', monospace;
+  background: #FF3B3015;
+  color: #FF3B30;
+  padding: 2px 6px;
+  font-size: 12px;
 }
 .ProseMirror pre {
-  @apply bg-surface-warm rounded-lg p-4 my-3 overflow-x-auto border border-border;
+  background: #111111;
+  padding: 16px;
+  margin: 12px 0;
+  overflow-x: auto;
+  border: 1px solid #252525;
 }
-.ProseMirror pre code { @apply bg-transparent text-ink p-0; }
-.ProseMirror a { @apply text-accent underline underline-offset-2; }
+.ProseMirror pre code { background: transparent; color: #E8E8E8; padding: 0; }
+.ProseMirror a { color: #FF3B30; text-decoration: underline; text-underline-offset: 2px; }
 .ProseMirror p.is-editor-empty:first-child::before {
-  @apply text-ink-faint;
+  color: #333333;
   content: attr(data-placeholder);
   float: left;
   height: 0;
   pointer-events: none;
 }
-.ProseMirror img { @apply rounded-lg max-w-full; }
+.ProseMirror img { max-width: 100%; }
 
-@keyframes fade-in {
-  from { opacity: 0; transform: translateY(4px); }
+@keyframes px-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+.px-blink { animation: px-blink 1s step-end infinite; }
+
+@keyframes px-fade {
+  from { opacity: 0; transform: translateY(2px); }
   to { opacity: 1; transform: translateY(0); }
 }
-.animate-fade-in {
-  animation: fade-in 0.3s ease-out;
-}
+.px-fade-in { animation: px-fade 0.15s ease-out; }
