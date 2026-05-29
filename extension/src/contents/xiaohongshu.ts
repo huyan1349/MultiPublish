@@ -266,20 +266,26 @@ async function clickNextStep(): Promise<boolean> {
 }
 
 async function clickPublish(): Promise<boolean> {
-  await sleep(2000);
-
-  const publishBtn = await findPublishButton(PUBLISH_TIMEOUT);
-  if (!publishBtn) return false;
-
-  clickElement(publishBtn);
   await sleep(3000);
 
-  for (let i = 0; i < 3; i++) {
+  const publishBtn = await findPublishButton(PUBLISH_TIMEOUT);
+  if (!publishBtn) {
+    console.log('[ContentBridge:XHS] 未找到发布按钮，dump页面按钮:');
+    dumpVisibleButtons();
+    return false;
+  }
+
+  console.log('[ContentBridge:XHS] 找到发布按钮，准备点击:', compactText(publishBtn.innerText || publishBtn.textContent || ''));
+  forceClickElement(publishBtn);
+  await sleep(3000);
+
+  for (let i = 0; i < 5; i++) {
     if (hasPublishSuccessSignal()) return true;
     const confirmBtn = findConfirmButton();
     if (confirmBtn) {
-      clickElement(confirmBtn);
-      await sleep(2000);
+      console.log('[ContentBridge:XHS] 点击确认按钮:', compactText(confirmBtn.innerText || confirmBtn.textContent || ''));
+      forceClickElement(confirmBtn);
+      await sleep(2500);
     } else {
       await sleep(1500);
     }
@@ -290,24 +296,62 @@ async function clickPublish(): Promise<boolean> {
 
 async function findPublishButton(timeout: number): Promise<HTMLElement | null> {
   return waitForElement(() => {
-    const byText = findButtonByText(['发布', '立即发布', '发布笔记']);
+    const byText = findButtonByText(['发布', '立即发布', '发布笔记', '确认发布']);
     if (byText) return byText;
 
     const xhsBtn = document.querySelector('xhs-publish-btn');
     if (xhsBtn && xhsBtn.shadowRoot) {
-      const btn = xhsBtn.shadowRoot.querySelector<HTMLElement>('button.ce-btn.bg-red');
-      if (btn) return btn;
+      const btn = xhsBtn.shadowRoot.querySelector<HTMLElement>('button');
+      if (btn && isVisible(btn)) return btn;
+      const anyBtn = xhsBtn.shadowRoot.querySelector<HTMLElement>('[role="button"], .ce-btn');
+      if (anyBtn && isVisible(anyBtn)) return anyBtn;
+    }
+
+    const allCustomElements = document.querySelectorAll('*');
+    for (const el of allCustomElements) {
+      if (el.shadowRoot) {
+        const btn = el.shadowRoot.querySelector<HTMLElement>('button');
+        if (btn && isVisible(btn) && /发布|publish/i.test(btn.textContent || '')) return btn;
+      }
     }
 
     const allBtns = Array.from(document.querySelectorAll<HTMLElement>('button, [role="button"]'))
       .filter(isVisible)
       .filter((el) => !isDisabled(el));
     for (const btn of allBtns) {
-      if (/^发布$/.test(compactText(btn.textContent || ''))) return btn;
+      if (/发布|publish/i.test(compactText(btn.textContent || ''))) return btn;
     }
+
+    const allClickable = Array.from(document.querySelectorAll<HTMLElement>('div, span, a'))
+      .filter(isVisible)
+      .filter((el) => !isDisabled(el))
+      .filter((el) => /^发布$/.test(compactText(el.textContent || '')));
+    if (allClickable.length > 0) return allClickable[0];
 
     return null;
   }, timeout);
+}
+
+function forceClickElement(el: HTMLElement) {
+  el.scrollIntoView({ block: 'center', inline: 'center' });
+  el.focus();
+  el.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+  el.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+  el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+  el.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true }));
+  el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+  el.click();
+}
+
+function dumpVisibleButtons() {
+  const btns = Array.from(document.querySelectorAll<HTMLElement>('button, [role="button"]'))
+    .filter(isVisible);
+  console.log(`[ContentBridge:XHS] 可见按钮共 ${btns.length} 个:`);
+  btns.forEach((b, i) => {
+    console.log(`  [${i}] "${compactText(b.textContent || '')}" class="${(b.className && typeof b.className === 'string') ? b.className.slice(0, 60) : ''}" disabled=${b.hasAttribute('disabled')}`);
+  });
+  const shadows = Array.from(document.querySelectorAll('*')).filter((el) => el.shadowRoot);
+  console.log(`[ContentBridge:XHS] Shadow DOM元素共 ${shadows.length} 个:`, shadows.map((el) => el.tagName.toLowerCase()).join(', '));
 }
 
 function findConfirmButton(): HTMLElement | null {
