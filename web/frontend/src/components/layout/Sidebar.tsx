@@ -47,7 +47,7 @@ export default function Sidebar() {
         ))}
       </nav>
 
-      <div className="text-[9px] text-ink-faint/40 font-mono tracking-wider">v1.2</div>
+      <div className="text-[9px] text-ink-faint/40 font-mono tracking-wider">v1.3</div>
     </aside>
   );
 }

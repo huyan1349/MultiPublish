@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -9,21 +9,27 @@
   body {
     @apply antialiased bg-surface text-ink font-sans;
     margin: 0;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  ::selection {
+    background: #E8553A30;
+    color: #1A1A1A;
   }
 }
 
 @layer components {
   .btn {
-    @apply inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm
-           transition-all duration-200 cursor-pointer select-none
-           active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed disabled:scale-100;
+    @apply inline-flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium text-sm
+           transition-all duration-150 cursor-pointer select-none
+           active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed disabled:scale-100;
   }
   .btn-primary {
-    @apply btn bg-brand text-white;
+    @apply btn bg-accent text-white;
   }
   .btn-primary:hover:not(:disabled) {
-    @apply bg-brand-hover;
-    box-shadow: 0 0 0 4px rgba(79,70,229,0.12);
+    @apply bg-accent-hover;
+    box-shadow: 0 0 0 3px #E8553A25;
   }
   .btn-secondary {
     @apply btn bg-white text-ink-secondary border border-border;
@@ -39,53 +45,66 @@
   }
 
   .card {
-    @apply bg-white rounded-2xl border border-border shadow-card;
+    @apply bg-surface-card rounded-xl border border-border shadow-card;
   }
   .card-hover {
     @apply card transition-all duration-200;
   }
   .card-hover:hover {
-    @apply shadow-card-hover border-transparent;
+    @apply shadow-card-hover;
+    border-color: transparent;
   }
 
   .input {
-    @apply w-full px-3.5 py-2.5 rounded-xl text-sm bg-white border border-border
-           text-ink placeholder:text-ink-muted
-           focus:outline-none focus:border-brand focus:ring-4 focus:ring-brand/10
-           transition-all duration-200;
+    @apply w-full px-3.5 py-2.5 rounded-lg text-sm bg-white border border-border
+           text-ink placeholder:text-ink-faint
+           focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/10
+           transition-all duration-150;
+  }
+
+  .section-label {
+    @apply text-[11px] font-semibold text-ink-muted uppercase tracking-[0.08em] mb-3;
   }
 }
 
-/* Tiptap dark removed — clean light editor */
 .ProseMirror {
   @apply text-ink leading-relaxed;
-  min-height: 320px;
-  padding: 16px;
+  min-height: 360px;
+  padding: 20px;
   outline: none;
   font-size: 15px;
+  line-height: 1.75;
 }
 .ProseMirror p { @apply my-1.5; }
-.ProseMirror h2 { @apply text-xl font-semibold mt-6 mb-3 text-ink; }
-.ProseMirror h3 { @apply text-lg font-semibold mt-4 mb-2 text-ink; }
+.ProseMirror h2 { @apply text-xl font-semibold mt-8 mb-3 text-ink font-display; }
+.ProseMirror h3 { @apply text-lg font-semibold mt-5 mb-2 text-ink font-display; }
 .ProseMirror blockquote {
-  @apply border-l-2 border-brand/30 pl-4 my-3 text-ink-secondary italic;
+  @apply border-l-[3px] border-accent/30 pl-4 my-4 text-ink-secondary italic;
 }
 .ProseMirror ul { @apply list-disc pl-6 my-2; }
 .ProseMirror ol { @apply list-decimal pl-6 my-2; }
 .ProseMirror li { @apply my-0.5; }
 .ProseMirror code {
-  @apply bg-brand-light text-brand px-1.5 py-0.5 rounded text-sm font-mono;
+  @apply bg-accent-light text-accent px-1.5 py-0.5 rounded text-[13px] font-mono;
 }
 .ProseMirror pre {
-  @apply bg-surface rounded-lg p-4 my-3 overflow-x-auto border border-border;
+  @apply bg-surface-warm rounded-lg p-4 my-3 overflow-x-auto border border-border;
 }
 .ProseMirror pre code { @apply bg-transparent text-ink p-0; }
-.ProseMirror a { @apply text-brand underline; }
+.ProseMirror a { @apply text-accent underline underline-offset-2; }
 .ProseMirror p.is-editor-empty:first-child::before {
-  @apply text-ink-muted;
+  @apply text-ink-faint;
   content: attr(data-placeholder);
   float: left;
   height: 0;
   pointer-events: none;
 }
 .ProseMirror img { @apply rounded-lg max-w-full; }
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out;
+}
