@@ -191,15 +191,18 @@ async function tryAutoPublish(): Promise<{ success: boolean; message: string }> 
 
 function findByXPath(labels: string[], root: Node = document): HTMLElement | null {
   for (const label of labels) {
-    // 精确文本匹配
-    const exact = `.//*[normalize-space(text())='${label}']`;
+    // 匹配元素文本内容（含子元素文本，如 <button><span>发布</span></button>）
+    const exact = `.//*[normalize-space(.)='${label}']`;
     const r1 = safeEvalXPath(exact, root);
     if (r1) return r1;
-
-    // 包含文本匹配
-    const contains = `.//*[contains(text(), '${label}')]`;
-    const r2 = safeEvalXPath(contains, root);
+    // 直接文本节点精确匹配
+    const exactText = `.//*[normalize-space(text())='${label}']`;
+    const r2 = safeEvalXPath(exactText, root);
     if (r2) return r2;
+    // 包含匹配
+    const contains = `.//*[contains(normalize-space(.), '${label}')]`;
+    const r3 = safeEvalXPath(contains, root);
+    if (r3) return r3;
   }
   return null;
 }
@@ -208,7 +211,7 @@ function findAllByXPath(labels: string[], root: Node = document): HTMLElement[] 
   const results: HTMLElement[] = [];
   const seen = new Set<HTMLElement>();
   for (const label of labels) {
-    const xpath = `.//*[contains(text(), '${label}')]`;
+    const xpath = `.//*[contains(normalize-space(.), '${label}')]`;
     try {
       const iter = document.evaluate(xpath, root, null, XPathResult.ORDERED_NODE_ITERATOR_TYPE, null);
       let node = iter.iterateNext();
