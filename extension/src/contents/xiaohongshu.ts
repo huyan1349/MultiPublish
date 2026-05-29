@@ -270,8 +270,8 @@ async function clickPublish(): Promise<boolean> {
 
   const publishBtn = await findPublishButton(PUBLISH_TIMEOUT);
   if (!publishBtn) {
-    console.log('[ContentBridge:XHS] 未找到发布按钮，dump页面按钮:');
-    dumpVisibleButtons();
+    console.log('[ContentBridge:XHS] 未找到发布按钮，全量dump:');
+    dumpAllElements();
     return false;
   }
 
@@ -296,40 +296,65 @@ async function clickPublish(): Promise<boolean> {
 
 async function findPublishButton(timeout: number): Promise<HTMLElement | null> {
   return waitForElement(() => {
-    const byText = findButtonByText(['发布', '立即发布', '发布笔记', '确认发布']);
-    if (byText) return byText;
+    const result = bruteFindPublishButton();
+    if (result) console.log('[ContentBridge:XHS] findPublishButton命中:', result.tag, result.source);
+    return result?.el || null;
+  }, timeout);
+}
 
-    const xhsBtn = document.querySelector('xhs-publish-btn');
-    if (xhsBtn && xhsBtn.shadowRoot) {
-      const btn = xhsBtn.shadowRoot.querySelector<HTMLElement>('button');
-      if (btn && isVisible(btn)) return btn;
-      const anyBtn = xhsBtn.shadowRoot.querySelector<HTMLElement>('[role="button"], .ce-btn');
-      if (anyBtn && isVisible(anyBtn)) return anyBtn;
+function bruteFindPublishButton(): { el: HTMLElement; tag: string; source: string } | null {
+  const all = Array.from(document.querySelectorAll<HTMLElement>(
+    'button, [role="button"], a, div, span, li, p, h1, h2, h3, h4, h5, h6, label, section'
+  ));
+
+  const exactMatches: Array<{ el: HTMLElement; priority: number; source: string }> = [];
+
+  for (const el of all) {
+    const text = compactText(el.innerText || el.textContent || '');
+    if (text !== '发布' && text !== '立即发布' && text !== '发布笔记') continue;
+
+    const style = window.getComputedStyle(el);
+    const bg = (style.backgroundColor || '').toLowerCase();
+    const color = (style.color || '').toLowerCase();
+    const isRed = bg.includes('255') || bg.includes('ff') || color.includes('255') || color.includes('ff');
+    const isBtn = el.tagName === 'BUTTON' || el.getAttribute('role') === 'button';
+    const rect = el.getBoundingClientRect();
+    const size = rect.width * rect.height;
+
+    let priority = size;
+    if (isRed) priority += 100000;
+    if (isBtn) priority += 50000;
+
+    exactMatches.push({ el, priority, source: `tag=${el.tagName} bg=${bg.slice(0, 20)} size=${Math.round(size)}` });
+  }
+
+  if (exactMatches.length > 0) {
+    exactMatches.sort((a, b) => b.priority - a.priority);
+    return { el: exactMatches[0].el, tag: exactMatches[0].el.tagName, source: exactMatches[0].source };
+  }
+
+  for (const el of all) {
+    const text = compactText(el.innerText || el.textContent || '');
+    if (!text.includes('发布')) continue;
+    const rect = el.getBoundingClientRect();
+    if (rect.width > 0 && rect.height > 0) {
+      return { el, tag: el.tagName, source: `contains-text="${text.slice(0, 20)}"` };
     }
+  }
 
-    const allCustomElements = document.querySelectorAll('*');
-    for (const el of allCustomElements) {
-      if (el.shadowRoot) {
-        const btn = el.shadowRoot.querySelector<HTMLElement>('button');
-        if (btn && isVisible(btn) && /发布|publish/i.test(btn.textContent || '')) return btn;
+  const shadows = Array.from(document.querySelectorAll('*')).filter((el) => el.shadowRoot);
+  for (const host of shadows) {
+    const sr = host.shadowRoot!;
+    const btns = sr.querySelectorAll<HTMLElement>('button, [role="button"], div, span');
+    for (const btn of btns) {
+      const text = compactText(btn.textContent || '');
+      if (text === '发布' || text === '立即发布' || text.includes('发布')) {
+        return { el: btn, tag: `${host.tagName.toLowerCase()}::${btn.tagName}`, source: `shadow-text="${text.slice(0, 20)}"` };
       }
     }
+  }
 
-    const allBtns = Array.from(document.querySelectorAll<HTMLElement>('button, [role="button"]'))
-      .filter(isVisible)
-      .filter((el) => !isDisabled(el));
-    for (const btn of allBtns) {
-      if (/发布|publish/i.test(compactText(btn.textContent || ''))) return btn;
-    }
-
-    const allClickable = Array.from(document.querySelectorAll<HTMLElement>('div, span, a'))
-      .filter(isVisible)
-      .filter((el) => !isDisabled(el))
-      .filter((el) => /^发布$/.test(compactText(el.textContent || '')));
-    if (allClickable.length > 0) return allClickable[0];
-
-    return null;
-  }, timeout);
+  return null;
 }
 
 function forceClickElement(el: HTMLElement) {
@@ -343,15 +368,30 @@ function forceClickElement(el: HTMLElement) {
   el.click();
 }
 
-function dumpVisibleButtons() {
-  const btns = Array.from(document.querySelectorAll<HTMLElement>('button, [role="button"]'))
-    .filter(isVisible);
-  console.log(`[ContentBridge:XHS] 可见按钮共 ${btns.length} 个:`);
-  btns.forEach((b, i) => {
-    console.log(`  [${i}] "${compactText(b.textContent || '')}" class="${(b.className && typeof b.className === 'string') ? b.className.slice(0, 60) : ''}" disabled=${b.hasAttribute('disabled')}`);
+function dumpAllElements() {
+  const all = Array.from(document.querySelectorAll<HTMLElement>('button, [role="button"], div, span'));
+  const withText = all
+    .filter((el) => el.getBoundingClientRect().width > 0 && el.getBoundingClientRect().height > 0)
+    .filter((el) => compactText(el.textContent || '').length > 0 && compactText(el.textContent || '').length < 30)
+    .slice(0, 50);
+  console.log(`[ContentBridge:XHS] 页面可见短文本元素(前50):`);
+  withText.forEach((el, i) => {
+    const style = window.getComputedStyle(el);
+    console.log(`  [${i}] <${el.tagName}> "${compactText(el.textContent || '')}" bg=${(style.backgroundColor || '').slice(0, 15)} w=${Math.round(el.getBoundingClientRect().width)}`);
   });
+
   const shadows = Array.from(document.querySelectorAll('*')).filter((el) => el.shadowRoot);
-  console.log(`[ContentBridge:XHS] Shadow DOM元素共 ${shadows.length} 个:`, shadows.map((el) => el.tagName.toLowerCase()).join(', '));
+  console.log(`[ContentBridge:XHS] Shadow DOM宿主(${shadows.length}个):`, shadows.map((el) => el.tagName.toLowerCase()).join(', '));
+  for (const host of shadows) {
+    const sr = host.shadowRoot!;
+    const inner = Array.from(sr.querySelectorAll<HTMLElement>('button, div, span'))
+      .filter((el) => compactText(el.textContent || '').length > 0 && compactText(el.textContent || '').length < 30)
+      .slice(0, 10);
+    console.log(`  ${host.tagName.toLowerCase()} shadow内容:`);
+    inner.forEach((el, i) => {
+      console.log(`    [${i}] <${el.tagName}> "${compactText(el.textContent || '')}"`);
+    });
+  }
 }
 
 function findConfirmButton(): HTMLElement | null {
