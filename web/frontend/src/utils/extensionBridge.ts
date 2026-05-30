@@ -1,10 +1,6 @@
 import type { PublishPayload, PublishResult } from '../adapters/types';
 
-const EXTENSION_IDS = [
-  'cecgmmphokhciflacpegmfpobchjkone',
-  'nkbofdgckebmeahmnidbkbjglbfmpfji',
-  'bcfbhfbghjoclbjffibjippcecnbmbkl',
-];
+const EXTENSION_ID = 'cecgmmphokhciflacpegmfpobchjkone';
 
 export interface ExtensionStatus {
   available: boolean;
@@ -14,14 +10,11 @@ export interface ExtensionStatus {
 
 let cachedStatus: ExtensionStatus = { available: false, lastChecked: 0 };
 
-let connectedExtId: string | null = null;
-
 export async function publishToPlatform(payload: PublishPayload): Promise<PublishResult> {
   if (!chrome?.runtime?.sendMessage) {
     throw new Error('请在 Chrome 浏览器中打开此页面，并确保已安装 ContentBridge 扩展');
   }
-  const extId = connectedExtId || EXTENSION_IDS[0];
-  return chrome.runtime.sendMessage(extId, {
+  return chrome.runtime.sendMessage(EXTENSION_ID, {
     type: 'PUBLISH_TO_PLATFORM',
     payload,
   });
@@ -31,28 +24,16 @@ export function isExtensionAvailable(): boolean {
   return !!(chrome?.runtime?.sendMessage);
 }
 
-async function tryHealthCheck(extId: string): Promise<{ connected: boolean; version?: string }> {
+export async function checkExtensionHealth(): Promise<{ connected: boolean; version?: string }> {
   try {
     if (!chrome?.runtime?.sendMessage) return { connected: false };
-    const resp = await chrome.runtime.sendMessage(extId, { type: 'HEALTH_CHECK' });
+    const resp = await chrome.runtime.sendMessage(EXTENSION_ID, { type: 'HEALTH_CHECK' });
+    cachedStatus = { available: true, version: resp?.version, lastChecked: Date.now() };
     return { connected: true, version: resp?.version };
   } catch {
+    cachedStatus = { available: false, lastChecked: Date.now() };
     return { connected: false };
   }
-}
-
-export async function checkExtensionHealth(): Promise<{ connected: boolean; version?: string }> {
-  for (const extId of EXTENSION_IDS) {
-    const result = await tryHealthCheck(extId);
-    if (result.connected) {
-      connectedExtId = extId;
-      cachedStatus = { available: true, version: result.version, lastChecked: Date.now() };
-      return result;
-    }
-  }
-  connectedExtId = null;
-  cachedStatus = { available: false, lastChecked: Date.now() };
-  return { connected: false };
 }
 
 export function onExtensionMessage(callback: (msg: { type: string; payload?: unknown }) => void): () => void {
