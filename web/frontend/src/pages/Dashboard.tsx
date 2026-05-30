@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight, FileText, PenLine, Sparkles, Zap } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { api } from '../api/client';
 import BrandMark from '../components/brand/BrandMark';
 
@@ -206,13 +207,24 @@ export default function Dashboard() {
                 <p className="mt-3 text-[13px] leading-6 text-[var(--ink-soft)]">从「新建稿件」或「快速开始」开始创作</p>
               </div>
             ) : (
-              <div className="space-y-3">
-                {contents.slice(0, 5).map((item, i) => (
-                  <button
+              <motion.div
+                className="space-y-3"
+                initial="hidden"
+                animate="show"
+                variants={{
+                  show: { transition: { staggerChildren: 0.07, delayChildren: 0.04 } },
+                }}
+              >
+                {contents.slice(0, 5).map((item) => (
+                  <motion.button
                     key={item.id}
                     onClick={() => navigate(`/contents/${item.id}/preview`)}
-                    className="group w-full rounded-[22px] border border-[rgba(49,56,45,0.1)] bg-[rgba(255,255,255,0.72)] p-4 text-left transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_6px_20px_rgba(41,48,39,0.06)]"
-                    style={{ animation: `px-list-item-in 480ms cubic-bezier(0.22,0.61,0.36,1) both ${i * 60 + 40}ms` }}
+                    className="group w-full rounded-[22px] border border-[rgba(49,56,45,0.1)] bg-[rgba(255,255,255,0.72)] p-4 text-left transition-all duration-400 hover:-translate-y-0.5 hover:shadow-[0_8px_24px_rgba(41,48,39,0.07)]"
+                    variants={{
+                      hidden: { opacity: 0 },
+                      show: { opacity: 1 },
+                    }}
+                    transition={{ duration: 0.35, ease: 'easeOut' }}
                   >
                     <div className="flex items-start justify-between gap-4">
                       <div className="min-w-0">
@@ -229,12 +241,12 @@ export default function Dashboard() {
                         <span className="font-['IBM_Plex_Mono'] text-[10px] tracking-[0.16em] text-[var(--ink-faint)]">
                           {new Date(item.updatedAt).toLocaleDateString('zh-CN')}
                         </span>
-                        <ArrowRight size={12} className="text-[var(--ink-faint)] opacity-0 transition-opacity duration-200 group-hover:opacity-100" />
+                        <ArrowRight size={12} className="text-[var(--ink-faint)] opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
                       </div>
                     </div>
-                  </button>
+                  </motion.button>
                 ))}
-              </div>
+              </motion.div>
             )}
 
             {latest && (

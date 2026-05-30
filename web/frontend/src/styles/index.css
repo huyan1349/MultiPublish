@@ -35,12 +35,14 @@
   --shadow-soft: 0 18px 42px rgba(48, 56, 44, 0.07);
   --shadow-float: 0 24px 60px rgba(40, 46, 38, 0.11);
 
-  /* easing curves */
-  --ease-out-expo: cubic-bezier(0.19, 1, 0.22, 1);
-  --ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
-  --ease-spring: cubic-bezier(0.22, 0.61, 0.36, 1);
-  --ease-smooth: cubic-bezier(0.45, 0, 0.55, 1);
-  --ease-snap: cubic-bezier(0.65, 0, 0.35, 1);
+  /* spring-physics easing — natural settle, no mechanical stiffness */
+  --ease-spring-in: cubic-bezier(0.16, 1, 0.3, 1);      /* gentle land */
+  --ease-spring-out: cubic-bezier(0.7, 0, 0.84, 0);     /* quick vanish */
+  --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);     /* micro-bounce */
+  --ease-snappy: cubic-bezier(0.22, 0.61, 0.36, 1);     /* fast but smooth */
+  --ease-smooth: cubic-bezier(0.45, 0, 0.55, 1);        /* symmetric slow */
+  --ease-press: cubic-bezier(0.68, -0.25, 0.27, 1.35);  /* elastic push */
+  --ease-glide: cubic-bezier(0.25, 0.46, 0.45, 0.94);   /* long gentle drift */
 }
 
 @layer base {
@@ -58,8 +60,8 @@
     font-family: 'Manrope', system-ui, sans-serif;
     color: var(--ink);
     background:
-      radial-gradient(circle at top left, rgba(111, 132, 109, 0.12), transparent 28%),
-      radial-gradient(circle at bottom right, rgba(111, 132, 109, 0.08), transparent 26%),
+      radial-gradient(circle at 30% 20%, rgba(111, 132, 109, 0.10), transparent 35%),
+      radial-gradient(circle at 70% 80%, rgba(111, 132, 109, 0.06), transparent 30%),
       linear-gradient(180deg, #ffffff 0%, #f8fbf7 52%, #eef5ec 100%);
     min-height: 100vh;
   }
@@ -75,6 +77,7 @@
     background-size: 72px 72px, 72px 72px;
     opacity: 0.28;
     mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.8), transparent 92%);
+    animation: px-ambient-grid 18s var(--ease-smooth) infinite;
   }
 
   ::selection {
@@ -111,14 +114,19 @@
     border-radius: 28px;
     box-shadow: var(--shadow-soft);
     backdrop-filter: blur(14px);
-    transition: border-color 300ms var(--ease-out-expo), transform 300ms var(--ease-out-expo), box-shadow 300ms var(--ease-out-expo);
+    transition: border-color 400ms var(--ease-spring-in),
+                transform 400ms var(--ease-spring-in),
+                box-shadow 400ms var(--ease-spring-in);
     will-change: transform;
   }
 
   .px-card:hover {
-    border-color: var(--line-strong);
-    box-shadow: var(--shadow-float);
-    transform: scale(1.008);
+    border-color: rgba(91, 108, 240, 0.12);
+    box-shadow:
+      0 8px 30px rgba(41, 48, 39, 0.05),
+      0 2px 8px rgba(41, 48, 39, 0.03),
+      var(--shadow-float);
+    transform: translateY(-2px) scale(1.005);
   }
 
   .px-paper {
@@ -140,7 +148,7 @@
     border: 1px solid transparent;
     cursor: pointer;
     user-select: none;
-    transition: transform 220ms var(--ease-out-expo), box-shadow 220ms var(--ease-out-expo), background-color 220ms var(--ease-out-expo), color 220ms var(--ease-out-expo), border-color 220ms var(--ease-out-expo), opacity 220ms var(--ease-out-expo);
+    transition: transform 200ms var(--ease-bounce), box-shadow 200ms var(--ease-spring-in), background-color 200ms var(--ease-spring-in), color 200ms var(--ease-spring-in), border-color 200ms var(--ease-spring-in), opacity 200ms var(--ease-spring-in);
     font-family: 'IBM Plex Mono', monospace;
     font-size: 10px;
     letter-spacing: 0.18em;
@@ -156,8 +164,9 @@
   }
 
   .px-btn:active:not(:disabled) {
-    transform: scale(0.96) translateY(1px);
-    transition-duration: 80ms;
+    transform: scale(0.95);
+    transition-duration: 60ms;
+    transition-timing-function: var(--ease-press);
   }
 
   .px-btn:hover:not(:disabled) {
@@ -220,7 +229,7 @@
     border: 1px solid var(--line);
     border-radius: 18px;
     outline: none;
-    transition: border-color 280ms var(--ease-out-expo), background-color 280ms var(--ease-out-expo), box-shadow 280ms var(--ease-out-expo), transform 280ms var(--ease-out-expo);
+    transition: border-color 280ms var(--ease-spring-in), background-color 280ms var(--ease-spring-in), box-shadow 280ms var(--ease-spring-in), transform 280ms var(--ease-spring-in);
   }
 
   .px-input::placeholder {
@@ -266,7 +275,7 @@
     font-size: 10px;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    transition: transform 180ms var(--ease-out-expo), border-color 180ms var(--ease-out-expo), background-color 180ms var(--ease-out-expo);
+    transition: transform 200ms var(--ease-bounce), border-color 200ms var(--ease-spring-in), background-color 200ms var(--ease-spring-in);
   }
 
   .px-tag:hover {
@@ -338,7 +347,7 @@
     border-radius: 18px;
     color: var(--ink-soft);
     border: 1px solid transparent;
-    transition: background-color 260ms var(--ease-out-expo), color 260ms var(--ease-out-expo), border-color 260ms var(--ease-out-expo), transform 260ms var(--ease-out-expo), box-shadow 260ms var(--ease-out-expo);
+    transition: background-color 280ms var(--ease-spring-in), color 280ms var(--ease-spring-in), border-color 280ms var(--ease-spring-in), transform 260ms var(--ease-bounce), box-shadow 280ms var(--ease-spring-in);
   }
 
   .px-sidebar-link:hover {
@@ -440,15 +449,15 @@
   }
 
   .px-fade-in {
-    animation: px-fade-up 520ms var(--ease-out-expo) both;
+    animation: px-fade-up 520ms var(--ease-spring-in) both;
   }
 
   .px-slide-in {
-    animation: px-slide-in 400ms var(--ease-out-expo) both;
+    animation: px-slide-in 400ms var(--ease-spring-in) both;
   }
 
   .px-scale-in {
-    animation: px-scale-in 280ms var(--ease-out-back) both;
+    animation: px-scale-in 280ms var(--ease-bounce) both;
   }
 
   .px-pulse-dot {
@@ -584,35 +593,43 @@
   }
 }
 
+/* ——— Core keyframes ——— */
+
 @keyframes px-fade-up {
-  from { opacity: 0; transform: translateY(18px) scale(0.98); }
+  from { opacity: 0; transform: translateY(24px) scale(0.97); }
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 @keyframes px-slide-in {
-  from { opacity: 0; transform: translateX(-10px); }
+  from { opacity: 0; transform: translateX(-12px); }
   to { opacity: 1; transform: translateX(0); }
 }
 
 @keyframes px-scale-in {
-  from { opacity: 0; transform: scale(0.94); }
+  from { opacity: 0; transform: scale(0.92); }
+  60% { transform: scale(1.015); }
   to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes px-blur-in {
+  from { opacity: 0; filter: blur(8px); transform: translateY(8px); }
+  to { opacity: 1; filter: blur(0); transform: translateY(0); }
 }
 
 @keyframes px-blink {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.2; }
+  50% { opacity: 0.15; }
 }
 
 @keyframes px-float {
   0%, 100% { transform: translateY(0) rotate(0deg); }
-  33% { transform: translateY(-8px) rotate(0.5deg); }
-  66% { transform: translateY(-2px) rotate(-0.3deg); }
+  30% { transform: translateY(-10px) rotate(0.6deg); }
+  60% { transform: translateY(-3px) rotate(-0.4deg); }
 }
 
 @keyframes px-pulse-dot {
-  0%, 100% { transform: scale(1); opacity: 0.7; }
-  50% { transform: scale(1.5); opacity: 1; }
+  0%, 100% { transform: scale(1); opacity: 0.6; }
+  50% { transform: scale(1.6); opacity: 1; }
 }
 
 @keyframes px-shimmer {
@@ -620,59 +637,89 @@
   100% { background-position: -200% 0; }
 }
 
-/* page enter */
+/* ——— Page & list entrance ——— */
+
 @keyframes px-page-enter {
-  from { opacity: 0; transform: translateY(12px) scale(0.99); }
+  from { opacity: 0; transform: translateY(16px) scale(0.985); }
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-/* card list stagger */
 @keyframes px-list-item-in {
-  from { opacity: 0; transform: translateY(20px) scale(0.97); }
+  from { opacity: 0; transform: translateY(28px) scale(0.96); }
+  60% { opacity: 1; }
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-/* button press ripple feel */
+@keyframes px-card-reveal {
+  from { opacity: 0; transform: translateY(20px) scale(0.98); }
+  40% { opacity: 1; }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ——— Interaction ——— */
+
 @keyframes px-press-in {
-  from { transform: scale(1); }
-  to { transform: scale(0.96); }
+  0% { transform: scale(1); }
+  40% { transform: scale(0.95); }
+  100% { transform: scale(0.97); }
 }
 
-/* skeleton pulse */
+@keyframes px-pop-in {
+  from { opacity: 0; transform: scale(0.8); }
+  60% { transform: scale(1.04); }
+  to { opacity: 1; transform: scale(1); }
+}
+
 @keyframes px-skeleton {
-  0%, 100% { opacity: 0.4; }
-  50% { opacity: 0.8; }
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 0.7; }
 }
 
-/* ——— Inspiration page animations ——— */
+/* ——— Ambient ——— */
+
+@keyframes px-ambient-grid {
+  0%, 100% { opacity: 0.18; }
+  50% { opacity: 0.32; }
+}
+
+@keyframes px-glow-breathe {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(91, 108, 240, 0); }
+  50% { box-shadow: 0 0 40px 4px rgba(91, 108, 240, 0.08); }
+}
+
+@keyframes px-border-pulse {
+  0%, 100% { border-color: rgba(91, 108, 240, 0.08); }
+  50% { border-color: rgba(91, 108, 240, 0.22); }
+}
+
+/* ——— Inspiration page ——— */
 
 @keyframes px-orb-1 {
-  0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.1; }
-  20% { transform: translate(50px, -25px) scale(1.06); opacity: 0.15; }
-  40% { transform: translate(-15px, -55px) scale(0.95); opacity: 0.09; }
-  60% { transform: translate(-45px, -8px) scale(1.03); opacity: 0.13; }
-  80% { transform: translate(20px, 15px) scale(0.98); opacity: 0.11; }
+  0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.08; }
+  25% { transform: translate(60px, -30px) scale(1.08); opacity: 0.14; }
+  50% { transform: translate(-20px, -60px) scale(0.94); opacity: 0.07; }
+  75% { transform: translate(-50px, -10px) scale(1.04); opacity: 0.11; }
 }
 
 @keyframes px-orb-2 {
-  0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.08; }
-  30% { transform: translate(-45px, -35px) scale(1.08); opacity: 0.14; }
-  60% { transform: translate(35px, 15px) scale(0.93); opacity: 0.07; }
+  0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.06; }
+  30% { transform: translate(-50px, -40px) scale(1.1); opacity: 0.13; }
+  60% { transform: translate(40px, 20px) scale(0.92); opacity: 0.05; }
 }
 
 @keyframes px-orb-3 {
-  0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.06; }
-  50% { transform: translate(55px, 25px) scale(1.1); opacity: 0.12; }
+  0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.05; }
+  50% { transform: translate(60px, 30px) scale(1.12); opacity: 0.1; }
 }
 
 @keyframes px-glow-pulse {
   0%, 100% { box-shadow: 0 0 0 0 rgba(91, 108, 240, 0); }
-  50% { box-shadow: 0 0 30px 3px rgba(91, 108, 240, 0.1); }
+  50% { box-shadow: 0 0 36px 4px rgba(91, 108, 240, 0.08); }
 }
 
 @keyframes px-border-glow {
-  0%, 100% { border-color: rgba(91, 108, 240, 0.12); }
-  50% { border-color: rgba(91, 108, 240, 0.3); }
+  0%, 100% { border-color: rgba(91, 108, 240, 0.1); }
+  50% { border-color: rgba(91, 108, 240, 0.25); }
 }
 
 @keyframes px-text-shimmer {
@@ -682,30 +729,30 @@
 
 @keyframes px-bubble-1 {
   0%, 100% { transform: translateY(0) translateX(0) scale(1); }
-  25% { transform: translateY(-14px) translateX(8px) scale(1.04); }
-  50% { transform: translateY(-3px) translateX(-5px) scale(0.98); }
-  75% { transform: translateY(-18px) translateX(-6px) scale(1.02); }
+  25% { transform: translateY(-16px) translateX(10px) scale(1.05); }
+  50% { transform: translateY(-4px) translateX(-6px) scale(0.97); }
+  75% { transform: translateY(-20px) translateX(-8px) scale(1.03); }
 }
 
 @keyframes px-bubble-2 {
   0%, 100% { transform: translateY(0) translateX(0) scale(1); }
-  33% { transform: translateY(-20px) translateX(-8px) scale(1.03); }
-  66% { transform: translateY(-5px) translateX(10px) scale(0.97); }
+  33% { transform: translateY(-22px) translateX(-10px) scale(1.04); }
+  66% { transform: translateY(-6px) translateX(12px) scale(0.96); }
 }
 
 @keyframes px-bubble-3 {
   0%, 100% { transform: translateY(0) translateX(0) scale(1); }
-  50% { transform: translateY(-22px) translateX(3px) scale(1.05); }
+  50% { transform: translateY(-24px) translateX(4px) scale(1.06); }
 }
 
 @keyframes px-stagger-in {
-  from { opacity: 0; transform: translateY(36px) scale(0.95); }
+  from { opacity: 0; transform: translateY(40px) scale(0.94); }
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 @keyframes px-thinking-dot {
-  0%, 80%, 100% { transform: scale(0.3); opacity: 0.25; }
-  40% { transform: scale(1); opacity: 1; }
+  0%, 80%, 100% { transform: scale(0.3); opacity: 0.2; }
+  40% { transform: scale(1.1); opacity: 1; }
 }
 
 @keyframes px-spin-slow {
@@ -713,10 +760,9 @@
   to { transform: rotate(360deg); }
 }
 
-/* new utility animations */
 @keyframes px-card-hover-lift {
-  from { transform: translateY(0); box-shadow: var(--shadow-soft); }
-  to { transform: translateY(-3px); box-shadow: var(--shadow-float); }
+  0% { transform: translateY(0); box-shadow: var(--shadow-soft); }
+  100% { transform: translateY(-4px); box-shadow: var(--shadow-float); }
 }
 
 .px-orb {
@@ -727,25 +773,38 @@
   will-change: transform, opacity;
 }
 
-.px-stagger-1 { animation: px-stagger-in 560ms var(--ease-out-expo) both 60ms; }
-.px-stagger-2 { animation: px-stagger-in 560ms var(--ease-out-expo) both 140ms; }
-.px-stagger-3 { animation: px-stagger-in 560ms var(--ease-out-expo) both 220ms; }
+/* staggered entrance — organic rhythm, not linear */
+.px-stagger-1 { animation: px-stagger-in 620ms var(--ease-spring-in) both 50ms; }
+.px-stagger-2 { animation: px-stagger-in 620ms var(--ease-spring-in) both 130ms; }
+.px-stagger-3 { animation: px-stagger-in 620ms var(--ease-spring-in) both 210ms; }
 
-.px-list-item-1 { animation: px-list-item-in 480ms var(--ease-out-expo) both 40ms; }
-.px-list-item-2 { animation: px-list-item-in 480ms var(--ease-out-expo) both 100ms; }
-.px-list-item-3 { animation: px-list-item-in 480ms var(--ease-out-expo) both 160ms; }
-.px-list-item-4 { animation: px-list-item-in 480ms var(--ease-out-expo) both 220ms; }
-.px-list-item-5 { animation: px-list-item-in 480ms var(--ease-out-expo) both 280ms; }
+.px-list-item-1 { animation: px-list-item-in 520ms var(--ease-spring-in) both 30ms; }
+.px-list-item-2 { animation: px-list-item-in 520ms var(--ease-spring-in) both 90ms; }
+.px-list-item-3 { animation: px-list-item-in 520ms var(--ease-spring-in) both 150ms; }
+.px-list-item-4 { animation: px-list-item-in 520ms var(--ease-spring-in) both 210ms; }
+.px-list-item-5 { animation: px-list-item-in 520ms var(--ease-spring-in) both 270ms; }
 
 .px-page-enter {
-  animation: px-page-enter 420ms var(--ease-out-expo) both;
+  animation: px-page-enter 480ms var(--ease-spring-in) both;
+}
+
+.px-blur-in {
+  animation: px-blur-in 560ms var(--ease-spring-in) both;
+}
+
+.px-pop-in {
+  animation: px-pop-in 360ms var(--ease-bounce) both;
+}
+
+.px-card-reveal {
+  animation: px-card-reveal 560ms var(--ease-spring-in) both;
 }
 
 .px-thinking-dot {
   width: 6px; height: 6px;
   border-radius: 50%;
   background: var(--accent);
-  animation: px-thinking-dot 1.4s var(--ease-spring) infinite both;
+  animation: px-thinking-dot 1.4s var(--ease-bounce) infinite both;
 }
 
 .px-text-shimmer {
@@ -758,5 +817,47 @@
 }
 
 .px-skeleton-pulse {
-  animation: px-skeleton 2.2s var(--ease-smooth) infinite;
+  animation: px-skeleton 2.4s var(--ease-smooth) infinite;
+}
+
+/* ——— Enhanced interaction utilities ——— */
+
+.px-glow-breathe {
+  animation: px-glow-breathe 3s var(--ease-smooth) infinite;
+}
+
+.px-border-pulse {
+  animation: px-border-pulse 3s var(--ease-smooth) infinite;
+}
+
+/* card hover with multi-layer depth */
+.px-card-depth {
+  transition: transform 400ms var(--ease-spring-in),
+              box-shadow 400ms var(--ease-spring-in),
+              border-color 400ms var(--ease-spring-in);
+  will-change: transform;
+}
+
+.px-card-depth:hover {
+  transform: translateY(-3px) scale(1.006);
+  box-shadow:
+    0 8px 30px rgba(41, 48, 39, 0.06),
+    0 2px 8px rgba(41, 48, 39, 0.04);
+  border-color: rgba(91, 108, 240, 0.15);
+}
+
+/* button press with shadow collapse */
+.px-btn-spring {
+  transition: transform 180ms var(--ease-bounce),
+              box-shadow 180ms var(--ease-spring-in);
+  will-change: transform;
+}
+
+.px-btn-spring:active {
+  transform: scale(0.96);
+  transition-duration: 60ms;
+}
+
+.px-btn-spring:hover {
+  transform: translateY(-1px);
 }
