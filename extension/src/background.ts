@@ -36,6 +36,12 @@ function handleMessage(message: { type: string; payload?: unknown }, sendRespons
     sendResponse({ status: 'ok', version: chrome.runtime.getManifest().version });
     return false;
   }
+  if (message.type === 'READ_WX_META') {
+    readWxMetaFromTab()
+      .then((meta) => sendResponse({ meta }))
+      .catch(() => sendResponse({ meta: null }));
+    return true;
+  }
   if (message.type === 'PUBLISH_TO_PLATFORM') {
     const msg = message as { type: string; payload?: PublishPayload; platform?: PlatformType; platformName?: string; content?: unknown; autoLayout?: boolean };
     const p: PublishPayload = msg.payload
@@ -96,6 +102,47 @@ async function findExistingPlatformTab(domain: string): Promise<chrome.tabs.Tab 
   const tabs = await chrome.tabs.query({ url: `https://${domain}/*` });
   if (tabs.length > 0) return tabs[0];
   return null;
+}
+
+async function readWxMetaFromTab(): Promise<{
+  uid: string;
+  nickName: string;
+  token: string;
+  ticket: string;
+  svrTime: string;
+} | null> {
+  const tabs = await chrome.tabs.query({ url: 'https://mp.weixin.qq.com/*' });
+  if (tabs.length === 0) return null;
+
+  const tabId = tabs[0].id;
+  if (!tabId) return null;
+
+  try {
+    const results = await chrome.scripting.executeScript({
+      target: { tabId },
+      world: 'MAIN',
+      func: () => {
+        try {
+          const wx = (window as any).wx;
+          if (wx && wx.commonData && wx.commonData.data && wx.commonData.data.t) {
+            const d = wx.commonData.data;
+            return {
+              uid: d.user_name || '',
+              nickName: d.nick_name || '',
+              token: d.t,
+              ticket: d.ticket || '',
+              svrTime: d.time || '',
+            };
+          }
+        } catch {}
+        return null;
+      },
+    });
+
+    return results?.[0]?.result ?? null;
+  } catch {
+    return null;
+  }
 }
 
 function waitForFillResult(platform: PlatformType, platformName: string): Promise<PublishResult> {

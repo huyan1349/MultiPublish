@@ -9,7 +9,6 @@ export const config: PlasmoCSConfig = {
 const PLATFORM = 'wechat';
 const NAME = '微信公众号';
 const MAX_LOGIN_WAIT = 120000;
-const POLL_INTERVAL = 3000;
 
 interface WxMeta {
   uid: string;
@@ -19,60 +18,24 @@ interface WxMeta {
   svrTime: string;
 }
 
-let _resolveMeta: ((meta: WxMeta | null) => void) | null = null;
-
-window.addEventListener('message', (event) => {
-  if (event.source !== window) return;
-  if (event.data?.type !== 'MULTIPUBLISH_WX_META') return;
-  if (_resolveMeta) {
-    _resolveMeta(event.data.meta as WxMeta | null);
-    _resolveMeta = null;
-  }
-});
-
-function readWxMetaFromPage(): Promise<WxMeta | null> {
+async function readWxMeta(): Promise<WxMeta | null> {
   return new Promise((resolve) => {
-    _resolveMeta = resolve;
-    const script = document.createElement('script');
-    script.textContent = `(function(){
-      try {
-        var wx = window.wx;
-        if (wx && wx.commonData && wx.commonData.data && wx.commonData.data.t) {
-          var d = wx.commonData.data;
-          window.postMessage({
-            type: 'MULTIPUBLISH_WX_META',
-            meta: {
-              uid: d.user_name || '',
-              nickName: d.nick_name || '',
-              token: d.t,
-              ticket: d.ticket || '',
-              svrTime: d.time || ''
-            }
-          }, '*');
-        } else {
-          window.postMessage({ type: 'MULTIPUBLISH_WX_META', meta: null }, '*');
-        }
-      } catch(e) {
-        window.postMessage({ type: 'MULTIPUBLISH_WX_META', meta: null }, '*');
-      }
-    })();`;
-    document.documentElement.appendChild(script);
-    script.remove();
-    setTimeout(() => {
-      if (_resolveMeta === resolve) {
-        _resolveMeta = null;
+    chrome.runtime.sendMessage({ type: 'READ_WX_META' }, (response) => {
+      if (chrome.runtime.lastError || !response?.meta) {
         resolve(null);
+      } else {
+        resolve(response.meta as WxMeta);
       }
-    }, 5000);
+    });
   });
 }
 
-async function waitForLogin(): Promise<WxMeta | null> {
+async function waitForMeta(): Promise<WxMeta | null> {
   const start = Date.now();
   let toastShown = false;
 
   while (Date.now() - start < MAX_LOGIN_WAIT) {
-    const meta = await readWxMetaFromPage();
+    const meta = await readWxMeta();
     if (meta) return meta;
 
     if (!toastShown) {
@@ -80,7 +43,7 @@ async function waitForLogin(): Promise<WxMeta | null> {
       toastShown = true;
     }
 
-    await sleep(POLL_INTERVAL);
+    await sleep(3000);
   }
 
   return null;
@@ -98,7 +61,7 @@ async function waitForLogin(): Promise<WxMeta | null> {
   try {
     showContentBridgeToast('🔄 正在检测登录状态…', 'info');
 
-    const meta = await waitForLogin();
+    const meta = await waitForMeta();
     if (!meta) return fail('等待登录超时（2分钟），请重新点击发布');
 
     await chrome.storage.local.remove('contentbridge_fill');
