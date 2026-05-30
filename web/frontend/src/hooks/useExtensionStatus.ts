@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { checkExtensionHealth, isExtensionAvailable } from '../utils/extensionBridge';
+import { isExtensionInstalled } from '../utils/extensionBridge';
 
 export interface ExtensionStatusState {
   available: boolean;
@@ -9,20 +9,17 @@ export interface ExtensionStatusState {
 
 export function useExtensionStatus(pollIntervalMs = 5000) {
   const [status, setStatus] = useState<ExtensionStatusState>({
-    available: isExtensionAvailable(),
-    checking: true,
+    available: isExtensionInstalled(),
+    checking: false,
   });
   const mountedRef = useRef(true);
 
   useEffect(() => {
     mountedRef.current = true;
 
-    const check = async () => {
+    const check = () => {
       if (!mountedRef.current) return;
-      setStatus(prev => ({ ...prev, checking: true }));
-      const health = await checkExtensionHealth();
-      if (!mountedRef.current) return;
-      setStatus({ available: health.connected, version: health.version, checking: false });
+      setStatus({ available: isExtensionInstalled(), checking: false });
     };
 
     check();

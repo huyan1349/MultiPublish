@@ -19,7 +19,7 @@ const PLATFORM_COLOR: Record<string, string> = {
 };
 
 const platformNotes = [
-  { key: 'wechat', name: '公众号', note: '长文排版与正式表达' },
+  { key: 'wechat', name: '公众号', note: '完整发布链路，自动填充+发布' },
   { key: 'zhihu', name: '知乎', note: '观点结构与逻辑推进' },
   { key: 'bilibili', name: 'B站', note: '标签与导语节奏' },
   { key: 'xiaohongshu', name: '小红书', note: '标题吸引与短段落表达' },
