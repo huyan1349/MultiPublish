@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ExternalLink, Inbox } from 'lucide-react';
+import { ExternalLink, FileText, Inbox } from 'lucide-react';
 import { api } from '../api/client';
 
 interface PublishRecord {
@@ -29,10 +29,18 @@ const statusConfig: Record<string, { label: string; color: string }> = {
 export default function Records() {
   const [records, setRecords] = useState<PublishRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [backendError, setBackendError] = useState(false);
 
-  useEffect(() => {
-    api.getPublishRecords().then(setRecords).catch(() => {}).finally(() => setLoading(false));
-  }, []);
+  const loadRecords = () => {
+    setLoading(true);
+    setBackendError(false);
+    api.getPublishRecords()
+      .then((data) => { setRecords(data); setBackendError(false); })
+      .catch(() => setBackendError(true))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => { loadRecords(); }, []);
 
   return (
     <div className="h-full overflow-y-auto scrollbar-thin">
@@ -51,6 +59,13 @@ export default function Records() {
                   <div className="h-2 w-1/4 px-shimmer" />
                 </div>
               ))}
+            </div>
+          ) : backendError ? (
+            <div className="rounded-[28px] border border-dashed border-[rgba(49,56,45,0.18)] px-8 py-16 text-center">
+              <FileText size={18} className="mx-auto mb-4 text-[var(--accent-deep)]" />
+              <p className="font-['IBM_Plex_Mono'] text-[10px] tracking-[0.18em] text-[var(--ink-faint)]">后端未连接</p>
+              <p className="mt-2 text-[13px] leading-6 text-[var(--ink-soft)]">请启动后端服务以查看发布记录。</p>
+              <button onClick={loadRecords} className="px-btn-secondary mt-4">重试</button>
             </div>
           ) : records.length === 0 ? (
             <div className="rounded-[28px] border border-dashed border-[rgba(49,56,45,0.18)] px-8 py-20 text-center">
