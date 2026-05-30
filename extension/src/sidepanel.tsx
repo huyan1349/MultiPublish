@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   AlertCircle, ArrowLeft, Camera, CheckCircle, ChevronRight,
-  Download, Edit3, FileText, Github, LayoutDashboard, Loader2,
+  ClipboardCopy, Download, Edit3, FileText, Github, LayoutDashboard, Loader2,
   PenLine, RefreshCw, Rocket, Save, Send, Settings, Sparkles, X, XCircle,
 } from 'lucide-react';
 import { useContentStore } from './sidepanel/stores/contentStore';
@@ -158,13 +158,22 @@ export default function Sidepanel() {
   const publishOne = async (output: PreviewOutput) => {
     setPublishing(output.outputId); setNotice(null);
     try {
+      if (output.platform === 'wechat') {
+        const html = output.body || '';
+        const blob = new Blob([html], { type: 'text/html' });
+        const textBlob = new Blob([html.replace(/<[^>]*>/g, '')], { type: 'text/plain' });
+        await navigator.clipboard.write([
+          new ClipboardItem({ 'text/html': blob, 'text/plain': textBlob }),
+        ]);
+      }
+
       const response = await chrome.runtime.sendMessage({
         type: 'PUBLISH_TO_PLATFORM',
         payload: {
           platform: output.platform,
           platformName: output.platformName,
           content: output,
-          autoLayout: (output.platform === 'xiaohongshu' || output.platform === 'wechat') ? autoLayout : undefined,
+          autoLayout: (output.platform === 'xiaohongshu') ? autoLayout : undefined,
         },
       }) as PublishResult | undefined;
       const result: PublishResult = response || { platform: output.platform, platformName: output.platformName, status: 'failed', message: '未收到发布结果' };
@@ -311,17 +320,23 @@ export default function Sidepanel() {
               )}
 
               {/* Auto Layout Toggle */}
-              {(active.platform === 'xiaohongshu' || active.platform === 'wechat') && (
+              {active.platform === 'xiaohongshu' && (
                 <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 12, color: 'var(--text-secondary)', padding: '4px 0' }}>
                   <input
                     type="checkbox"
                     checked={autoLayout}
                     onChange={(e) => setAutoLayout(e.target.checked)}
-                    style={{ accentColor: active.platform === 'xiaohongshu' ? '#FF5A5F' : '#07C160', width: 14, height: 14 }}
+                    style={{ accentColor: '#FF5A5F', width: 14, height: 14 }}
                   />
-                  <Sparkles size={12} style={{ color: active.platform === 'xiaohongshu' ? '#FF5A5F' : '#07C160' }} />
-                  {active.platform === 'xiaohongshu' ? '一键排版后自动发布（排版→下一步→发布）' : '填充后自动发布（群发→确认）'}
+                  <Sparkles size={12} style={{ color: '#FF5A5F' }} />
+                  一键排版后自动发布（排版→下一步→发布）
                 </label>
+              )}
+              {active.platform === 'wechat' && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--text-secondary)', padding: '4px 0' }}>
+                  <ClipboardCopy size={12} style={{ color: '#07C160' }} />
+                  点击发布后内容将复制到剪贴板，在公众号编辑器中 Ctrl+V 粘贴即可
+                </div>
               )}
 
               {/* Action Buttons */}
@@ -559,7 +574,7 @@ export default function Sidepanel() {
   /* ══════════════ SETTINGS PAGE ══════════════ */
   if (page === 'settings') {
     const platformStatus = [
-      { id: 'wechat' as PlatformType, name: '公众号', color: '#07C160', status: '完整发布链路', detail: '自动填充 + 自动发布', done: true },
+      { id: 'wechat' as PlatformType, name: '公众号', color: '#07C160', status: '剪贴板发布', detail: '复制富文本到剪贴板，粘贴即发布', done: true },
       { id: 'zhihu' as PlatformType, name: '知乎', color: '#448AFF', status: '完整发布链路', detail: '自动填充 + 自动发布', done: true },
       { id: 'bilibili' as PlatformType, name: 'B站', color: '#FB7299', status: '填充可用', detail: '手动确认发布', done: false },
       { id: 'xiaohongshu' as PlatformType, name: '小红书', color: '#FF5A5F', status: '完整发布链路', detail: '自动填充 + 一键排版 + 自动发布', done: true },
@@ -577,7 +592,7 @@ export default function Sidepanel() {
         <div className="card" style={{ textAlign: 'center', padding: 20 }}>
           <div className="logo" style={{ margin: '0 auto 10px', width: 40, height: 40, fontSize: 20 }}>M</div>
           <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700 }}>MultiPublish</div>
-          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>v2.0.0</div>
+          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>v1.2.0</div>
           <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4 }}>一次创作 · 多端适配 · 真实发布</div>
         </div>
 
@@ -596,36 +611,6 @@ export default function Sidepanel() {
                 </span>
               </div>
             ))}
-          </div>
-        </div>
-
-        <div>
-          <div className="help-text" style={{ marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.04em' }}>AI 功能</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <div className="card card-flat" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px' }}>
-              <span className="dot" style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#FF3B30', flexShrink: 0 }} />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 600, fontSize: 12 }}>AI 灵感生成</div>
-                <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>DeepSeek 辅助创作灵感</div>
-              </div>
-              <span style={{ fontSize: 10, color: 'var(--success)', fontWeight: 600 }}>✅ 已上线</span>
-            </div>
-            <div className="card card-flat" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px' }}>
-              <span className="dot" style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#FF3B30', flexShrink: 0 }} />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 600, fontSize: 12 }}>AI 一键美化</div>
-                <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>按平台风格自动改写内容</div>
-              </div>
-              <span style={{ fontSize: 10, color: 'var(--success)', fontWeight: 600 }}>✅ 已上线</span>
-            </div>
-            <div className="card card-flat" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px' }}>
-              <span className="dot" style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#FF3B30', flexShrink: 0 }} />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 600, fontSize: 12 }}>AI 标题/标签</div>
-                <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>智能生成标题和标签建议</div>
-              </div>
-              <span style={{ fontSize: 10, color: 'var(--success)', fontWeight: 600 }}>✅ 已上线</span>
-            </div>
           </div>
         </div>
 

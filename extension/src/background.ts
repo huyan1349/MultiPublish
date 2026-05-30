@@ -28,6 +28,12 @@ function handleMessage(message: { type: string; payload?: unknown }, sendRespons
       .catch((err) => sendResponse({ status: 'failed', message: err.message }));
     return true;
   }
+  if (message.type === 'COPY_AND_OPEN_WECHAT') {
+    handleWechatClipboardOpen(message.payload as { title: string; body: string })
+      .then(sendResponse)
+      .catch((err) => sendResponse({ success: false, message: err.message }));
+    return true;
+  }
   return false;
 }
 
@@ -39,42 +45,85 @@ chrome.runtime.onMessageExternal.addListener((message, _sender, sendResponse) =>
   return handleMessage(message, sendResponse);
 });
 
+async function handleWechatClipboardOpen(payload: { title: string; body: string }): Promise<{ success: boolean; message: string }> {
+  try {
+    await chrome.storage.local.set({
+      contentbridge_fill: {
+        platform: 'wechat',
+        content: { title: payload.title, body: payload.body },
+        timestamp: Date.now(),
+      },
+    });
+
+    const existing = await findExistingPlatformTab('mp.weixin.qq.com');
+    if (existing) {
+      const url = PLATFORM_URLS.wechat;
+      await chrome.tabs.update(existing.id!, { url, active: true });
+      await chrome.tabs.reload(existing.id!);
+    } else {
+      await chrome.tabs.create({ url: PLATFORM_URLS.wechat, active: true });
+    }
+
+    return { success: true, message: '已复制到剪贴板并打开公众号编辑器，请粘贴内容' };
+  } catch (err) {
+    return { success: false, message: err instanceof Error ? err.message : '打开公众号页面失败' };
+  }
+}
+
 async function handlePublish(payload: PublishPayload): Promise<PublishResult> {
   const { platform, platformName, content } = payload;
   const url = PLATFORM_URLS[platform];
   if (!url) throw new Error(`Unknown platform: ${platform}`);
+
+  if (platform === 'wechat') {
+    return handleWechatPublish(payload);
+  }
 
   try {
     await chrome.storage.local.set({
       contentbridge_fill: { platform, content, autoLayout: payload.autoLayout, timestamp: Date.now() },
     });
 
-    let tabId: number;
+    const tab = await chrome.tabs.create({ url, active: false });
+    if (!tab.id) throw new Error('Failed to create tab');
 
-    if (platform === 'wechat') {
-      const existing = await findExistingPlatformTab('mp.weixin.qq.com');
-      if (existing) {
-        await chrome.tabs.update(existing.id!, { url, active: false });
-        tabId = existing.id!;
-      } else {
-        const tab = await chrome.tabs.create({ url, active: false });
-        if (!tab.id) throw new Error('Failed to create tab');
-        tabId = tab.id;
-      }
-    } else {
-      const tab = await chrome.tabs.create({ url, active: false });
-      if (!tab.id) throw new Error('Failed to create tab');
-      tabId = tab.id;
-    }
-
-    const result = await waitForFillResult(tabId, platform, platformName);
-
-    await chrome.tabs.update(tabId, { active: true });
+    const result = await waitForFillResult(tab.id, platform, platformName);
+    await chrome.tabs.update(tab.id, { active: true });
     return result;
   } catch (err) {
     const msg = err instanceof Error ? err.message : '发布失败';
     return { platform, platformName, status: 'failed', message: msg };
   }
+}
+
+async function handleWechatPublish(payload: PublishPayload): Promise<PublishResult> {
+  const { platform, platformName, content } = payload;
+  const body = content.body || '';
+  const title = content.title || '';
+
+  await chrome.storage.local.set({
+    contentbridge_fill: {
+      platform: 'wechat',
+      content: { title, body },
+      timestamp: Date.now(),
+    },
+  });
+
+  const existing = await findExistingPlatformTab('mp.weixin.qq.com');
+  if (existing) {
+    await chrome.tabs.update(existing.id!, { url: PLATFORM_URLS.wechat, active: true });
+    await chrome.tabs.reload(existing.id!);
+  } else {
+    await chrome.tabs.create({ url: PLATFORM_URLS.wechat, active: true });
+  }
+
+  return {
+    platform,
+    platformName,
+    status: 'success',
+    message: '内容已复制到剪贴板，请在公众号编辑器中按 Ctrl+V 粘贴',
+    mockUrl: PLATFORM_URLS.wechat,
+  };
 }
 
 async function findExistingPlatformTab(domain: string): Promise<chrome.tabs.Tab | null> {
