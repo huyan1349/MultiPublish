@@ -45,6 +45,89 @@ async function chat(messages: ChatMessage[], temperature = 0.7): Promise<string>
   }
 }
 
+export interface StreamCallback {
+  onToken: (token: string) => void;
+  onComplete: (fullText: string) => void;
+  onError: (error: Error) => void;
+}
+
+async function streamChat(
+  messages: ChatMessage[],
+  callbacks: StreamCallback,
+  temperature = 0.8,
+): Promise<void> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 60000);
+
+  try {
+    const res = await fetch(API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        messages,
+        temperature,
+        max_tokens: 4096,
+        stream: true,
+      }),
+      signal: controller.signal,
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error((err as { error?: { message?: string } }).error?.message || `DeepSeek API ${res.status}`);
+    }
+
+    const reader = res.body?.getReader();
+    if (!reader) throw new Error('不支持流式读取');
+
+    const decoder = new TextDecoder();
+    let fullText = '';
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || !trimmed.startsWith('data:')) continue;
+
+        const data = trimmed.slice(5).trim();
+        if (data === '[DONE]') continue;
+
+        try {
+          const parsed = JSON.parse(data);
+          const delta = parsed?.choices?.[0]?.delta?.content;
+          if (delta) {
+            fullText += delta;
+            callbacks.onToken(delta);
+          }
+        } catch {
+          // skip malformed chunks
+        }
+      }
+    }
+
+    callbacks.onComplete(fullText);
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      callbacks.onError(new Error('AI 请求超时，请稍后重试'));
+    } else {
+      callbacks.onError(err instanceof Error ? err : new Error('流式请求失败'));
+    }
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 function parseJsonResponse<T>(raw: string, fallback: T): T {
   try {
     const cleaned = raw
@@ -582,6 +665,45 @@ export async function generateContentFromOutline(
     htmlBody: `<p>生成失败，请重试</p>`,
     tags: [],
   });
+}
+
+export async function generateContentFromOutlineStream(
+  input: GenerateContentInput,
+  onTitle: (title: string) => void,
+  onToken: (token: string) => void,
+): Promise<GenerateContentResult> {
+  const formatPrompt = FORMAT_PROMPTS[input.platform]?.[input.formatId]
+    || `根据大纲生成${input.platformName}风格的完整内容`;
+
+  let fullRaw = '';
+
+  await streamChat([
+    {
+      role: 'system',
+      content: `${formatPrompt}\n\n请严格按以下JSON格式返回，不要包含任何其他文字：\n{"title":"生成的标题","htmlBody":"生成的HTML正文","tags":["标签1","标签2","标签3"]}`,
+    },
+    {
+      role: 'user',
+      content: `话题：${input.outline.topic}\n\n大纲要点：\n${input.outline.points}\n\n风格偏好：${input.outline.style || '无特殊要求'}\n\n请基于以上大纲，以「${input.formatName}」格式创作一篇完整的${input.platformName}内容，返回JSON。`,
+    },
+  ], {
+    onToken: (token) => {
+      fullRaw += token;
+      // Try to extract partial title/htmlBody for live preview
+      onToken(token);
+    },
+    onComplete: () => {},
+    onError: (err) => { throw err; },
+  }, 0.8);
+
+  const result = parseJsonResponse<GenerateContentResult>(fullRaw, {
+    title: input.outline.topic,
+    htmlBody: `<p>生成失败，请重试</p>`,
+    tags: [],
+  });
+
+  onTitle(result.title);
+  return result;
 }
 
 export async function suggestTags(title: string, body: string): Promise<string[]> {

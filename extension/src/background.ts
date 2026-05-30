@@ -135,38 +135,56 @@ async function readWxMetaFromTab(): Promise<{
   ticket: string;
   svrTime: string;
 } | null> {
-  const tabs = await chrome.tabs.query({ url: 'https://mp.weixin.qq.com/*' });
-  if (tabs.length === 0) return null;
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const tabs = await chrome.tabs.query({ url: 'https://mp.weixin.qq.com/*' });
+    if (tabs.length === 0) {
+      await sleep(2000);
+      continue;
+    }
 
-  const tabId = tabs[0].id;
-  if (!tabId) return null;
+    const tab = tabs[0];
+    const tabId = tab.id;
+    if (!tabId) { await sleep(2000); continue; }
 
-  try {
-    const results = await chrome.scripting.executeScript({
-      target: { tabId },
-      world: 'MAIN',
-      func: () => {
-        try {
-          const wx = (window as any).wx;
-          if (wx && wx.commonData && wx.commonData.data && wx.commonData.data.t) {
-            const d = wx.commonData.data;
-            return {
-              uid: d.user_name || '',
-              nickName: d.nick_name || '',
-              token: d.t,
-              ticket: d.ticket || '',
-              svrTime: d.time || '',
-            };
-          }
-        } catch {}
-        return null;
-      },
-    });
+    if (tab.status === 'loading') {
+      await sleep(2000);
+      continue;
+    }
 
-    return results?.[0]?.result ?? null;
-  } catch {
-    return null;
+    try {
+      const results = await chrome.scripting.executeScript({
+        target: { tabId },
+        world: 'MAIN',
+        func: () => {
+          try {
+            const wx = (window as any).wx;
+            if (wx && wx.commonData && wx.commonData.data && wx.commonData.data.t) {
+              const d = wx.commonData.data;
+              return {
+                uid: d.user_name || '',
+                nickName: d.nick_name || '',
+                token: d.t,
+                ticket: d.ticket || '',
+                svrTime: d.time || '',
+              };
+            }
+          } catch {}
+          return null;
+        },
+      });
+
+      const meta = results?.[0]?.result ?? null;
+      if (meta) return meta;
+    } catch {}
+
+    await sleep(3000);
   }
+
+  return null;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
 }
 
 function waitForFillResult(platform: PlatformType, platformName: string): Promise<PublishResult> {
