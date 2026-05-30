@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowRight, RefreshCw, Sparkles, Wand2, ChevronDown, ChevronUp, Check, Clock, Users, Lightbulb, Target, SkipForward, Zap } from 'lucide-react';
+import { ArrowRight, RefreshCw, Sparkles, Wand2, ChevronDown, ChevronUp, Check, Clock, Users, Lightbulb, Target, SkipForward, Zap, Globe, FileText, GraduationCap, Play, Heart } from 'lucide-react';
 import { generateInspiration } from '../services/deepseek';
 import { useContentStore } from '../stores/contentStore';
 import type { InspirationAngle, InspirationResult } from '../services/deepseek';
@@ -27,12 +27,12 @@ const PLACEHOLDERS = [
   '描述你最近想分享的观点或故事...',
 ];
 
-const PLATFORM_OPTIONS: { key: PlatformStyle | ''; label: string; emoji: string }[] = [
-  { key: '', label: '不限平台', emoji: '🎯' },
-  { key: 'wechat', label: '公众号', emoji: '📰' },
-  { key: 'zhihu', label: '知乎', emoji: '🎓' },
-  { key: 'bilibili', label: 'B站', emoji: '🎬' },
-  { key: 'xiaohongshu', label: '小红书', emoji: '📕' },
+const PLATFORM_OPTIONS: { key: PlatformStyle | ''; label: string; Icon: React.ElementType }[] = [
+  { key: '', label: '不限平台', Icon: Globe },
+  { key: 'wechat', label: '公众号', Icon: FileText },
+  { key: 'zhihu', label: '知乎', Icon: GraduationCap },
+  { key: 'bilibili', label: 'B站', Icon: Play },
+  { key: 'xiaohongshu', label: '小红书', Icon: Heart },
 ];
 
 const ANGLE_COLORS: Record<string, string> = {
@@ -441,7 +441,7 @@ export default function Inspiration() {
                           : 'text-[var(--ink-faint)] hover:bg-[rgba(0,0,0,0.04)] hover:text-[var(--ink-soft)]'
                       }`}
                     >
-                      {opt.emoji} {opt.label}
+                      <opt.Icon size={12} /> {opt.label}
                     </button>
                   ))}
                 </div>
