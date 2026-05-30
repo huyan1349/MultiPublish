@@ -158,13 +158,22 @@ export default function Sidepanel() {
   const publishOne = async (output: PreviewOutput) => {
     setPublishing(output.outputId); setNotice(null);
     try {
+      if (output.platform === 'wechat') {
+        const html = output.body || '';
+        const blob = new Blob([html], { type: 'text/html' });
+        const textBlob = new Blob([html.replace(/<[^>]*>/g, '')], { type: 'text/plain' });
+        await navigator.clipboard.write([
+          new ClipboardItem({ 'text/html': blob, 'text/plain': textBlob }),
+        ]);
+      }
+
       const response = await chrome.runtime.sendMessage({
         type: 'PUBLISH_TO_PLATFORM',
         payload: {
           platform: output.platform,
           platformName: output.platformName,
           content: output,
-          autoLayout: (output.platform === 'xiaohongshu' || output.platform === 'wechat') ? autoLayout : undefined,
+          autoLayout: (output.platform === 'xiaohongshu') ? autoLayout : undefined,
         },
       }) as PublishResult | undefined;
       const result: PublishResult = response || { platform: output.platform, platformName: output.platformName, status: 'failed', message: '未收到发布结果' };
@@ -559,7 +568,7 @@ export default function Sidepanel() {
   /* ══════════════ SETTINGS PAGE ══════════════ */
   if (page === 'settings') {
     const platformStatus = [
-      { id: 'wechat' as PlatformType, name: '公众号', color: '#07C160', status: '完整发布链路', detail: '自动填充 + 图片上传 + 自动发布', done: true },
+      { id: 'wechat' as PlatformType, name: '公众号', color: '#07C160', status: '剪贴板发布', detail: '复制富文本到剪贴板，粘贴即发布', done: true },
       { id: 'zhihu' as PlatformType, name: '知乎', color: '#448AFF', status: '完整发布链路', detail: '自动填充 + 自动发布', done: true },
       { id: 'bilibili' as PlatformType, name: 'B站', color: '#FB7299', status: '填充可用', detail: '手动确认发布', done: false },
       { id: 'xiaohongshu' as PlatformType, name: '小红书', color: '#FF5A5F', status: '完整发布链路', detail: '自动填充 + 一键排版 + 自动发布', done: true },

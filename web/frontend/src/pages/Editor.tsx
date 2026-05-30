@@ -7,7 +7,7 @@ import TiptapEditor from '../components/editor/TiptapEditor';
 import PlatformCard from '../components/publish/PlatformCard';
 import PublishButton from '../components/publish/PublishButton';
 import ToastContainer, { showToast } from '../components/publish/Toast';
-import { publishToPlatform, checkExtensionHealth } from '../utils/extensionBridge';
+import { publishViaExtension, isExtensionInstalled } from '../utils/extensionBridge';
 import { useExtensionStatus } from '../hooks/useExtensionStatus';
 import { generateTitle, suggestTags } from '../services/deepseek';
 import { api } from '../api/client';
@@ -188,8 +188,8 @@ export default function Editor() {
       return;
     }
 
-    const health = await checkExtensionHealth();
-    if (!health.connected) {
+    const health = isExtensionInstalled();
+    if (!health) {
       showToast('error', '扩展未连接', '请先安装并启用 MultiPublish 扩展，然后再执行真实发布。');
       return;
     }
@@ -203,26 +203,23 @@ export default function Editor() {
 
       setPlatformPublishStatus(platform, 'publishing');
       try {
-        const result = await publishToPlatform({
+        const result = await publishViaExtension({
           platform,
-          platformName: state.platformName,
           content: state.output,
           autoLayout: true,
         });
 
-        // save publish record to backend
         if (currentContentId) {
           api.createPublishRecord({
             contentId: currentContentId,
             platform,
             platformName: state.platformName,
-            status: result.status,
+            status: result.success ? 'success' : 'failed',
             message: result.message,
-            mockUrl: result.mockUrl,
           }).catch(() => {});
         }
 
-        if (result.status === 'success') {
+        if (result.success) {
           setPlatformPublishStatus(platform, 'success', result.message);
           showToast('success', `${state.platformName} 发布成功`, result.message);
         } else {
