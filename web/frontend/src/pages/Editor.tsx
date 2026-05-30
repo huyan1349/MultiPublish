@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertCircle, ArrowLeft, RefreshCw, Save, Sparkles, Wand2 } from 'lucide-react';
+import { AlertCircle, ArrowLeft, ArrowRight, RefreshCw, Save, Sparkles, Wand2 } from 'lucide-react';
 import { useContentStore } from '../stores/contentStore';
 import type { BeautifiedContent } from '../stores/contentStore';
 import TiptapEditor from '../components/editor/TiptapEditor';
@@ -41,8 +41,11 @@ function ExtensionIndicator() {
   );
 }
 
+type EditorStep = 'draft' | 'platform';
+
 export default function Editor() {
   const navigate = useNavigate();
+  const [step, setStep] = useState<EditorStep>('draft');
   const {
     draft,
     setDraft,
@@ -112,6 +115,19 @@ export default function Editor() {
     const state = platformStates.get(platform);
     showToast('success', `${state?.platformName || platform} 已应用`, '美化内容已经写入当前平台输出');
   }, [beautifiedOutputs, applyBeautifiedContent, platformStates]);
+
+  const handleGoToPlatform = () => {
+    if (!draft.title.trim()) {
+      setError('请输入标题');
+      return;
+    }
+    if (!draft.htmlContent.replace(/<[^>]*>/g, '').trim()) {
+      setError('正文不能为空');
+      return;
+    }
+    setError('');
+    setStep('platform');
+  };
 
   const handleSaveToBackend = async () => {
     if (!draft.title.trim()) {
@@ -191,43 +207,59 @@ export default function Editor() {
     <div className="h-full overflow-y-auto scrollbar-thin">
       <ToastContainer />
       <div className="mx-auto flex max-w-[1520px] flex-col gap-6">
+
         <section className="px-card px-paper p-5 md:p-6">
           <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
             <div className="space-y-3">
-              <button onClick={() => navigate('/')} className="px-btn-ghost -ml-3 w-fit">
+              <button onClick={() => step === 'platform' ? setStep('draft') : navigate('/')} className="px-btn-ghost -ml-3 w-fit">
                 <ArrowLeft size={14} />
-                返回工作台
+                {step === 'platform' ? '返回主稿' : '返回工作台'}
               </button>
               <div className="flex flex-wrap gap-2">
-                <span className="px-tag"><span className="px-dot bg-[var(--accent)]" /> 草稿进行中</span>
-                <span className="px-tag">最近修改刚刚</span>
+                <span className={`px-tag ${step === 'draft' ? 'border-[var(--accent)]/30 bg-[var(--accent)]/10 text-[var(--accent-deep)]' : ''}`}>
+                  <span className={`px-dot ${step === 'draft' ? 'bg-[var(--accent)]' : 'bg-[var(--ink-faint)]'}`} /> 第一步：主稿
+                </span>
+                <span className={`px-tag ${step === 'platform' ? 'border-[var(--accent)]/30 bg-[var(--accent)]/10 text-[var(--accent-deep)]' : ''}`}>
+                  <span className={`px-dot ${step === 'platform' ? 'bg-[var(--accent)]' : 'bg-[var(--ink-faint)]'}`} /> 第二步：平台适配
+                </span>
               </div>
               <div className="font-['Cormorant_Garamond'] text-[46px] leading-[0.92] tracking-[-0.07em] text-[var(--ink)]">
-                编辑台
+                {step === 'draft' ? '编辑台 · 主稿' : '编辑台 · 平台输出'}
               </div>
             </div>
 
             <div className="flex flex-wrap items-center justify-start gap-3 xl:justify-end">
               <ExtensionIndicator />
-              <button onClick={loadDemo} className="px-btn-secondary">载入示例</button>
-              <button onClick={handleAiTitle} disabled={!!aiLoading} className="px-btn-ghost">
-                {aiLoading === 'title' ? <RefreshCw size={13} className="animate-spin" /> : <Wand2 size={13} />}
-                标题建议
-              </button>
-              <button onClick={handleAiTags} disabled={!!aiLoading} className="px-btn-ghost">
-                {aiLoading === 'tags' ? <RefreshCw size={13} className="animate-spin" /> : <Sparkles size={13} />}
-                标签建议
-              </button>
-              <button onClick={handleSaveToBackend} disabled={saving} className="px-btn-primary">
-                <Save size={13} />
-                {saving ? '保存中' : '保存预览'}
-              </button>
+              {step === 'draft' && (
+                <>
+                  <button onClick={loadDemo} className="px-btn-secondary">载入示例</button>
+                  <button onClick={handleAiTitle} disabled={!!aiLoading} className="px-btn-ghost">
+                    {aiLoading === 'title' ? <RefreshCw size={13} className="animate-spin" /> : <Wand2 size={13} />}
+                    标题建议
+                  </button>
+                  <button onClick={handleAiTags} disabled={!!aiLoading} className="px-btn-ghost">
+                    {aiLoading === 'tags' ? <RefreshCw size={13} className="animate-spin" /> : <Sparkles size={13} />}
+                    标签建议
+                  </button>
+                  <button onClick={handleGoToPlatform} className="px-btn-primary">
+                    下一步 <ArrowRight size={13} />
+                  </button>
+                </>
+              )}
+              {step === 'platform' && (
+                <>
+                  <button onClick={handleSaveToBackend} disabled={saving} className="px-btn-secondary">
+                    <Save size={13} />
+                    {saving ? '保存中' : '保存预览'}
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </section>
 
-        <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
-          <div className="px-card px-paper overflow-hidden">
+        {step === 'draft' && (
+          <section className="px-card px-paper overflow-hidden">
             <div className="border-b border-[rgba(49,56,45,0.1)] px-6 py-5 md:px-8">
               <div>
                 <div className="px-label mb-3">正文编辑区</div>
@@ -265,75 +297,13 @@ export default function Editor() {
             <div className="px-4 pb-4 pt-2 md:px-6 md:pb-6">
               <TiptapEditor
                 content={draft.htmlContent}
-                placeholder="在这里开始写作，系统会同步计算各个平台的字数、标签和适配结果。"
+                placeholder="在这里开始写作，完成后点击「下一步」进入平台适配阶段。"
                 onChange={handleEditorChange}
               />
             </div>
-          </div>
-
-          <div className="px-card px-soft-panel flex min-h-[780px] flex-col p-5">
-            <div className="mb-4">
-              <div className="px-label mb-3">发布控制台</div>
-              <p className="font-['Cormorant_Garamond'] text-[32px] leading-none tracking-[-0.05em] text-[var(--ink)]">
-                平台输出
-              </p>
-            </div>
-
-            <div className="mb-4 rounded-[24px] border border-[rgba(49,56,45,0.1)] bg-[rgba(255,255,255,0.78)] p-4">
-              <div className="px-label mb-3">目标平台</div>
-              <div className="flex flex-wrap gap-2">
-                {allPlatforms.map((platform) => {
-                  const state = platformStates.get(platform);
-                  return (
-                    <button
-                      key={platform}
-                      type="button"
-                      onClick={() => togglePlatform(platform)}
-                      className={`px-tag ${selectedPlatforms.has(platform) ? 'border-[var(--accent)]/30 bg-[var(--accent)]/10 text-[var(--accent-deep)]' : 'opacity-55'}`}
-                    >
-                      {state?.platformName || platform}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="flex-1 space-y-3 overflow-y-auto pr-1 scrollbar-thin">
-              {allPlatforms.map((platform) => {
-                const state = platformStates.get(platform);
-                if (!state) return null;
-                return (
-                  <PlatformCard
-                    key={platform}
-                    platform={platform}
-                    platformName={state.platformName}
-                    selected={selectedPlatforms.has(platform)}
-                    onToggle={() => togglePlatform(platform)}
-                    status={state.status}
-                    statusMessage={state.message}
-                    titleCount={state.meta.titleCharCount}
-                    titleMax={state.meta.maxTitleLength}
-                    bodyCount={state.meta.bodyCharCount}
-                    bodyMax={state.meta.maxBodyLength}
-                    tagCount={state.meta.tagCount}
-                    tagMax={state.meta.maxTags}
-                    messages={state.validation.messages}
-                    previewBody={state.output.body}
-                    previewTags={state.output.tags}
-                    draftTitle={draft.title}
-                    draftHtmlContent={draft.htmlContent}
-                    beautifiedContent={beautifiedOutputs.get(platform)}
-                    onBeautifyStart={() => handleBeautifyStart(platform)}
-                    onBeautifyComplete={handleBeautifyComplete(platform)}
-                    onBeautifyError={handleBeautifyError(platform)}
-                    onApplyBeautified={handleApplyBeautified(platform)}
-                  />
-                );
-              })}
-            </div>
 
             {error && (
-              <div className="mt-4 rounded-[22px] border border-red-300/40 bg-red-100/60 px-4 py-3 text-[12px] text-red-700">
+              <div className="mx-6 mb-6 rounded-[22px] border border-red-300/40 bg-red-100/60 px-4 py-3 text-[12px] text-red-700">
                 <div className="flex items-center gap-2 font-['IBM_Plex_Mono'] text-[10px] uppercase tracking-[0.16em]">
                   <AlertCircle size={12} />
                   校验提示
@@ -341,17 +311,115 @@ export default function Editor() {
                 <p className="mt-2 leading-6">{error}</p>
               </div>
             )}
+          </section>
+        )}
 
-            <div className="mt-4 border-t border-[rgba(49,56,45,0.12)] pt-4">
-              <PublishButton
-                publishing={publishing}
-                selectedCount={Array.from(selectedPlatforms).length}
-                platformStatuses={new Map(Array.from(selectedPlatforms).map((platform) => [platform, platformStates.get(platform)?.status || 'idle']))}
-                onPublish={handlePublish}
-              />
+        {step === 'platform' && (
+          <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+            <div className="px-card px-paper overflow-hidden">
+              <div className="border-b border-[rgba(49,56,45,0.1)] px-6 py-5 md:px-8">
+                <div>
+                  <div className="px-label mb-3">主稿预览</div>
+                  <p className="font-['Cormorant_Garamond'] text-[34px] leading-none tracking-[-0.05em] text-[var(--ink)]">
+                    {draft.title || '未命名稿件'}
+                  </p>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {draft.tags.split(/[,，]/).map((t, i) => t.trim() && (
+                    <span key={i} className="px-tag">{t.trim()}</span>
+                  ))}
+                </div>
+              </div>
+              <div className="px-6 py-5 md:px-8">
+                <div
+                  className="prose prose-sm max-w-none text-[var(--ink-soft)]"
+                  dangerouslySetInnerHTML={{ __html: draft.htmlContent }}
+                />
+              </div>
             </div>
-          </div>
-        </section>
+
+            <div className="px-card px-soft-panel flex min-h-[780px] flex-col p-5">
+              <div className="mb-4">
+                <div className="px-label mb-3">发布控制台</div>
+                <p className="font-['Cormorant_Garamond'] text-[32px] leading-none tracking-[-0.05em] text-[var(--ink)]">
+                  平台输出
+                </p>
+              </div>
+
+              <div className="mb-4 rounded-[24px] border border-[rgba(49,56,45,0.1)] bg-[rgba(255,255,255,0.78)] p-4">
+                <div className="px-label mb-3">目标平台</div>
+                <div className="flex flex-wrap gap-2">
+                  {allPlatforms.map((platform) => {
+                    const state = platformStates.get(platform);
+                    return (
+                      <button
+                        key={platform}
+                        type="button"
+                        onClick={() => togglePlatform(platform)}
+                        className={`px-tag ${selectedPlatforms.has(platform) ? 'border-[var(--accent)]/30 bg-[var(--accent)]/10 text-[var(--accent-deep)]' : 'opacity-55'}`}
+                      >
+                        {state?.platformName || platform}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="flex-1 space-y-3 overflow-y-auto pr-1 scrollbar-thin">
+                {allPlatforms.map((platform) => {
+                  const state = platformStates.get(platform);
+                  if (!state) return null;
+                  return (
+                    <PlatformCard
+                      key={platform}
+                      platform={platform}
+                      platformName={state.platformName}
+                      selected={selectedPlatforms.has(platform)}
+                      onToggle={() => togglePlatform(platform)}
+                      status={state.status}
+                      statusMessage={state.message}
+                      titleCount={state.meta.titleCharCount}
+                      titleMax={state.meta.maxTitleLength}
+                      bodyCount={state.meta.bodyCharCount}
+                      bodyMax={state.meta.maxBodyLength}
+                      tagCount={state.meta.tagCount}
+                      tagMax={state.meta.maxTags}
+                      messages={state.validation.messages}
+                      previewBody={state.output.body}
+                      previewTags={state.output.tags}
+                      draftTitle={draft.title}
+                      draftHtmlContent={draft.htmlContent}
+                      beautifiedContent={beautifiedOutputs.get(platform)}
+                      onBeautifyStart={() => handleBeautifyStart(platform)}
+                      onBeautifyComplete={handleBeautifyComplete(platform)}
+                      onBeautifyError={handleBeautifyError(platform)}
+                      onApplyBeautified={handleApplyBeautified(platform)}
+                    />
+                  );
+                })}
+              </div>
+
+              {error && (
+                <div className="mt-4 rounded-[22px] border border-red-300/40 bg-red-100/60 px-4 py-3 text-[12px] text-red-700">
+                  <div className="flex items-center gap-2 font-['IBM_Plex_Mono'] text-[10px] uppercase tracking-[0.16em]">
+                    <AlertCircle size={12} />
+                    校验提示
+                  </div>
+                  <p className="mt-2 leading-6">{error}</p>
+                </div>
+              )}
+
+              <div className="mt-4 border-t border-[rgba(49,56,45,0.12)] pt-4">
+                <PublishButton
+                  publishing={publishing}
+                  selectedCount={Array.from(selectedPlatforms).length}
+                  platformStatuses={new Map(Array.from(selectedPlatforms).map((platform) => [platform, platformStates.get(platform)?.status || 'idle']))}
+                  onPublish={handlePublish}
+                />
+              </div>
+            </div>
+          </section>
+        )}
       </div>
     </div>
   );
