@@ -1,7 +1,7 @@
 import type { PlatformType, PublishPayload, PublishResult } from './shared/types';
 
 const PLATFORM_URLS: Record<string, string> = {
-  wechat: 'https://mp.weixin.qq.com/cgi-bin/appmsg?t=media/appmsg_edit_v2&action=edit&isNew=1&type=77',
+  wechat: 'https://mp.weixin.qq.com/',
   zhihu: 'https://zhuanlan.zhihu.com/write',
   bilibili: 'https://member.bilibili.com/platform/upload/text/edit',
   xiaohongshu: 'https://creator.xiaohongshu.com/publish/publish',
@@ -71,9 +71,12 @@ async function handlePublish(payload: PublishPayload): Promise<PublishResult> {
     const existing = await findExistingPlatformTab(domain);
 
     if (existing) {
+      await chrome.tabs.update(existing.id!, { active: true });
       if (platform === 'wechat') {
-        await chrome.tabs.update(existing.id!, { active: true });
-        await chrome.tabs.reload(existing.id!);
+        await chrome.scripting.executeScript({
+          target: { tabId: existing.id! },
+          func: () => window.location.reload(),
+        });
       } else {
         await chrome.tabs.update(existing.id!, { url, active: true });
       }

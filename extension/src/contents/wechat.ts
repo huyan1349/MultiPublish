@@ -3,14 +3,32 @@ import { showContentBridgeToast } from '../shared/contentToast';
 
 export const config: PlasmoCSConfig = {
   matches: ['https://mp.weixin.qq.com/*'],
-  all_frames: true,
   run_at: 'document_idle',
 };
 
 const PLATFORM = 'wechat';
 const NAME = '微信公众号';
-const FILL_TIMEOUT = 20000;
-const PUBLISH_TIMEOUT = 30000;
+
+interface WxCommonData {
+  data: {
+    t: string;
+    user_name: string;
+    nick_name: string;
+    ticket: string;
+    time: string;
+    [key: string]: unknown;
+  };
+  [key: string]: unknown;
+}
+
+interface WxMeta {
+  uid: string;
+  title: string;
+  token: string;
+  commonData: WxCommonData;
+}
+
+let wxMetaCache: WxMeta | null = null;
 
 (async function init() {
   const data = await chrome.storage.local.get('contentbridge_fill');
@@ -18,183 +36,194 @@ const PUBLISH_TIMEOUT = 30000;
   if (!fill || fill.platform !== PLATFORM) return;
   await chrome.storage.local.remove('contentbridge_fill');
 
-  const { title, body } = fill.content as { title: string; body: string };
-  const autoLayout = !!fill.autoLayout;
-  const isMain = window.self === window.top;
+  if (window.self !== window.top) return;
 
-  if (!isMain) {
-    const ok = await fillBodyInIframe(body);
-    if (ok) {
-      await chrome.storage.local.set({ contentbridge_wechat_body_filled: true });
-    }
-    return;
-  }
+  const { title, body } = fill.content as { title: string; body: string };
 
   try {
-    const titleEl = await waitFor<HTMLElement>('#title', FILL_TIMEOUT);
-    if (!titleEl) return fail('未找到标题输入框，请确认已在公众号图文编辑页面');
+    const meta = await getWxMeta();
+    if (!meta) return fail('未检测到登录状态，请先在浏览器中登录微信公众号后台');
 
-    const titleOk = fillAndVerifyTitle(titleEl as HTMLTextAreaElement, title, 8000);
-    if (!titleOk) return fail('标题填充失败');
+    const draftResult = await createDraft(meta, title, body);
+    if (!draftResult) return fail('创建草稿失败，请检查公众号后台是否正常');
 
-    const bodyOk = await tryFillBody(body);
-    if (!bodyOk) return fail('正文填充失败，未检测到内容');
+    const draftLink = `https://mp.weixin.qq.com/cgi-bin/appmsg?t=media/appmsg_edit&action=edit&type=77&appmsgid=${draftResult.appMsgId}&token=${meta.token}&lang=zh_CN`;
 
-    showContentBridgeToast('✅ 标题和正文已填入', 'success');
+    showContentBridgeToast('✅ 草稿已创建，正在打开编辑页…', 'success');
 
-    if (!autoLayout) {
-      return done('公众号内容已填充，请手动操作发布');
-    }
+    window.open(draftLink, '_blank');
 
-    await sleep(2000);
-    const published = await tryAutoPublish();
-    return published.success ? done(published.message) : fail(published.message);
+    done(`公众号草稿已创建（ID: ${draftResult.appMsgId}），请在打开的编辑页中确认并发布`);
   } catch (err) {
     fail(err instanceof Error ? err.message : '公众号发布失败');
   }
 })();
 
-async function fillBodyInIframe(html: string): Promise<boolean> {
-  const ed = await waitFor<HTMLElement>('[contenteditable="true"]', FILL_TIMEOUT);
-  if (!ed) return false;
+async function getWxMeta(): Promise<WxMeta | null> {
+  if (wxMetaCache) return wxMetaCache;
 
-  ed.focus();
-  await sleep(200);
-
-  if (pasteHtml(ed, html)) {
-    await sleep(500);
-    if (hasContent(ed)) return true;
-  }
-
-  ed.innerHTML = html;
-  ed.dispatchEvent(new Event('input', { bubbles: true }));
-  ed.dispatchEvent(new Event('change', { bubbles: true }));
-  await sleep(500);
-  return hasContent(ed);
-}
-
-async function tryFillBody(html: string): Promise<boolean> {
-  const iframe = document.querySelector('#ueditor_0') as HTMLIFrameElement | null;
-  if (iframe?.contentDocument) {
-    const ed = iframe.contentDocument.querySelector<HTMLElement>('[contenteditable="true"]');
-    if (ed) {
-      ed.focus();
-      if (pasteHtml(ed, html)) {
-        await sleep(500);
-        if (hasContent(ed)) return true;
-      }
-      ed.innerHTML = html;
-      ed.dispatchEvent(new Event('input', { bubbles: true }));
-      ed.dispatchEvent(new Event('change', { bubbles: true }));
-      await sleep(500);
-      if (hasContent(ed)) return true;
-    }
-  }
-
-  await chrome.storage.local.remove('contentbridge_wechat_body_filled');
-  const iframeFilled = await waitForStorageFlag('contentbridge_wechat_body_filled', FILL_TIMEOUT);
-  await chrome.storage.local.remove('contentbridge_wechat_body_filled');
-  return !!iframeFilled;
-}
-
-function fillAndVerifyTitle(el: HTMLTextAreaElement, text: string, timeout: number): boolean {
-  const deadline = Date.now() + timeout;
-  let ok = tryFillTitle(el, text);
-  while (!ok && Date.now() < deadline) {
-    ok = tryFillTitle(el, text);
-  }
-  return ok;
-}
-
-function tryFillTitle(el: HTMLTextAreaElement, text: string): boolean {
-  el.focus();
-  setNativeValue(el, text);
-  return (el.value || '').trim().length > 0;
-}
-
-async function tryAutoPublish(): Promise<{ success: boolean; message: string }> {
-  const publishBtn = await waitForElement(findPublishButton, PUBLISH_TIMEOUT);
-  if (!publishBtn) return { success: false, message: '未找到发布按钮，请手动点击发布' };
-
-  clickEl(publishBtn);
-  await sleep(2000);
-
-  for (let i = 0; i < 5; i++) {
-    if (hasPublishSuccessSignal()) {
-      return { success: true, message: '公众号内容已自动提交发布' };
-    }
-
-    const confirmBtn = findConfirmButton();
-    if (confirmBtn) {
-      clickEl(confirmBtn);
-      await sleep(2000);
-      continue;
-    }
-
-    await sleep(1500);
-  }
-
-  return hasPublishSuccessSignal()
-    ? { success: true, message: '公众号内容已自动提交发布' }
-    : { success: true, message: '已点击发布按钮，请在页面确认最终状态' };
-}
-
-function pasteHtml(el: HTMLElement, html: string): boolean {
   try {
-    el.focus();
-    el.click();
-    const dt = new DataTransfer();
-    dt.setData('text/html', html);
-    dt.setData('text/plain', htmlToText(html));
-    el.dispatchEvent(new ClipboardEvent('paste', { bubbles: true, cancelable: true, clipboardData: dt }));
-    return true;
-  } catch {
-    return false;
+    const res = await fetch('https://mp.weixin.qq.com/', { credentials: 'include' });
+    const html = await res.text();
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+
+    const scripts = doc.querySelectorAll('script');
+    let commonDataCode = '';
+    for (const script of scripts) {
+      const text = script.textContent || '';
+      if (text.includes('window.wx.commonData')) {
+        commonDataCode = text;
+        break;
+      }
+    }
+
+    if (!commonDataCode) return null;
+
+    const startIdx = commonDataCode.indexOf('window.wx.commonData');
+    if (startIdx === -1) return null;
+    const code = commonDataCode.substring(startIdx);
+
+    const wx: { commonData: WxCommonData } = new Function(
+      'window.wx = {}; window.handlerNickname = function(){}; ' + code + '; return window.wx;',
+    )() as typeof wx;
+
+    const commonData = wx.commonData;
+    if (!commonData?.data?.t) return null;
+
+    wxMetaCache = {
+      uid: commonData.data.user_name,
+      title: commonData.data.nick_name,
+      token: commonData.data.t,
+      commonData,
+    };
+
+    return wxMetaCache;
+  } catch (err) {
+    console.error('[MultiPublish] getWxMeta failed:', err);
+    return null;
   }
 }
 
-function hasContent(el: HTMLElement): boolean {
-  return (el.textContent || '').trim().length > 10;
-}
+async function createDraft(
+  meta: WxMeta,
+  title: string,
+  content: string,
+): Promise<{ appMsgId: string } | null> {
+  try {
+    const formData = new URLSearchParams();
+    formData.set('token', meta.token);
+    formData.set('lang', 'zh_CN');
+    formData.set('f', 'json');
+    formData.set('ajax', '1');
+    formData.set('random', String(Math.random()));
+    formData.set('AppMsgId', '');
+    formData.set('count', '1');
+    formData.set('data_seq', '0');
+    formData.set('operate_from', 'Chrome');
+    formData.set('isnew', '0');
+    formData.set('title0', title);
+    formData.set('content0', content);
+    formData.set('author0', '');
+    formData.set('writerid0', '0');
+    formData.set('fileid0', '');
+    formData.set('digest0', '');
+    formData.set('auto_gen_digest0', '1');
+    formData.set('sourceurl0', '');
+    formData.set('need_open_comment0', '1');
+    formData.set('only_fans_can_comment0', '0');
+    formData.set('cdn_url0', '');
+    formData.set('cdn_235_1_url0', '');
+    formData.set('cdn_1_1_url0', '');
+    formData.set('cdn_url_back0', '');
+    formData.set('crop_list0', '');
+    formData.set('music_id0', '');
+    formData.set('video_id0', '');
+    formData.set('voteid0', '');
+    formData.set('voteismlt0', '');
+    formData.set('supervoteid0', '');
+    formData.set('cardid0', '');
+    formData.set('cardquantity0', '');
+    formData.set('cardlimit0', '');
+    formData.set('vid_type0', '');
+    formData.set('show_cover_pic0', '0');
+    formData.set('shortvideofileid0', '');
+    formData.set('copyright_type0', '0');
+    formData.set('releasefirst0', '');
+    formData.set('platform0', '');
+    formData.set('reprint_permit_type0', '');
+    formData.set('allow_reprint0', '');
+    formData.set('allow_reprint_modify0', '');
+    formData.set('original_article_type0', '');
+    formData.set('ori_white_list0', '');
+    formData.set('free_content0', '');
+    formData.set('fee0', '0');
+    formData.set('ad_id0', '');
+    formData.set('guide_words0', '');
+    formData.set('is_share_copyright0', '0');
+    formData.set('share_copyright_url0', '');
+    formData.set('source_article_type0', '');
+    formData.set('reprint_recommend_title0', '');
+    formData.set('reprint_recommend_content0', '');
+    formData.set('share_page_type0', '0');
+    formData.set('share_imageinfo0', '{"list":[]}');
+    formData.set('share_video_id0', '');
+    formData.set('dot0', '{}');
+    formData.set('share_voice_id0', '');
+    formData.set('insert_ad_mode0', '');
+    formData.set('categories_list0', '[]');
+    formData.set('can_reward0', '0');
+    formData.set('ad_video_transition0', '');
+    formData.set('related_video0', '');
+    formData.set('is_video_recommend0', '-1');
 
-function findPublishButton(): HTMLElement | null {
-  return findButtonByText(['发表', '群发', '提交发布', '发布']);
-}
+    const resp = await fetch(
+      `https://mp.weixin.qq.com/cgi-bin/operate_appmsg?t=ajax-response&sub=create&type=77&token=${meta.token}&lang=zh_CN`,
+      {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: formData.toString(),
+      },
+    );
 
-function findConfirmButton(): HTMLElement | null {
-  const dialogRoots = Array.from(document.querySelectorAll<HTMLElement>(
-    '[role="dialog"], .weui-desktop-dialog, .weui-desktop-popover, [class*="dialog"], [class*="modal"], [class*="publish"], [class*="confirm"]',
-  )).filter(isVisible);
+    const result = await resp.json();
+    console.log('[MultiPublish] createDraft response:', result);
 
-  for (const root of dialogRoots) {
-    const btn = findButtonByText(['确认', '确定', '确认发布', '继续发布', '发表', '群发'], root);
-    if (btn) return btn;
+    if (result.appMsgId) {
+      return { appMsgId: String(result.appMsgId) };
+    }
+
+    const errMsg = formatWxError(result);
+    console.error('[MultiPublish] createDraft error:', errMsg);
+    return null;
+  } catch (err) {
+    console.error('[MultiPublish] createDraft failed:', err);
+    return null;
   }
-
-  return findButtonByText(['确认发布', '确认', '确定', '继续发布']);
 }
 
-function findButtonByText(labels: string[], root: ParentNode = document): HTMLElement | null {
-  const elements = Array.from(root.querySelectorAll<HTMLElement>('button, [role="button"], a, span'));
-  const candidates = elements
-    .filter(isVisible)
-    .filter((el) => !isDisabled(el))
-    .map((el) => ({ el, text: compactText(el.innerText || el.textContent || '') }))
-    .filter(({ text }) => text && labels.some((label) => text === label || text.includes(label)));
+function formatWxError(e: Record<string, unknown>): string {
+  let ret = 0;
+  if (typeof e.ret === 'number') ret = e.ret;
+  else if (e.base_resp && typeof (e.base_resp as Record<string, unknown>).ret === 'number')
+    ret = (e.base_resp as Record<string, unknown>).ret as number;
 
-  if (candidates.length === 0) return null;
-  candidates.sort((a, b) => {
-    const aExact = labels.some((l) => a.text === l) ? 10 : 0;
-    const bExact = labels.some((l) => b.text === l) ? 10 : 0;
-    return bExact - aExact || b.text.length - a.text.length;
-  });
-  return candidates[0]?.el || null;
-}
+  const errorMap: Record<number, string> = {
+    [-8]: '请输入验证码',
+    [-6]: '请输入验证码',
+    62752: '可能含有具备安全风险的链接，请检查',
+    64505: '发送预览失败，请稍后再试',
+    64504: '保存图文消息发送错误，请稍后再试',
+    412: '图文中含非法外链',
+    64702: '标题超出64字长度限制',
+    64703: '摘要超出120字长度限制',
+    320001: '该素材已被删除，无法保存',
+  };
 
-function hasPublishSuccessSignal(): boolean {
-  const text = compactText(document.body.innerText || '');
-  if (/发布成功|已发布|发送成功|群发成功|操作成功|提交成功/.test(text)) return true;
-  return false;
+  return errorMap[ret] || (e.errmsg as string) || `未知错误(ret=${ret})`;
 }
 
 function done(msg: string) {
@@ -209,86 +238,4 @@ function fail(msg: string) {
     contentbridge_result: { platform: PLATFORM, platformName: NAME, success: false, message: msg, error: msg },
   });
   showContentBridgeToast(`❌ ${msg}`, 'error');
-}
-
-function setNativeValue(el: HTMLTextAreaElement, value: string) {
-  const proto = HTMLTextAreaElement.prototype;
-  const desc = Object.getOwnPropertyDescriptor(proto, 'value');
-  desc?.set?.call(el, '');
-  desc?.set?.call(el, value);
-  el.dispatchEvent(new Event('input', { bubbles: true }));
-  el.dispatchEvent(new Event('change', { bubbles: true }));
-  el.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: value }));
-}
-
-function clickEl(el: HTMLElement) {
-  el.scrollIntoView({ block: 'center', inline: 'center' });
-  el.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
-  el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
-  el.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true }));
-  el.click();
-}
-
-function isVisible(el: HTMLElement): boolean {
-  const style = window.getComputedStyle(el);
-  const rect = el.getBoundingClientRect();
-  return style.visibility !== 'hidden' && style.display !== 'none' && rect.width > 0 && rect.height > 0;
-}
-
-function isDisabled(el: HTMLElement): boolean {
-  return el.hasAttribute('disabled')
-    || el.getAttribute('aria-disabled') === 'true'
-    || /\bdisabled\b|btn_disabled/.test(el.className || '');
-}
-
-function compactText(value: string): string {
-  return value.replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();
-}
-
-function htmlToText(html: string): string {
-  const doc = new DOMParser().parseFromString(html, 'text/html');
-  return (doc.body.textContent || '').replace(/\s+/g, ' ').trim();
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((r) => setTimeout(r, ms));
-}
-
-function waitFor<T extends Element>(selector: string, timeout: number): Promise<T | null> {
-  return new Promise((resolve) => {
-    const existing = document.querySelector<T>(selector);
-    if (existing) return resolve(existing);
-    const observer = new MutationObserver(() => {
-      const el = document.querySelector<T>(selector);
-      if (el) { observer.disconnect(); resolve(el); }
-    });
-    observer.observe(document.body || document.documentElement, { childList: true, subtree: true });
-    setTimeout(() => { observer.disconnect(); resolve(null); }, timeout);
-  });
-}
-
-function waitForElement<T extends HTMLElement>(finder: () => T | null, timeout: number): Promise<T | null> {
-  return new Promise((resolve) => {
-    const existing = finder();
-    if (existing) return resolve(existing);
-    const observer = new MutationObserver(() => {
-      const el = finder();
-      if (el) { observer.disconnect(); resolve(el); }
-    });
-    observer.observe(document.body || document.documentElement, { childList: true, subtree: true });
-    setTimeout(() => { observer.disconnect(); resolve(null); }, timeout);
-  });
-}
-
-function waitForStorageFlag(key: string, timeout: number): Promise<boolean> {
-  return new Promise((resolve) => {
-    const start = Date.now();
-    const check = async () => {
-      const data = await chrome.storage.local.get(key);
-      if (data[key]) return resolve(true);
-      if (Date.now() - start >= timeout) return resolve(false);
-      setTimeout(check, 500);
-    };
-    check();
-  });
 }
