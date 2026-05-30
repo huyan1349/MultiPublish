@@ -20,7 +20,7 @@ const PLATFORM_COLOR: Record<string, string> = {
 };
 
 const platformNotes = [
-  { key: 'wechat', name: '公众号', note: '剪贴板富文本复制，粘贴即发布' },
+  { key: 'wechat', name: '公众号', note: '长文排版与正式表达' },
   { key: 'zhihu', name: '知乎', note: '观点结构与逻辑推进' },
   { key: 'bilibili', name: 'B站', note: '标签与导语节奏' },
   { key: 'xiaohongshu', name: '小红书', note: '标题吸引与短段落表达' },
@@ -221,10 +221,10 @@ export default function Dashboard() {
                     onClick={() => navigate(`/contents/${item.id}/preview`)}
                     className="group w-full rounded-[22px] border border-[rgba(49,56,45,0.1)] bg-[rgba(255,255,255,0.72)] p-4 text-left transition-all duration-400 hover:-translate-y-0.5 hover:shadow-[0_8px_24px_rgba(41,48,39,0.07)]"
                     variants={{
-                      hidden: { opacity: 0, y: 24, scale: 0.97 },
-                      show: { opacity: 1, y: 0, scale: 1 },
+                      hidden: { opacity: 0 },
+                      show: { opacity: 1 },
                     }}
-                    transition={{ type: 'spring', stiffness: 300, damping: 26, mass: 0.7 }}
+                    transition={{ duration: 0.35, ease: 'easeOut' }}
                   >
                     <div className="flex items-start justify-between gap-4">
                       <div className="min-w-0">

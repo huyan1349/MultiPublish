@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Edit3, FileText, Inbox, Trash2 } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { api } from '../api/client';
 import { useContentStore } from '../stores/contentStore';
 
@@ -98,12 +99,23 @@ export default function Contents() {
               <p className="text-[14px] leading-7 text-[var(--ink-soft)]">还没有稿件，从「新建稿件」或「快速开始」开始创作。</p>
             </div>
           ) : (
-            <div className="space-y-3">
-              {contents.map((item, i) => (
-                <div
+            <motion.div
+              className="space-y-3"
+              initial="hidden"
+              animate="show"
+              variants={{
+                show: { transition: { staggerChildren: 0.07, delayChildren: 0.04 } },
+              }}
+            >
+              {contents.map((item) => (
+                <motion.div
                   key={item.id}
-                  style={{ animation: `px-list-item-in 480ms cubic-bezier(0.22,0.61,0.36,1) both ${i * 60 + 40}ms` }}
-                  className="group rounded-[24px] border border-[rgba(49,56,45,0.1)] bg-[rgba(255,255,255,0.72)] p-5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_6px_20px_rgba(41,48,39,0.06)]"
+                  className="group rounded-[24px] border border-[rgba(49,56,45,0.1)] bg-[rgba(255,255,255,0.72)] p-5 transition-all duration-400 hover:-translate-y-0.5 hover:shadow-[0_8px_24px_rgba(41,48,39,0.07)]"
+                  variants={{
+                    hidden: { opacity: 0 },
+                    show: { opacity: 1 },
+                  }}
+                  transition={{ duration: 0.35, ease: 'easeOut' }}
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div className="min-w-0 flex-1">
@@ -165,9 +177,9 @@ export default function Contents() {
                       <ArrowRight size={12} className="text-[var(--ink-faint)] opacity-0 transition-opacity group-hover:opacity-100" />
                     </div>
                   </div>
-                </div>
+                </motion.div>
               ))}
-            </div>
+            </motion.div>
           )}
         </section>
       </div>
