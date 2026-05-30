@@ -21,7 +21,6 @@ const PLATFORM_NAMES: Record<string, string> = {
   xiaohongshu: '小红书',
 };
 
-// 大图片数据不走 chrome.storage，暂存内存，Content Script 通过消息通道取
 const pendingImages = new Map<PlatformType, ImagePayload[]>();
 
 void chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
@@ -46,10 +45,10 @@ function handleMessage(message: { type: string; payload?: unknown }, sendRespons
     return true;
   }
   if (message.type === 'PUBLISH_TO_PLATFORM') {
-    const msg = message as { type: string; payload?: PublishPayload; platform?: PlatformType; platformName?: string; content?: unknown; autoLayout?: boolean };
+    const msg = message as { type: string; payload?: PublishPayload; platform?: PlatformType; platformName?: string; content?: unknown; autoLayout?: boolean; images?: ImagePayload[] };
     const p: PublishPayload = msg.payload
       ? msg.payload
-      : { platform: msg.platform!, platformName: msg.platformName || PLATFORM_NAMES[msg.platform!] || msg.platform!, content: msg.content as PublishPayload['content'], autoLayout: msg.autoLayout };
+      : { platform: msg.platform!, platformName: msg.platformName || PLATFORM_NAMES[msg.platform!] || msg.platform!, content: msg.content as PublishPayload['content'], autoLayout: msg.autoLayout, images: msg.images };
     handlePublish(p)
       .then(sendResponse)
       .catch((err) => sendResponse({ status: 'failed', message: err.message }));
@@ -78,19 +77,15 @@ async function handlePublish(payload: PublishPayload): Promise<PublishResult> {
   if (!url) throw new Error(`Unknown platform: ${platform}`);
 
   try {
-    // 图片存入内存
     if (payload.images && payload.images.length > 0) {
       pendingImages.set(platform, payload.images);
     }
 
-    // 写入 storage 前清除 data URL
     const cleanContent = { ...content };
     if (cleanContent.coverImage && cleanContent.coverImage.startsWith('data:')) {
       delete cleanContent.coverImage;
     }
-    cleanContent.body = cleanContent.body
-      .replace(/<img[^>]*src\s*=\s*["']data:image\/[^"']*["'][^>]*\/?>/gi, '')
-      .replace(/!\[[^\]]*\]\(data:image\/[^)]+\)/gi, '');
+    cleanContent.body = stripDataUrlFromBody(cleanContent.body);
 
     await chrome.storage.local.set({
       contentbridge_fill: { platform, content: cleanContent, autoLayout: payload.autoLayout, timestamp: Date.now() },
@@ -120,6 +115,30 @@ async function handlePublish(payload: PublishPayload): Promise<PublishResult> {
     pendingImages.delete(platform);
     return { platform, platformName, status: 'failed', message: msg };
   }
+}
+
+function stripDataUrlFromBody(body: string): string {
+  let result = body.replace(/<img[^>]*src\s*=\s*["']data:[^"']*["'][^>]*\/?>/gi, '');
+  let searchFrom = 0;
+  let safety = 0;
+  while (safety < 500) {
+    const start = result.indexOf('![', searchFrom);
+    if (start === -1) break;
+    const bracketEnd = result.indexOf('](', start);
+    if (bracketEnd === -1) { searchFrom = start + 2; safety++; continue; }
+    const urlStart = bracketEnd + 2;
+    const parenEnd = result.indexOf(')', urlStart);
+    if (parenEnd === -1) { searchFrom = start + 2; safety++; continue; }
+    const url = result.slice(urlStart, parenEnd);
+    if (url.startsWith('data:') || url.startsWith('blob:')) {
+      result = result.slice(0, start) + result.slice(parenEnd + 1);
+      searchFrom = start;
+    } else {
+      searchFrom = parenEnd + 1;
+    }
+    safety++;
+  }
+  return result;
 }
 
 async function findExistingPlatformTab(domain: string): Promise<chrome.tabs.Tab | null> {
