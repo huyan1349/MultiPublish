@@ -16,7 +16,9 @@ ContentBridge 解决的就是这个问题——用户在所见即所得编辑器
 
 ## 核心功能
 
-- **所见即所得编辑器（Tiptap）**：工具栏支持加粗、斜体、标题、列表、引用、撤销/重做，Markdown 快捷输入
+- **所见即所得编辑器（Tiptap）**：工具栏支持加粗、斜体、标题、列表、引用、图片、撤销/重做，Markdown 快捷输入，**图片可拖拽缩放**
+- **AI 写作助手**：集成 DeepSeek API，一键 AI 生成/改写内容，支持脉冲高亮 + 流式逐块渐现动画
+- **图片上传（四平台）**：支持图片插入编辑器，自动转换为各平台格式 — 公众号素材上传、B站/小红书多策略 DOM 注入、知乎剪贴板粘贴
 - **智能格式适配**：自动将内容转换为公众号（行内样式 HTML）、知乎（Markdown）、B站（视频描述+时间轴）、小红书（emoji+话题标签）四种风格
 - **分平台预览**：Tab 切换查看各平台适配效果，支持人工编辑微调
 - **真发布（Chrome 扩展）**：Content Script 自动注入内容到平台编辑器，无需 API
@@ -53,31 +55,34 @@ ContentBridge 解决的就是这个问题——用户在所见即所得编辑器
 ## 项目结构
 
 ```
-├── frontend/                # React 前端
-│   └── src/
-│       ├── components/      # 组件（editor/layout/ui）
-│       ├── pages/           # 页面（Dashboard/Editor/Preview/PublishRecords）
-│       ├── api/             # API 请求层
-│       ├── types/           # TypeScript 类型定义
-│       ├── stores/          # Zustand 状态管理
-│       └── styles/          # 全局样式
-├── backend/                 # Express 后端
-│   └── src/
-│       ├── routes/          # API 路由
-│       ├── controllers/     # 请求处理
-│       ├── services/        # 业务逻辑（parser/adapter/publish）
-│       ├── adapters/        # 平台适配器（wechat/zhihu/bilibili/xiaohongshu）
-│       ├── publishers/      # 发布策略（MockPublisher）
-│       └── middleware/      # 中间件
+├── web/
+│   ├── frontend/            # React 前端
+│   │   └── src/
+│   │       ├── components/  # 组件（editor/layout/publish/ui）
+│   │       ├── pages/       # 页面（Dashboard/Editor/Preview/QuickStart）
+│   │       ├── adapters/    # 平台适配器（wechat/zhihu/bilibili/xiaohongshu）
+│   │       ├── services/    # API 请求 + DeepSeek AI 服务
+│   │       ├── stores/      # Zustand 状态管理
+│   │       ├── utils/       # 工具函数（图片、扩展桥接）
+│   │       └── styles/      # 全局样式（CSS 品牌色变量）
+│   └── backend/             # Express 后端
+│       └── src/
+│           ├── routes/      # API 路由
+│           ├── controllers/ # 请求处理
+│           ├── services/    # 业务逻辑（parser/adapter/publish）
+│           ├── adapters/    # 平台适配器（wechat/zhihu/bilibili/xiaohongshu）
+│           ├── publishers/  # 发布策略
+│           └── middleware/  # 中间件（CSP/错误处理）
 ├── extension/               # Chrome 扩展（真发布）
 │   └── src/
 │       ├── sidepanel.tsx     # 侧边栏 UI（Editor/Preview/Records）
-│       ├── background.ts     # Service Worker（消息路由+标签页管理）
+│       ├── background.ts     # Service Worker（消息路由+标签页管理+图片数据清理）
+│       ├── shared/           # 共享类型 + Toast 工具
 │       ├── contents/         # Content Scripts（DOM 注入）
 │       │   ├── wechat.ts     # 微信公众号 — UEditor iframe 穿透
 │       │   ├── zhihu.ts      # 知乎 — ClipboardEvent 模拟
-│       │   ├── bilibili.ts   # B站 — Quill.js DOM 注入
-│       │   └── xiaohongshu.ts # 小红书 — React 组件 value setter 注入
+│       │   ├── bilibili.ts   # B站 — 多策略图片上传 + DOM 注入
+│       │   └── xiaohongshu.ts # 小红书 — 多策略图片上传 + DOM 注入
 │       └── sidepanel/adapters/ # 平台适配器（与 Web 版共享逻辑）
 ├── start.bat                # Windows 一键启动脚本
 └── README.md
@@ -141,10 +146,10 @@ pnpm build        # 产出 build/chrome-mv3-prod/
 
 | 平台 | 注入策略 |
 |------|----------|
-| 公众号 | `all_frames: true` 穿透双层 UEditor iframe，`MutationObserver` 轮询 `[contenteditable]` |
+| 公众号 | `all_frames: true` 穿透双层 UEditor iframe，`MutationObserver` 轮询 `[contenteditable]`，图片通过剪贴板粘贴 |
 | 知乎 | `ClipboardEvent` 模拟粘贴 + `DataTransfer`，突破 Draft.js 不可变状态 |
-| B站 | `innerHTML` 直接写入 Quill.js 编辑器 + 原生 value setter 绕 React |
-| 小红书 | `getOwnPropertyDescriptor` 绕过 React 受控组件，`dispatchEvent('input')` 触发状态同步 |
+| B站 | 多策略：file input 搜索（主文档 + shadow DOM）→ 工具栏按钮点击 → ClipboardEvent 粘贴 |
+| 小红书 | 多策略：编辑器内 file input → 全局 image accept input → ClipboardEvent 粘贴 → 工具栏按钮捕获 |
 
 **使用前**：需先在浏览器中登录各平台（`mp.weixin.qq.com` / `zhuanlan.zhihu.com` / `member.bilibili.com` / `creator.xiaohongshu.com`），扩展自动复用登录态。
 
@@ -191,6 +196,7 @@ interface PlatformAdapter {
 | @tiptap/starter-kit | latest | 编辑器基础扩展 | MIT |
 | @tiptap/extension-placeholder | latest | 编辑器占位文字 | MIT |
 | @tiptap/extension-link | latest | 编辑器链接支持 | MIT |
+| @tiptap/extension-image | latest | 编辑器图片支持（可拖拽缩放） | MIT |
 | zustand | ^5.0.1 | 状态管理 | MIT |
 | lucide-react | ^0.547.0 | 图标 | ISC |
 | tailwindcss | ^3.4.16 | 样式框架 | MIT |
@@ -225,14 +231,21 @@ interface PlatformAdapter {
 - **Web 应用**：采用模拟发布。各平台 API 权限审核门槛高（公众号需认证服务号、小红书不开放发布 API 等）
 - **Chrome 扩展**：DOM 注入依赖平台页面结构，平台改版可能导致注入失败，需持续维护 CSS 选择器
 - 小红书发布依赖登录态和页面结构，平台改版可能导致注入失败
+- **AI 功能**：依赖 DeepSeek API Key（需在 `web/backend/.env` 中配置 `DEEPSEEK_API_KEY`）
+- **图片上传**：公众号图片需通过微信素材库上传，当前为外链模式；跨平台尺寸自动适配仍在开发中
 
 ## 后续规划
 
-- [ ] 「打开平台编辑器 + 剪贴板自动复制」一键发布工作流
-- [ ] AI 辅助标题改写与摘要生成
-- [ ] 图片上传与跨平台尺寸自动适配
+- [x] AI 辅助标题改写与摘要生成（DeepSeek API 集成）
+- [x] 图片上传（四平台）与编辑器内拖拽缩放
+- [x] 「打开平台编辑器 + 剪贴板自动复制」一键发布工作流
+- [ ] 图片跨平台尺寸自动适配（封面、正文图片尺寸裁剪）
+- [ ] 公众号图片素材库上传（外链 → 微信素材库 → 替换 src）
+- [ ] AST 格式转换管道（unified/remark 替代当前简单解析）
+- [ ] 登录态检测（发布前检测是否已登录）
 - [ ] 更多平台支持（头条号、百家号、CSDN、掘金等）
 - [ ] 定时发布与发布日历
+- [ ] 草稿自动保存（编辑内容自动持久化）
 
 ## 开发记录
 
@@ -252,6 +265,15 @@ interface PlatformAdapter {
 | #10 | Tiptap 所见即所得编辑器 + Dashboard 统计面板 |
 | #11 | Chrome 扩展真发布 — Plasmo + Content Script DOM 注入 |
 | #12 | 扩展暗夜编辑室 UI + storage 信号发布机制 + MutationObserver 轮询 |
+| #13 | 公众号完整发布链路 — 剪贴板方案 + 扩展桥接 + 自动发布 |
+| #14 | AI写作助手+平台预览重构+大纲展开+公众号全自动发布 |
+| #15 | 编辑台三步流程 + AI内容生成 + multipush writer |
+| #16 | 一键优化全部平台按钮 + 美化按钮可见性修复 |
+| #17 | 四平台图片上传 + web 前端对接图片功能 |
+| #18 | AI生成按钮脉冲高亮 + 流式逐块模糊渐现动画 |
+| #19 | 修复缺失的 @tiptap/extension-image 依赖 |
+| #20 | CSS变量拼接bug修复 + 生成按钮可见性修复 |
+| #21 | 可拖拽缩放图片编辑器 + B站/小红书多策略图片上传 + CSP安全头 |
 
 ### Chrome 扩展
 
@@ -259,6 +281,11 @@ interface PlatformAdapter {
 |------|------|------|--------|
 | plasmo | ^0.89 | 扩展开发框架 | MIT |
 | @plasmohq/storage | ^1.9 | chrome.storage 封装 | MIT |
+| @tiptap/react | ^3.23 | 富文本编辑器 | MIT |
+| @tiptap/starter-kit | ^3.23 | 编辑器基础扩展 | MIT |
+| @tiptap/extension-image | ^3.23 | 图片拖拽缩放扩展 | MIT |
+| @tiptap/extension-link | ^3.23 | 链接支持 | MIT |
+| @tiptap/extension-placeholder | ^3.23 | 占位文字 | MIT |
 | react | ^18.3 | UI | MIT |
 | zustand | ^5.0 | 状态管理 | MIT |
 | lucide-react | ^0.547 | 图标 | ISC |
