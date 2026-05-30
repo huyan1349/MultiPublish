@@ -353,7 +353,12 @@ export default function Inspiration() {
       tags: angle.tags.join(', '),
       coverImage: '',
     });
-    navigate('/editor');
+    const params = new URLSearchParams({
+      topic: angle.title,
+      points: angle.outline,
+      from: 'inspiration',
+    });
+    navigate(`/editor?${params.toString()}`);
   }, [navigate, setDraft]);
 
   const hasInput = topic.trim().length > 0;
