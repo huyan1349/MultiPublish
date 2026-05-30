@@ -14,6 +14,13 @@ const PLATFORM_DOMAINS: Record<string, string> = {
   xiaohongshu: 'creator.xiaohongshu.com',
 };
 
+const PLATFORM_NAMES: Record<string, string> = {
+  wechat: '微信公众号',
+  zhihu: '知乎',
+  bilibili: 'B站',
+  xiaohongshu: '小红书',
+};
+
 void chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
 
 chrome.runtime.onInstalled.addListener(() => {
@@ -30,7 +37,11 @@ function handleMessage(message: { type: string; payload?: unknown }, sendRespons
     return false;
   }
   if (message.type === 'PUBLISH_TO_PLATFORM') {
-    handlePublish(message.payload as PublishPayload)
+    const msg = message as { type: string; payload?: PublishPayload; platform?: PlatformType; platformName?: string; content?: unknown; autoLayout?: boolean };
+    const p: PublishPayload = msg.payload
+      ? msg.payload
+      : { platform: msg.platform!, platformName: msg.platformName || PLATFORM_NAMES[msg.platform!] || msg.platform!, content: msg.content as PublishPayload['content'], autoLayout: msg.autoLayout };
+    handlePublish(p)
       .then(sendResponse)
       .catch((err) => sendResponse({ status: 'failed', message: err.message }));
     return true;
