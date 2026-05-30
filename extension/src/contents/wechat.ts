@@ -13,6 +13,13 @@ const FILL_TIMEOUT = 15000;
 const PUBLISH_TIMEOUT = 30000;
 const FILL_FLAG_KEY = 'contentbridge_wechat_filled';
 
+async function report(success: boolean, message: string) {
+  await chrome.storage.local.set({
+    contentbridge_result: { platform: PLATFORM, platformName: NAME, success, message, error: success ? undefined : message },
+  });
+  showContentBridgeToast(message, success ? 'success' : 'error');
+}
+
 (async function init() {
   const data = await chrome.storage.local.get('contentbridge_fill');
   const fill = data.contentbridge_fill;

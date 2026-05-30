@@ -158,10 +158,11 @@ body {
   box-shadow: 0 0 0 3px var(--accent-glow);
 }
 .platform-card-icon {
-  width: 32px; height: 32px; border-radius: 8px;
+  width: 40px; height: 40px; border-radius: 10px;
   display: flex; align-items: center; justify-content: center;
-  color: #fff; font-weight: 700; font-size: 13px; margin-bottom: 8px;
+  margin-bottom: 8px; overflow: hidden;
 }
+.platform-card-icon svg { display: block; }
 .platform-card-name { font-weight: 600; font-size: 12px; color: var(--text); margin-bottom: 2px; }
 .platform-card-desc { font-size: 10px; color: var(--text-muted); line-height: 1.4; }
 
