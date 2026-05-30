@@ -17,7 +17,7 @@ export default function Sidebar() {
         <div className="w-7 h-7 bg-tx flex items-center justify-center">
           <span className="font-mono font-bold text-[8px] text-white tracking-widest">MP</span>
         </div>
-        <div className="flex gap-[2px]">
+        <div className="flex gap-[2px]" aria-hidden="true">
           {dots.map((c, i) => (
             <div key={i} className="px-dot" style={{ backgroundColor: c }} />
           ))}
@@ -31,13 +31,14 @@ export default function Sidebar() {
             to={item.to}
             end={item.to === '/'}
             className={({ isActive }) =>
-              `w-9 h-9 flex items-center justify-center transition-all duration-150
+              `w-9 h-9 flex items-center justify-center transition-[background-color,color] duration-150
               ${isActive
                 ? 'bg-px-surface px-nav-indicator text-tx'
                 : 'text-tx-mute hover:text-tx-dim hover:bg-px-surface'
               }`
             }
             title={item.label}
+            aria-label={item.label}
           >
             <item.icon size={15} strokeWidth={1.5} />
           </NavLink>
@@ -47,13 +48,14 @@ export default function Sidebar() {
       <NavLink
         to="/settings"
         className={({ isActive }) =>
-          `w-9 h-9 flex items-center justify-center transition-all duration-150 mb-1
+          `w-9 h-9 flex items-center justify-center transition-[background-color,color] duration-150 mb-1
           ${isActive
             ? 'bg-px-surface px-nav-indicator text-tx'
             : 'text-tx-mute hover:text-tx-dim hover:bg-px-surface'
           }`
         }
         title="SETTINGS"
+        aria-label="SETTINGS"
       >
         <Settings size={15} strokeWidth={1.5} />
       </NavLink>

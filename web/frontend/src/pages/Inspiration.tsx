@@ -117,6 +117,9 @@ export default function Inspiration() {
           <div className="flex gap-2.5">
             <input
               type="text"
+              name="topic"
+              autoComplete="off"
+              aria-label="话题"
               value={topic}
               onChange={(e) => setTopic(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && !loading && handleGenerate()}
@@ -125,7 +128,7 @@ export default function Inspiration() {
             />
             <button onClick={() => handleGenerate()} disabled={loading} className="px-btn-primary">
               {loading ? (
-                <><RefreshCw size={12} className="animate-spin" /> GENERATING</>
+                <><RefreshCw size={12} className="animate-spin" /> GENERATING…</>
               ) : (
                 <><Sparkles size={12} /> GENERATE</>
               )}

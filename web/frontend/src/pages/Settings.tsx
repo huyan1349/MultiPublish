@@ -106,11 +106,11 @@ export default function Settings() {
         </div>
 
         {toast && (
-          <div className="fixed bottom-6 right-6 px-fade-in">
+          <div className="fixed bottom-6 right-6 px-fade-in" role="status" aria-live="polite">
             <div className={`px-card px-4 py-3 flex items-center gap-2 font-mono text-[11px] ${
               toast.type === 'success' ? 'text-emerald-600 border-emerald-200' : 'text-dot-red border-dot-red/30'
             }`}>
-              {toast.type === 'success' ? <Check size={12} /> : <AlertCircle size={12} />}
+              {toast.type === 'success' ? <Check size={12} aria-hidden="true" /> : <AlertCircle size={12} aria-hidden="true" />}
               {toast.msg}
             </div>
           </div>

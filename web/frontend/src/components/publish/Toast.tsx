@@ -41,7 +41,7 @@ export default function ToastContainer() {
   }, []);
 
   return (
-    <div className="fixed top-5 right-5 z-50 flex flex-col gap-2 pointer-events-none">
+    <div className="fixed top-5 right-5 z-50 flex flex-col gap-2 pointer-events-none" aria-live="polite" aria-atomic="true">
       <AnimatePresence mode="popLayout">
         {toasts.map((toast) => {
           const Icon = iconMap[toast.type];

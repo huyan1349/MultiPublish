@@ -89,12 +89,17 @@ export default function PlatformCard({
 
   return (
     <div
-      className={`border transition-all duration-200 cursor-pointer overflow-hidden
+      className={`border transition-[border-color,opacity,box-shadow] duration-200 cursor-pointer overflow-hidden
         ${selected
           ? 'bg-white border-px-border hover:border-tx-mute'
           : 'bg-px-surface border-px-border-subtle opacity-40 hover:opacity-70'}`}
       style={{ borderRadius: 0 }}
       onClick={onToggle}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggle(); } }}
+      role="button"
+      tabIndex={0}
+      aria-pressed={selected}
+      aria-label={`${platformName} 平台卡片`}
     >
       <div className="p-4">
         <div className="flex items-center gap-2.5 mb-2">
@@ -114,16 +119,18 @@ export default function PlatformCard({
               <button
                 onClick={handleBeautify}
                 disabled={beautifying}
-                className={`px-btn-ghost text-[8px] px-1.5 py-1 transition-all duration-200
+                className={`px-btn-ghost text-[8px] px-1.5 py-1 transition-[background-color,color,box-shadow] duration-200
                   ${beautifying ? 'opacity-60' : ''}
                   ${hasBeautified ? 'shadow-[0_0_0_1px_rgba(0,0,0,0.08)]' : ''}`}
                 title="AI 美化"
+                aria-label="AI 美化"
               >
                 {beautifying ? <RefreshCw size={10} className="animate-spin" /> : <Wand2 size={10} />}
               </button>
               <button
                 onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
-                className="text-tx-faint hover:text-tx-dim transition-all duration-200 p-0.5"
+                className="text-tx-faint hover:text-tx-dim transition-[color] duration-200 p-0.5"
+                aria-label={expanded ? '收起详情' : '展开详情'}
               >
                 {expanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
               </button>
@@ -136,7 +143,7 @@ export default function PlatformCard({
             <div>
               <div className="flex items-center justify-between font-mono text-[9px] mb-1">
                 <span className="text-tx-faint">TITLE</span>
-                <span className={titleCount > titleMax ? 'text-dot-red' : 'text-tx-faint'}>
+                <span className={`tabular-nums ${titleCount > titleMax ? 'text-dot-red' : 'text-tx-faint'}`}>
                   {titleCount}/{titleMax}
                 </span>
               </div>
@@ -150,14 +157,14 @@ export default function PlatformCard({
 
             <div className="flex items-center justify-between font-mono text-[9px]">
               <span className="text-tx-faint">BODY</span>
-              <span className="text-tx-faint">
+              <span className="text-tx-faint tabular-nums">
                 {bodyCount.toLocaleString()}{bodyMax < Infinity ? `/${bodyMax.toLocaleString()}` : ''}
               </span>
             </div>
 
             <div className="flex items-center justify-between font-mono text-[9px]">
               <span className="text-tx-faint">TAGS</span>
-              <span className={tagCount > tagMax ? 'text-dot-red' : 'text-tx-faint'}>
+              <span className={`tabular-nums ${tagCount > tagMax ? 'text-dot-red' : 'text-tx-faint'}`}>
                 {tagCount}/{tagMax}
               </span>
             </div>

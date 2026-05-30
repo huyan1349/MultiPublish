@@ -91,7 +91,7 @@ export default function Preview() {
     <div className="h-full overflow-y-auto scrollbar-thin">
       <div className="max-w-[860px] mx-auto px-12 py-16">
         <div className="flex items-center gap-4 mb-12">
-          <button onClick={() => navigate('/')} className="text-tx-mute hover:text-tx transition-colors p-1">
+          <button onClick={() => navigate('/')} className="text-tx-mute hover:text-tx transition-colors p-1" aria-label="返回首页">
             <ArrowLeft size={17} strokeWidth={1.5} />
           </button>
           <div className="flex-1 min-w-0">

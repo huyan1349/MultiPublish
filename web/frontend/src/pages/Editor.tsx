@@ -153,7 +153,7 @@ export default function Editor() {
       <ToastContainer />
       <header className="flex items-center justify-between px-6 py-3 border-b border-px-border bg-white shrink-0">
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate('/')} className="text-tx-mute hover:text-tx transition-colors p-1">
+          <button onClick={() => navigate('/')} className="text-tx-mute hover:text-tx transition-colors p-1" aria-label="返回首页">
             <ArrowLeft size={14} strokeWidth={1.5} />
           </button>
           <span className="font-mono font-bold text-[10px] text-tx tracking-pixel">EDITOR</span>
@@ -175,13 +175,13 @@ export default function Editor() {
       <div className="flex-1 flex overflow-hidden">
         <div className="flex-[5] flex flex-col min-w-0 border-r border-px-border bg-white">
           <div className="px-8 pt-6 pb-3 space-y-3">
-            <input type="text" value={draft.title} onChange={e => { setDraft({ title: e.target.value }); setError(''); }}
-              placeholder="TITLE" className="w-full bg-transparent font-mono font-bold text-lg text-tx placeholder:text-tx-faint outline-none tracking-wide" />
+            <input type="text" name="title" autoComplete="off" aria-label="标题" value={draft.title} onChange={e => { setDraft({ title: e.target.value }); setError(''); }}
+              placeholder="TITLE…" className="w-full bg-transparent font-mono font-bold text-lg text-tx placeholder:text-tx-faint focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-tx tracking-wide" />
             <div className="flex gap-3">
-              <input type="text" value={draft.tags} onChange={e => setDraft({ tags: e.target.value })}
-                placeholder="TAGS (comma separated)" className="px-input flex-1" />
-              <input type="text" value={draft.coverImage} onChange={e => setDraft({ coverImage: e.target.value })}
-                placeholder="COVER URL" className="px-input flex-1" />
+              <input type="text" name="tags" autoComplete="off" aria-label="标签" value={draft.tags} onChange={e => setDraft({ tags: e.target.value })}
+                placeholder="TAGS (comma separated)…" className="px-input flex-1" />
+              <input type="url" name="coverImage" autoComplete="url" aria-label="封面图片URL" value={draft.coverImage} onChange={e => setDraft({ coverImage: e.target.value })}
+                placeholder="COVER URL…" className="px-input flex-1" spellCheck={false} />
             </div>
           </div>
           <div className="flex-1 overflow-y-auto px-8 pb-8 scrollbar-thin">

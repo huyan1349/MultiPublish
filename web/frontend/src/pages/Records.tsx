@@ -88,11 +88,11 @@ export default function Records() {
                       <p className="text-[11px] text-tx-faint truncate">{r.message}</p>
                     )}
                   </div>
-                  <div className="text-[11px] text-tx-faint shrink-0 flex items-center gap-2 font-mono">
+                  <div className="text-[11px] text-tx-faint shrink-0 flex items-center gap-2 font-mono tabular-nums">
                     {new Date(r.publishedAt).toLocaleString('zh-CN')}
                     {r.mockUrl && (
                       <a href={r.mockUrl} target="_blank" rel="noopener noreferrer"
-                        className="text-tx-dim hover:text-tx transition-colors">
+                        className="text-tx-dim hover:text-tx transition-colors" aria-label="查看外部链接">
                         <ExternalLink size={13} />
                       </a>
                     )}
