@@ -41,50 +41,10 @@ export function isExtensionInstalled(): boolean {
 export async function publishViaExtension(
   payload: ExtensionPublishPayload,
 ): Promise<ExtensionPublishResult> {
-  if (payload.platform === 'wechat') {
-    return publishWechatViaClipboard(payload);
-  }
-
-  return publishOtherViaExtension(payload);
+  return publishViaExtensionMessage(payload);
 }
 
-async function publishWechatViaClipboard(
-  payload: ExtensionPublishPayload,
-): Promise<ExtensionPublishResult> {
-  try {
-    const html = payload.content.body || '';
-    const blob = new Blob([html], { type: 'text/html' });
-    const textBlob = new Blob([html.replace(/<[^>]*>/g, '')], { type: 'text/plain' });
-    await navigator.clipboard.write([
-      new ClipboardItem({ 'text/html': blob, 'text/plain': textBlob }),
-    ]);
-
-    const cr = getChrome();
-    if (cr?.runtime?.sendMessage && EXTENSION_ID) {
-      cr.runtime.sendMessage(
-        EXTENSION_ID,
-        { type: 'COPY_AND_OPEN_WECHAT', payload: { title: payload.content.title, body: payload.content.body } },
-        () => { /* fire and forget */ },
-      );
-    }
-
-    return {
-      platform: 'wechat',
-      platformName: '微信公众号',
-      success: true,
-      message: '内容已复制到剪贴板，请在公众号编辑器中按 Ctrl+V 粘贴',
-    };
-  } catch (err) {
-    return {
-      platform: 'wechat',
-      platformName: '微信公众号',
-      success: false,
-      message: err instanceof Error ? err.message : '剪贴板复制失败',
-    };
-  }
-}
-
-async function publishOtherViaExtension(
+async function publishViaExtensionMessage(
   payload: ExtensionPublishPayload,
 ): Promise<ExtensionPublishResult> {
   return new Promise((resolve, reject) => {

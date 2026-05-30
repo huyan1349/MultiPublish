@@ -1,4 +1,4 @@
-import type { PublishPayload, PublishResult } from './shared/types';
+import type { PlatformType, PublishPayload, PublishResult } from './shared/types';
 
 const PLATFORM_URLS: Record<string, string> = {
   wechat: 'https://mp.weixin.qq.com/cgi-bin/appmsg?t=media/appmsg_edit_v2&action=edit&isNew=1&type=77',
@@ -84,7 +84,7 @@ async function findExistingPlatformTab(domain: string): Promise<chrome.tabs.Tab 
   return null;
 }
 
-function waitForFillResult(platform: string, platformName: string): Promise<PublishResult> {
+function waitForFillResult(platform: PlatformType, platformName: string): Promise<PublishResult> {
   return new Promise((resolve) => {
     const timeout = setTimeout(() => {
       chrome.storage.onChanged.removeListener(listener);
