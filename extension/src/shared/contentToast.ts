@@ -1,8 +1,14 @@
-type ToastType = 'success' | 'error';
+type ToastType = 'success' | 'error' | 'info';
 
 export function showContentBridgeToast(message: string, type: ToastType = 'success') {
   const existing = document.getElementById('contentbridge-toast');
   existing?.remove();
+
+  const bgMap: Record<ToastType, string> = {
+    success: 'background:#ecfdf5;color:#047857;border:1px solid #a7f3d0',
+    error: 'background:#fff1f2;color:#be123c;border:1px solid #fecdd3',
+    info: 'background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe',
+  };
 
   const toast = document.createElement('div');
   toast.id = 'contentbridge-toast';
@@ -21,9 +27,7 @@ export function showContentBridgeToast(message: string, type: ToastType = 'succe
     'transform:translateY(-6px)',
     'transition:opacity .18s ease,transform .18s ease',
     'pointer-events:none',
-    type === 'success'
-      ? 'background:#ecfdf5;color:#047857;border:1px solid #a7f3d0'
-      : 'background:#fff1f2;color:#be123c;border:1px solid #fecdd3',
+    bgMap[type],
   ].join(';');
 
   document.documentElement.appendChild(toast);
