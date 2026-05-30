@@ -128,7 +128,7 @@ async function streamChat(
   }
 }
 
-function parseJsonResponse<T>(raw: string, fallback: T): T {
+function parseJsonResponse<T>(raw: string, fallback: T, requiredKeys?: string[]): T {
   try {
     const cleaned = raw
       .replace(/```json\n?/g, '')
@@ -136,7 +136,14 @@ function parseJsonResponse<T>(raw: string, fallback: T): T {
       .replace(/^[^{[]*/, '')
       .replace(/[^}\]]*$/, '')
       .trim();
-    return JSON.parse(cleaned) as T;
+    const parsed = JSON.parse(cleaned) as T;
+    if (requiredKeys) {
+      for (const key of requiredKeys) {
+        const val = (parsed as Record<string, unknown>)[key];
+        if (val === undefined || val === null || val === '') return fallback;
+      }
+    }
+    return parsed;
   } catch {
     return fallback;
   }
@@ -220,7 +227,7 @@ export async function beautifyContentForPlatform(input: BeautifyContentInput): P
     title: input.title,
     htmlBody: input.htmlContent,
     tags: input.tags,
-  });
+  }, ['title', 'htmlBody']);
 }
 
 export interface BeautifyOptions {
@@ -398,7 +405,8 @@ export async function generateTitle(body: string): Promise<string[]> {
     const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
     return JSON.parse(cleaned);
   } catch {
-    return [body.slice(0, 30) + '…'];
+    const plain = body.replace(/<[^>]*>/g, '').trim();
+    return [plain.slice(0, 30) + '…'];
   }
 }
 
@@ -441,7 +449,7 @@ export async function optimizeContent(
     title,
     htmlBody: htmlContent,
     explanation: '优化完成',
-  });
+  }, ['title', 'htmlBody']);
 }
 
 export async function optimizeSelection(
@@ -664,7 +672,7 @@ export async function generateContentFromOutline(
     title: input.outline.topic,
     htmlBody: `<p>生成失败，请重试</p>`,
     tags: [],
-  });
+  }, ['title', 'htmlBody']);
 }
 
 export async function generateContentFromOutlineStream(
@@ -700,7 +708,7 @@ export async function generateContentFromOutlineStream(
     title: input.outline.topic,
     htmlBody: `<p>生成失败，请重试</p>`,
     tags: [],
-  });
+  }, ['title', 'htmlBody']);
 
   onTitle(result.title);
   return result;

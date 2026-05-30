@@ -1,4 +1,4 @@
-﻿import { useState, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, RefreshCw, Sparkles, Zap, Check, Wand2, ChevronDown, ChevronUp } from 'lucide-react';
 import { useContentStore } from '../stores/contentStore';
@@ -7,7 +7,7 @@ import PlatformCard from '../components/publish/PlatformCard';
 import PublishButton from '../components/publish/PublishButton';
 import ToastContainer, { showToast } from '../components/publish/Toast';
 import { publishViaExtension, isExtensionInstalled } from '../utils/extensionBridge'
-import { buildImagePayloads } from '../utils/imageUtils';;
+import { buildImagePayloads } from '../utils/imageUtils';
 import { useExtensionStatus } from '../hooks/useExtensionStatus';
 import { generateInspiration, beautifyContentForPlatform } from '../services/deepseek';
 import { api } from '../api/client';
@@ -47,6 +47,7 @@ export default function QuickStart() {
     beautifiedOutputs,
     setBeautifiedOutput,
     applyBeautifiedContent,
+    clearBeautifiedOutput,
   } = useContentStore();
 
   const [step, setStep] = useState<QuickStep>('inspire');
@@ -140,6 +141,7 @@ export default function QuickStart() {
     const beautified = beautifiedOutputs.get(platform);
     if (!beautified) return;
     applyBeautifiedContent(platform, beautified.title, beautified.htmlBody, beautified.tags);
+    clearBeautifiedOutput(platform);
     const state = platformStates.get(platform);
     showToast('success', `${state?.platformName || platform} 已应用`, '润色内容已写入平台输出');
   };
@@ -184,10 +186,12 @@ export default function QuickStart() {
       if (!state) continue;
       setPlatformPublishStatus(platform, 'publishing');
       try {
+        const images = await buildImagePayloads(draft.htmlContent, draft.coverImage);
         const result = await publishViaExtension({
           platform,
           content: state.output,
           autoLayout: true,
+          images: images.length > 0 ? images : void 0,
         });
 
         if (contentId) {
@@ -466,6 +470,7 @@ export default function QuickStart() {
                     tagCount={state.meta.tagCount}
                     tagMax={state.meta.maxTags}
                     messages={state.validation.messages}
+                    previewTitle={state.output.title}
                     previewBody={state.output.body}
                     previewTags={state.output.tags}
                     draftTitle={draft.title}

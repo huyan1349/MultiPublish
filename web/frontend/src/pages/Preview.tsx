@@ -1,10 +1,10 @@
-﻿import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Rocket, CheckCircle, AlertTriangle, Info, Loader2, Zap, Eye, Edit3, ExternalLink, Globe } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../api/client';
 import { publishViaExtension, isExtensionInstalled, type ExtensionPublishResult } from '../utils/extensionBridge'
-import { buildImagePayloads } from '../utils/imageUtils';;
+import { buildImagePayloads, markdownBodyToHtml } from '../utils/imageUtils';
 
 interface Output {
   id: string; platform: string; platformName: string;
@@ -39,6 +39,7 @@ export default function Preview() {
   const navigate = useNavigate();
   const [outputs, setOutputs] = useState<Output[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingData, setEditingData] = useState<{ title: string; body: string; tags: string } | null>(null);
@@ -53,9 +54,10 @@ export default function Preview() {
 
   useEffect(() => {
     if (!id) return;
+    setLoadError(false);
     api.getOutputs(id)
-      .then((data) => setOutputs(data))
-      .catch(() => {})
+      .then((data) => { setOutputs(data); setLoadError(false); })
+      .catch(() => setLoadError(true))
       .finally(() => setLoading(false));
   }, [id]);
 
@@ -105,10 +107,12 @@ export default function Preview() {
   const handleRealPublish = async (output: Output) => {
     setExtPublishing((prev) => new Set(prev).add(output.id));
     try {
+      const images = await buildImagePayloads(output.body, output.coverImage || '');
       const result = await publishViaExtension({
         platform: output.platform as 'wechat' | 'zhihu' | 'bilibili' | 'xiaohongshu',
         content: { title: output.title, body: output.body, tags: output.tags, summary: output.summary, coverImage: output.coverImage },
         autoLayout: true,
+        images: images.length > 0 ? images : undefined,
       });
       setExtResults((prev) => [...prev, result]);
       if (result.success) setPublishedSet((prev) => new Set(prev).add(output.platform));
@@ -126,6 +130,26 @@ export default function Preview() {
     return (
       <div className="flex items-center justify-center h-full">
         <Loader2 size={28} className="animate-spin text-[var(--ink-faint)]" />
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="mx-auto max-w-[900px] flex flex-col gap-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <button onClick={() => navigate('/editor')} className="flex items-center gap-1.5 text-[13px] text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors mb-3">
+              <ArrowLeft size={14} /> 返回编辑台
+            </button>
+            <h1 className="font-['Cormorant_Garamond'] text-[42px] leading-[0.92] tracking-[-0.06em] text-[var(--ink)]">平台预览</h1>
+          </div>
+        </div>
+        <div className="rounded-[28px] border border-dashed border-[rgba(49,56,45,0.18)] px-8 py-16 text-center">
+          <Globe size={24} className="mx-auto mb-3 text-[var(--ink-faint)]" />
+          <p className="text-[14px] text-[var(--ink-soft)]">加载平台内容失败，请确认后端服务已启动</p>
+          <button onClick={() => { setLoading(true); setLoadError(false); api.getOutputs(id!).then((data) => { setOutputs(data); setLoadError(false); }).catch(() => setLoadError(true)).finally(() => setLoading(false)); }} className="px-btn-secondary mt-4">重试</button>
+        </div>
       </div>
     );
   }
@@ -322,7 +346,7 @@ export default function Preview() {
                               <div
                                 className="text-[13px] leading-7 text-gray-800"
                                 style={{ wordBreak: 'break-word' }}
-                                dangerouslySetInnerHTML={{ __html: output.body }}
+                                dangerouslySetInnerHTML={{ __html: markdownBodyToHtml(output.body) }}
                               />
                               {output.tags.length > 0 && (
                                 <div className="flex flex-wrap gap-1.5 mt-4 pt-3" style={{ borderTop: `1px solid ${platform.color}10` }}>

@@ -9,7 +9,17 @@ import { errorHandler } from './middleware/errorHandler.js';
 
 const app = express();
 
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-eval'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "blob:", "https:"],
+      connectSrc: ["'self'", "https://api.deepseek.com"],
+    },
+  },
+}));
 app.use(cors());
 app.use(express.json());
 

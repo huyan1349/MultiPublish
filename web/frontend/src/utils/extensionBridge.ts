@@ -7,6 +7,13 @@ if (typeof window !== 'undefined') {
   }) as EventListener);
 }
 
+export interface ImagePayload {
+  id: string;
+  dataUrl: string;
+  filename: string;
+  mimeType: string;
+}
+
 export interface ExtensionPublishPayload {
   platform: 'wechat' | 'zhihu' | 'bilibili' | 'xiaohongshu';
   content: {
@@ -17,6 +24,7 @@ export interface ExtensionPublishPayload {
     coverImage?: string;
   };
   autoLayout?: boolean;
+  images?: ImagePayload[];
 }
 
 export interface ExtensionPublishResult {
@@ -74,6 +82,10 @@ async function publishViaExtensionMessage(
         (response: ExtensionPublishResult) => {
           if (cr.runtime?.lastError) {
             reject(new Error(`扩展通信失败: ${cr.runtime.lastError.message}`));
+            return;
+          }
+          if (!response || typeof response !== 'object') {
+            reject(new Error('扩展未响应，可能已休眠，请刷新页面后重试'));
             return;
           }
           resolve(response);

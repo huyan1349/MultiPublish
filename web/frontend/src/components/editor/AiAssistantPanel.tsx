@@ -103,8 +103,12 @@ export default function AiAssistantPanel({
 
   const handleApply = () => {
     if (!result) return;
-    if (result.type === 'full' && result.title && result.htmlBody) {
-      onApplyOptimization(result.title, result.htmlBody);
+    if (result.type === 'full') {
+      if (!result.title && !result.htmlBody) {
+        setError('AI 返回结果为空，请重试');
+        return;
+      }
+      onApplyOptimization(result.title || '', result.htmlBody || '');
       setResult(null);
     } else if (result.type === 'selection' && result.optimizedText) {
       const selected = getSelectedText();

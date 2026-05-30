@@ -33,6 +33,7 @@ const PUBLISH_TIMEOUT = 60000;
       return;
     }
 
+    // ── 上传正文图片（GET_IMAGES，不删数据，多 frame 安全）──
     try {
       const resp = await chrome.runtime.sendMessage({ type: 'GET_IMAGES', payload: { platform: PLATFORM } });
       const allImages = (resp?.images || []) as { id: string; dataUrl: string; filename: string; mimeType: string }[];
@@ -74,6 +75,8 @@ const PUBLISH_TIMEOUT = 60000;
   }
 })();
 
+/* ── Fill ── */
+
 async function tryFill(title: string, body: string, tags: string[]): Promise<boolean> {
   const titleEl = await waitForElement(findTitleEditor, FILL_TIMEOUT);
   if (titleEl) {
@@ -81,10 +84,12 @@ async function tryFill(title: string, body: string, tags: string[]): Promise<boo
     console.log('[ContentBridge:Bilibili] 标题填充:', ok);
   }
 
+  // 正文编辑器：多重兜底
   let ed = await waitForElement(findBodyEditor, FILL_TIMEOUT);
   if (!ed) {
     console.log('[ContentBridge:Bilibili] 正文编辑器未匹配，dump 页面状态:');
     dumpPageState();
+    // 激进兜底：找页面上最大的 contenteditable（排除标题）
     ed = findFallbackEditor();
   }
 
@@ -105,12 +110,15 @@ async function tryFill(title: string, body: string, tags: string[]): Promise<boo
   return !!(titleEl || ed);
 }
 
+/* ── Auto Publish: XPath 盲搜 + MutationObserver + React Fiber ── */
+
 const PUBLISH_LABELS = ['发布', '立即发布', '发布文章', '发表', '投稿', '确认发布', '提交发布', '发布图文', '立即投稿'];
 const CONFIRM_LABELS = ['确认', '确定', '确认发布', '提交', '知道了', '我知道了', '好的', '是', '立即发布', '发布'];
 
 async function tryAutoPublish(): Promise<{ success: boolean; message: string }> {
   await sleep(2000);
 
+  // 第一步：XPath 盲搜初始发布按钮（不依赖任何 class 名）
   const publishBtn = findButtonByXPath(PUBLISH_LABELS);
   if (!publishBtn) {
     console.log('[ContentBridge:Bilibili] 未找到发布按钮，dump 页面文本:');
@@ -121,9 +129,11 @@ async function tryAutoPublish(): Promise<{ success: boolean; message: string }> 
   console.log('[ContentBridge:Bilibili] 初始发布按钮:', btnLabel(publishBtn));
   forceClick(publishBtn);
 
+  // 第二步：MutationObserver 监听 + XPath 盲搜循环
   let clickedElements = new Set<HTMLElement>([publishBtn]);
 
   for (let round = 0; round < 15; round++) {
+    // 等 DOM 变化或超时
     const changed = await waitForDomChange(2500);
     await sleep(600);
 
@@ -131,6 +141,7 @@ async function tryAutoPublish(): Promise<{ success: boolean; message: string }> 
       return { success: true, message: 'B站图文已自动提交发布' };
     }
 
+    // XPath 盲搜确认按钮 — 不依赖 class，只按文本找
     const confirmBtn = findButtonByXPath(CONFIRM_LABELS);
     if (confirmBtn && !clickedElements.has(confirmBtn)) {
       console.log('[ContentBridge:Bilibili] 第', round + 1, '轮 XPath 找到:', btnLabel(confirmBtn));
@@ -143,6 +154,7 @@ async function tryAutoPublish(): Promise<{ success: boolean; message: string }> 
       continue;
     }
 
+    // 策略 B: 找 DOM 最后出现的匹配按钮（弹窗通常在最后）
     const lastMatch = findLastMatchingButton([...PUBLISH_LABELS, ...CONFIRM_LABELS]);
     if (lastMatch && !clickedElements.has(lastMatch)) {
       console.log('[ContentBridge:Bilibili] 第', round + 1, '轮 lastMatch:', btnLabel(lastMatch));
@@ -155,6 +167,7 @@ async function tryAutoPublish(): Promise<{ success: boolean; message: string }> 
       continue;
     }
 
+    // 策略 C: 找高 z-index 层中的按钮
     if (changed) {
       const overlayBtn = findButtonInTopLayer(CONFIRM_LABELS);
       if (overlayBtn && !clickedElements.has(overlayBtn)) {
@@ -169,12 +182,14 @@ async function tryAutoPublish(): Promise<{ success: boolean; message: string }> 
       }
     }
 
+    // 第5轮 dump 调试
     if (round === 4) {
       console.log('[ContentBridge:Bilibili] 第5轮 dump:');
       dumpAllTexts();
     }
   }
 
+  // 最终兜底：XPath 全量扫描 + 全点
   console.log('[ContentBridge:Bilibili] 兜底 XPath 全扫描');
   const allTargets = findAllByXPath([...PUBLISH_LABELS, ...CONFIRM_LABELS]);
   for (const target of allTargets) {
@@ -191,14 +206,19 @@ async function tryAutoPublish(): Promise<{ success: boolean; message: string }> 
     : { success: true, message: '已自动点击B站图文发布流程，请在页面确认最终状态' };
 }
 
+/* ── XPath 文本搜索（不依赖 class 名）── */
+
 function findByXPath(labels: string[], root: Node = document): HTMLElement | null {
   for (const label of labels) {
+    // 匹配元素文本内容（含子元素文本，如 <button><span>发布</span></button>）
     const exact = `.//*[normalize-space(.)='${label}']`;
     const r1 = safeEvalXPath(exact, root);
     if (r1) return r1;
+    // 直接文本节点精确匹配
     const exactText = `.//*[normalize-space(text())='${label}']`;
     const r2 = safeEvalXPath(exactText, root);
     if (r2) return r2;
+    // 包含匹配
     const contains = `.//*[contains(normalize-space(.), '${label}')]`;
     const r3 = safeEvalXPath(contains, root);
     if (r3) return r3;
@@ -228,21 +248,27 @@ function findAllByXPath(labels: string[], root: Node = document): HTMLElement[] 
 }
 
 function findButtonByXPath(labels: string[]): HTMLElement | null {
+  // XPath 优先
   const xpResult = findByXPath(labels);
   if (xpResult) return xpResult;
+
+  // CSS 兜底：TreeWalker 扫描任意可见元素
   return findAnyElementByText(labels);
 }
 
 function findLastMatchingButton(labels: string[]): HTMLElement | null {
   const all = findAllByXPath(labels);
+  // 排除太宽泛的匹配（比如正文中出现了"发布"这个词）
   const candidates = all.filter((el) => {
     const text = compactText(el.innerText || el.textContent || '');
+    // 按钮文本通常很短
     return text.length <= 20 && labels.some((l) => text === l || text.startsWith(l) || text.endsWith(l));
   });
   return candidates[candidates.length - 1] || null;
 }
 
 function findButtonInTopLayer(labels: string[]): HTMLElement | null {
+  // 找 z-index 最高层的可见元素
   const all = Array.from(document.querySelectorAll<HTMLElement>('*'))
     .filter(isVisible)
     .filter((el) => {
@@ -255,6 +281,7 @@ function findButtonInTopLayer(labels: string[]): HTMLElement | null {
       return zb - za;
     });
 
+  // 在 z-index 最高的容器中找按钮
   const topZ = all[0] ? parseInt(window.getComputedStyle(all[0]).zIndex, 10) : 0;
   const topLayers = all.filter((el) => parseInt(window.getComputedStyle(el).zIndex, 10) === topZ);
 
@@ -263,6 +290,7 @@ function findButtonInTopLayer(labels: string[]): HTMLElement | null {
     if (btn && isVisible(btn) && !isDisabled(btn)) return btn;
   }
 
+  // 兜底：z-index 没找到，用 DOM 最后出现的匹配元素
   return findLastMatchingButton(labels);
 }
 
@@ -276,6 +304,8 @@ function safeEvalXPath(xpath: string, root: Node): HTMLElement | null {
     return null;
   }
 }
+
+/* ── TreeWalker 兜底：按文本扫描任意可见元素 ── */
 
 function findAnyElementByText(labels: string[], root: ParentNode = document): HTMLElement | null {
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT, {
@@ -297,6 +327,7 @@ function findAnyElementByText(labels: string[], root: ParentNode = document): HT
   }
 
   if (candidates.length === 0) return null;
+  // 取文本最短的（最精确匹配）
   candidates.sort((a, b) => {
     const ta = compactText(a.innerText || a.textContent || '').length;
     const tb = compactText(b.innerText || b.textContent || '').length;
@@ -304,6 +335,8 @@ function findAnyElementByText(labels: string[], root: ParentNode = document): HT
   });
   return candidates[0];
 }
+
+/* ── Click（多层穿透）── */
 
 function forceClick(el: HTMLElement) {
   el.scrollIntoView({ block: 'center', inline: 'center' });
@@ -315,8 +348,10 @@ function forceClick(el: HTMLElement) {
   el.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, cancelable: true }));
   el.click();
 
+  // React fiber 穿透：直接调用 React 内部 onClick handler
   reactClick(el);
 
+  // 坐标点击：用元素中心点找实际渲染的元素
   const rect = el.getBoundingClientRect();
   const cx = rect.left + rect.width / 2;
   const cy = rect.top + rect.height / 2;
@@ -349,6 +384,8 @@ function reactClick(el: HTMLElement) {
   }
 }
 
+/* ── MutationObserver ── */
+
 function waitForDomChange(timeout: number): Promise<boolean> {
   return new Promise((resolve) => {
     let resolved = false;
@@ -375,6 +412,8 @@ function waitForDomChange(timeout: number): Promise<boolean> {
   });
 }
 
+/* ── Diagnostics ── */
+
 function btnLabel(el: HTMLElement): string {
   return compactText(el.innerText || el.textContent || '') || el.tagName;
 }
@@ -397,6 +436,7 @@ function dumpPageState() {
 }
 
 function dumpAllTexts() {
+  // dump 页面上所有短文本元素（可能是按钮），不限制 class
   const els = Array.from(document.querySelectorAll<HTMLElement>('*'))
     .filter(isVisible)
     .filter((el) => !isDisabled(el))
@@ -410,6 +450,8 @@ function hasPublishSuccessSignal(): boolean {
   const text = compactText(document.body.innerText || '');
   return /发布成功|投稿成功|已发布|提交成功|审核中|已提交|发布完成|提交完成/.test(text);
 }
+
+/* ── Editor Finders ── */
 
 function findTitleEditor(): HTMLElement | null {
   return firstVisible([
@@ -481,6 +523,7 @@ function findBodyEditor(): HTMLElement | null {
 
 function findFallbackEditor(): HTMLElement | null {
   const titleEl = findTitleEditor();
+  // 找所有可见的 contenteditable 或大 textarea，排除标题
   const candidates = Array.from(document.querySelectorAll<HTMLElement>(
     '[contenteditable="true"], textarea, [role="textbox"], div[class*="editor"], div[class*="Editor"]',
   ))
@@ -507,6 +550,8 @@ function firstVisible(selectors: string[]): HTMLElement | null {
   }
   return null;
 }
+
+/* ── Fill helpers ── */
 
 async function fillTextTarget(el: HTMLElement, text: string): Promise<boolean> {
   el.scrollIntoView({ block: 'center', inline: 'center' });
@@ -570,12 +615,15 @@ function selectAllContent(el: HTMLElement): boolean {
 }
 
 async function fillReactEditor(el: HTMLElement, text: string): Promise<boolean> {
+  // React 编辑器（如 Slate.js / ProseMirror / Quill）可能不响应 innerHTML 直接赋值
+  // 策略：通过 React fiber 找到 state updater 或直接触发原生输入事件序列
   el.scrollIntoView({ block: 'center', inline: 'center' });
   el.focus();
   await sleep(200);
 
   const before = compactText(el.innerText || el.textContent || '');
 
+  // 策略 A: 选中全部 + execCommand（适用 contenteditable）
   if (selectAllContent(el)) {
     document.execCommand('selectAll', false);
     document.execCommand('insertText', false, text);
@@ -587,6 +635,8 @@ async function fillReactEditor(el: HTMLElement, text: string): Promise<boolean> 
     }
   }
 
+  // 策略 B: 逐字符输入（模拟键盘，触发 React onChange）
+  // 先清空
   if (selectAllContent(el)) {
     document.execCommand('delete', false);
   }
@@ -594,6 +644,7 @@ async function fillReactEditor(el: HTMLElement, text: string): Promise<boolean> 
   el.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'deleteContent' }));
   await sleep(100);
 
+  // 逐段输入
   const chunks = text.match(/.{1,200}/g) || [text];
   for (const chunk of chunks) {
     const data = new DataTransfer();
@@ -605,6 +656,7 @@ async function fillReactEditor(el: HTMLElement, text: string): Promise<boolean> 
     await sleep(100);
   }
 
+  // 触发了 input 事件后等 React 更新
   el.dispatchEvent(new Event('change', { bubbles: true }));
   el.dispatchEvent(new CompositionEvent('compositionend', { bubbles: true, data: text }));
   el.blur();
@@ -617,6 +669,7 @@ async function fillReactEditor(el: HTMLElement, text: string): Promise<boolean> 
     return true;
   }
 
+  // 策略 C: 直接设置 textContent + dispatch input
   el.textContent = text;
   el.dispatchEvent(new InputEvent('beforeinput', { bubbles: true, inputType: 'insertText', data: text }));
   el.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: text }));
@@ -662,6 +715,8 @@ function dispatchTextPaste(el: HTMLElement, text: string): boolean {
   }
 }
 
+/* ── DOM Utilities ── */
+
 function setNativeValue(el: HTMLInputElement | HTMLTextAreaElement, value: string) {
   const proto = el instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
   const desc = Object.getOwnPropertyDescriptor(proto, 'value');
@@ -683,7 +738,7 @@ function isDisabled(el: HTMLElement): boolean {
 }
 
 function compactText(value: string): string {
-  return value.replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();
+  return value.replace(/ /g, ' ').replace(/\s+/g, ' ').trim();
 }
 
 function sleep(ms: number): Promise<void> {
@@ -702,6 +757,8 @@ function waitForElement<T extends HTMLElement>(finder: () => T | null, timeout: 
     setTimeout(() => { observer.disconnect(); resolve(null); }, timeout);
   });
 }
+
+/* ── Markdown → HTML ── */
 
 function stripAllImageRefs(body: string): string {
   let result = body.replace(/<img[^>]*src\s*=\s*["'][^"']*["'][^>]*\/?>/gi, '');
@@ -754,6 +811,8 @@ function escapeAttribute(value = ''): string {
   return escapeHtml(value).replace(/`/g, '&#96;');
 }
 
+/* ── 图片上传 ── */
+
 function _dataUrlToBlob(dataUrl: string): Blob {
   const [header, payload] = dataUrl.split(',');
   const mime = header.match(/data:(.*?);/)?.[1] || 'image/png';
@@ -785,6 +844,7 @@ async function uploadBiliImage(img: { dataUrl: string; filename: string; mimeTyp
 
   const before = ed.querySelectorAll('img').length;
 
+  // Strategy 1: 搜索所有 file input（主文档 + shadow DOM），优先 accept 含 image 的
   const allInputs = _findAllFileInputs();
   const imageInputs = allInputs.filter(i => (i.getAttribute('accept') || '').toLowerCase().includes('image'));
   const candidates = imageInputs.length > 0 ? imageInputs : allInputs;
@@ -798,6 +858,7 @@ async function uploadBiliImage(img: { dataUrl: string; filename: string; mimeTyp
     if (ok) { console.log('[BILI-IMG] S1 success'); return true; }
   }
 
+  // Strategy 2: 点击工具栏图片按钮 + 捕获 file input
   console.log('[BILI-IMG] S2: toolbar approach');
   const capturedInput = await _clickToolbarCaptureInput();
   if (capturedInput) {
@@ -808,6 +869,7 @@ async function uploadBiliImage(img: { dataUrl: string; filename: string; mimeTyp
     if (ok) { console.log('[BILI-IMG] S2 success'); return true; }
   }
 
+  // Strategy 3: 通过 ClipboardEvent 粘贴图片
   console.log('[BILI-IMG] S3: paste approach');
   try {
     ed.focus();
@@ -861,6 +923,7 @@ async function _clickToolbarCaptureInput(): Promise<HTMLInputElement | null> {
     return origClick.call(this);
   };
 
+  // 尝试 eva3-toolbar-image 自定义元素
   const imgToolbar = document.querySelector('eva3-toolbar-image');
   if (imgToolbar) {
     forceClick(imgToolbar as HTMLElement);
@@ -876,11 +939,13 @@ async function _clickToolbarCaptureInput(): Promise<HTMLInputElement | null> {
     await sleep(800);
   }
 
+  // 尝试标准 Quill 工具栏图片按钮
   if (!capturedInput) {
     const quillBtn = document.querySelector('.ql-toolbar .ql-image, .ql-toolbar button.ql-image');
     if (quillBtn) { forceClick(quillBtn as HTMLElement); await sleep(800); }
   }
 
+  // 尝试通用工具栏图片按钮
   if (!capturedInput) {
     const toolbarBtns = Array.from(document.querySelectorAll<HTMLElement>(
       '[class*="toolbar"] button, [class*="Toolbar"] button, [class*="toolbar"] [role="button"]'

@@ -1,8 +1,9 @@
 import { AlertTriangle, XCircle, Info, ChevronDown, ChevronUp, RefreshCw, Check, Sparkles } from 'lucide-react';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { beautifyContentForPlatform } from '../../services/deepseek';
 import type { BeautifiedContent } from '../../stores/contentStore';
 import type { PlatformType } from '../../adapters/types';
+import { markdownBodyToHtml } from '../../utils/imageUtils';
 
 const platformMeta: Record<string, { color: string; soft: string; deep: string; label: string; hex: string; hexDeep: string }> = {
   wechat:      { color: 'var(--platform-wechat)', soft: 'var(--platform-wechat-soft)', deep: 'var(--platform-wechat-deep)', label: 'WC', hex: '#07C160', hexDeep: '#059a4c' },
@@ -28,6 +29,7 @@ interface PlatformCardProps {
   tagCount: number;
   tagMax: number;
   messages: Array<{ level: string; field: string; message: string }>;
+  previewTitle: string;
   previewBody: string;
   previewTags: string[];
   draftTitle: string;
@@ -43,7 +45,7 @@ export default function PlatformCard({
   platform, platformName, selected, onToggle,
   status, statusMessage,
   titleCount, titleMax, bodyCount, bodyMax, tagCount, tagMax,
-  messages, previewBody, previewTags, draftTitle, draftHtmlContent,
+  messages, previewTitle, previewBody, previewTags, draftTitle, draftHtmlContent,
   beautifiedContent, onBeautifyStart, onBeautifyComplete, onBeautifyError, onApplyBeautified,
 }: PlatformCardProps) {
   const [expanded, setExpanded] = useState(false);
@@ -52,6 +54,8 @@ export default function PlatformCard({
   const [expandHeight, setExpandHeight] = useState(0);
   const expandRef = useRef<HTMLDivElement>(null);
   const meta = platformMeta[platform] || platformMeta.wechat;
+
+  const renderedBody = useMemo(() => markdownBodyToHtml(previewBody), [previewBody]);
 
   useEffect(() => {
     if (expanded && expandRef.current) {
@@ -284,12 +288,12 @@ export default function PlatformCard({
                 {/* Mock content */}
                 <div className="p-5">
                   <h2 className="font-['Cormorant_Garamond'] text-[22px] leading-[1.15] tracking-[-0.03em] text-gray-900 mb-3">
-                    {draftTitle}
+                    {previewTitle}
                   </h2>
                   <div
                     className="text-[13px] leading-7 text-gray-800"
                     style={{ wordBreak: 'break-word' }}
-                    dangerouslySetInnerHTML={{ __html: previewBody }}
+                    dangerouslySetInnerHTML={{ __html: renderedBody }}
                   />
                   {previewTags.length > 0 && (
                     <div className="flex flex-wrap gap-1.5 mt-4 pt-3" style={{ borderTop: `1px solid ${meta.hex}12` }}>

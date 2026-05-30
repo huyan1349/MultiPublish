@@ -603,6 +603,44 @@
   border-radius: 22px;
 }
 
+/* ——— Resizable image wrapper (NodeView) ——— */
+.ProseMirror .image-resize-wrapper {
+  display: inline-block;
+  position: relative;
+  max-width: 100%;
+  overflow: hidden;
+  resize: horizontal;
+  min-width: 80px;
+  border-radius: 22px;
+  vertical-align: top;
+  cursor: default;
+}
+.ProseMirror .image-resize-wrapper img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-width: 100%;
+  border-radius: 22px;
+  pointer-events: none;
+}
+/* resize 句柄可见区域扩大 */
+.ProseMirror .image-resize-wrapper::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 14px;
+  height: 14px;
+  cursor: ew-resize;
+  background: linear-gradient(135deg, transparent 40%, rgba(139, 92, 246, 0.35) 40%, rgba(139, 92, 246, 0.35) 55%, transparent 55%, transparent 70%, rgba(139, 92, 246, 0.35) 70%, rgba(139, 92, 246, 0.35) 85%, transparent 85%);
+  border-radius: 0 0 22px 0;
+}
+.ProseMirror .image-resize-wrapper.ProseMirror-selectednode {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 22px;
+}
+
 @media (max-width: 767px) {
   .app-shell::after {
     display: none;
