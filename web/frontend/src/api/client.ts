@@ -63,6 +63,11 @@ export const api = {
       method: 'POST', body: JSON.stringify({ outputIds }),
     });
   },
+  createPublishRecord(data: { contentId: string; platform: string; platformName: string; status: string; message: string; mockUrl?: string }) {
+    return request<{ id: string }>('/publish-records', {
+      method: 'POST', body: JSON.stringify(data),
+    });
+  },
   getPublishRecords(contentId?: string) {
     const qs = contentId ? `?contentId=${contentId}` : '';
     return request<Array<{

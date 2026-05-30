@@ -57,6 +57,8 @@ export default function Editor() {
     draft,
     setDraft,
     loadDemo,
+    currentContentId,
+    setCurrentContentId,
     selectedPlatforms,
     platformStates,
     togglePlatform,
@@ -151,6 +153,7 @@ export default function Editor() {
         tags,
         coverImage: draft.coverImage || undefined,
       });
+      setCurrentContentId(content.id);
       await api.adaptContent(content.id, Array.from(selectedPlatforms));
       navigate(`/contents/${content.id}/preview`);
     } catch (err) {
@@ -193,6 +196,18 @@ export default function Editor() {
           autoLayout: true,
         });
 
+        // save publish record to backend
+        if (currentContentId) {
+          api.createPublishRecord({
+            contentId: currentContentId,
+            platform,
+            platformName: state.platformName,
+            status: result.status,
+            message: result.message,
+            mockUrl: result.mockUrl,
+          }).catch(() => {});
+        }
+
         if (result.status === 'success') {
           setPlatformPublishStatus(platform, 'success', result.message);
           showToast('success', `${state.platformName} 发布成功`, result.message);
@@ -204,6 +219,16 @@ export default function Editor() {
         const message = err instanceof Error ? err.message : '未知错误';
         setPlatformPublishStatus(platform, 'failed', message);
         showToast('error', `${state.platformName} 发布失败`, message);
+
+        if (currentContentId) {
+          api.createPublishRecord({
+            contentId: currentContentId,
+            platform,
+            platformName: state.platformName,
+            status: 'failed',
+            message,
+          }).catch(() => {});
+        }
       }
     }
   };

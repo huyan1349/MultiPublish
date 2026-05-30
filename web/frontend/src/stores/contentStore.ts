@@ -32,11 +32,13 @@ export interface BeautifiedContent {
 
 interface ContentState {
   draft: ContentDraft;
+  currentContentId: string | null;
   setDraft: (partial: Partial<ContentDraft>) => void;
   resetDraft: () => void;
   loadDemo: () => void;
   saveToStorage: () => void;
   loadFromStorage: () => { draft: ContentDraft; savedAt: number } | null;
+  setCurrentContentId: (id: string | null) => void;
   selectedPlatforms: Set<PlatformType>;
   platformStates: Map<PlatformType, PlatformPublishState>;
   beautifiedOutputs: Map<PlatformType, BeautifiedContent>;
@@ -99,6 +101,7 @@ function buildInitialStates(): Map<PlatformType, PlatformPublishState> {
 
 export const useContentStore = create<ContentState>((set, get) => ({
   draft: { title: '', htmlContent: '', tags: '', coverImage: '' },
+  currentContentId: null,
   setDraft: (partial) => {
     set((s) => ({ draft: { ...s.draft, ...partial } }));
     get().refreshPlatformOutputs();
@@ -133,6 +136,7 @@ export const useContentStore = create<ContentState>((set, get) => ({
       return null;
     }
   },
+  setCurrentContentId: (id) => set({ currentContentId: id }),
 
   // Platform
   selectedPlatforms: new Set(allPlatforms),
