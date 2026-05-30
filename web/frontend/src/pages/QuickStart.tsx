@@ -68,13 +68,18 @@ export default function QuickStart() {
     setError('');
     try {
       const result = await generateInspiration(inspireInput);
-      setSuggestedTitle(result.title);
-      setOutline(result.outline);
-      setSuggestedTags(result.tags);
-      setSuggestedStyle(result.style);
+      const firstAngle = result.angles[0];
+      if (!firstAngle) {
+        showToast('error', '灵感生成失败', '未能生成灵感，请换个话题试试');
+        return;
+      }
+      setSuggestedTitle(firstAngle.title);
+      setOutline(firstAngle.outline);
+      setSuggestedTags(firstAngle.tags);
+      setSuggestedStyle(firstAngle.angle);
       setDraft({
-        title: result.title,
-        tags: result.tags.join(', '),
+        title: firstAngle.title,
+        tags: firstAngle.tags.join(', '),
         htmlContent: '',
         coverImage: '',
       });
