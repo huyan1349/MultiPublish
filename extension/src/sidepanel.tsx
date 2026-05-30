@@ -559,7 +559,7 @@ export default function Sidepanel() {
   /* ══════════════ SETTINGS PAGE ══════════════ */
   if (page === 'settings') {
     const platformStatus = [
-      { id: 'wechat' as PlatformType, name: '公众号', color: '#07C160', status: '完整发布链路', detail: '自动填充 + 自动发布', done: true },
+      { id: 'wechat' as PlatformType, name: '公众号', color: '#07C160', status: '完整发布链路', detail: '自动填充 + 图片上传 + 自动发布', done: true },
       { id: 'zhihu' as PlatformType, name: '知乎', color: '#448AFF', status: '完整发布链路', detail: '自动填充 + 自动发布', done: true },
       { id: 'bilibili' as PlatformType, name: 'B站', color: '#FB7299', status: '填充可用', detail: '手动确认发布', done: false },
       { id: 'xiaohongshu' as PlatformType, name: '小红书', color: '#FF5A5F', status: '完整发布链路', detail: '自动填充 + 一键排版 + 自动发布', done: true },
@@ -577,7 +577,7 @@ export default function Sidepanel() {
         <div className="card" style={{ textAlign: 'center', padding: 20 }}>
           <div className="logo" style={{ margin: '0 auto 10px', width: 40, height: 40, fontSize: 20 }}>M</div>
           <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700 }}>MultiPublish</div>
-          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>v2.0.0</div>
+          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>v1.2.0</div>
           <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4 }}>一次创作 · 多端适配 · 真实发布</div>
         </div>
 
@@ -596,36 +596,6 @@ export default function Sidepanel() {
                 </span>
               </div>
             ))}
-          </div>
-        </div>
-
-        <div>
-          <div className="help-text" style={{ marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.04em' }}>AI 功能</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <div className="card card-flat" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px' }}>
-              <span className="dot" style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#FF3B30', flexShrink: 0 }} />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 600, fontSize: 12 }}>AI 灵感生成</div>
-                <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>DeepSeek 辅助创作灵感</div>
-              </div>
-              <span style={{ fontSize: 10, color: 'var(--success)', fontWeight: 600 }}>✅ 已上线</span>
-            </div>
-            <div className="card card-flat" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px' }}>
-              <span className="dot" style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#FF3B30', flexShrink: 0 }} />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 600, fontSize: 12 }}>AI 一键美化</div>
-                <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>按平台风格自动改写内容</div>
-              </div>
-              <span style={{ fontSize: 10, color: 'var(--success)', fontWeight: 600 }}>✅ 已上线</span>
-            </div>
-            <div className="card card-flat" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px' }}>
-              <span className="dot" style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#FF3B30', flexShrink: 0 }} />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 600, fontSize: 12 }}>AI 标题/标签</div>
-                <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>智能生成标题和标签建议</div>
-              </div>
-              <span style={{ fontSize: 10, color: 'var(--success)', fontWeight: 600 }}>✅ 已上线</span>
-            </div>
           </div>
         </div>
 
