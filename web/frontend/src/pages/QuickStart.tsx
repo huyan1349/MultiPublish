@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, RefreshCw, Sparkles, Zap, Check, Wand2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, RefreshCw, Sparkles, Zap, Check, Wand2, ChevronDown, ChevronUp } from 'lucide-react';
 import { useContentStore } from '../stores/contentStore';
 import TiptapEditor from '../components/editor/TiptapEditor';
 import PlatformCard from '../components/publish/PlatformCard';
@@ -53,6 +53,7 @@ export default function QuickStart() {
   const [suggestedTags, setSuggestedTags] = useState<string[]>([]);
   const [suggestedStyle, setSuggestedStyle] = useState('');
   const [beautifyingPlatform, setBeautifyingPlatform] = useState<PlatformType | null>(null);
+  const [expandedBeautify, setExpandedBeautify] = useState<Set<PlatformType>>(new Set());
   const [error, setError] = useState('');
 
   const handleGenerate = async () => {
@@ -425,8 +426,17 @@ export default function QuickStart() {
 
                         {beautified && (
                           <div className="mb-3 rounded-[20px] border border-[rgba(49,56,45,0.12)] bg-[rgba(255,255,255,0.82)] p-4">
-                            <p className="font-['Cormorant_Garamond'] text-[24px] leading-none tracking-[-0.04em] text-[var(--ink)]">{beautified.title}</p>
-                            <pre className="mt-2 line-clamp-4 whitespace-pre-wrap font-['IBM_Plex_Mono'] text-[10px] leading-6 text-[var(--ink-soft)]">{beautified.htmlBody}</pre>
+                            <div className="flex items-center justify-between mb-2">
+                              <p className="font-['Cormorant_Garamond'] text-[24px] leading-none tracking-[-0.04em] text-[var(--ink)]">{beautified.title}</p>
+                              <button onClick={() => {
+                                const next = new Set(expandedBeautify);
+                                next.has(platform) ? next.delete(platform) : next.add(platform);
+                                setExpandedBeautify(next);
+                              }} className="flex h-7 w-7 items-center justify-center rounded-full border border-transparent text-[var(--ink-faint)] hover:border-[rgba(49,56,45,0.14)] hover:bg-[rgba(255,255,255,0.6)]">
+                                {expandedBeautify.has(platform) ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                              </button>
+                            </div>
+                            <pre className={`whitespace-pre-wrap font-['IBM_Plex_Mono'] text-[10px] leading-6 text-[var(--ink-soft)] ${expandedBeautify.has(platform) ? '' : 'line-clamp-4'}`}>{beautified.htmlBody}</pre>
                             <div className="mt-2 flex flex-wrap gap-1">
                               {beautified.tags.map((t, i) => <span key={i} className="px-tag">{t}</span>)}
                             </div>
