@@ -1,9 +1,10 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { AlertCircle, ArrowLeft, ArrowRight, RefreshCw, Save, Sparkles, Wand2 } from 'lucide-react';
+import { AlertCircle, ArrowLeft, ArrowRight, MessageCircle, RefreshCw, Save, Sparkles, Wand2 } from 'lucide-react';
 import { useContentStore } from '../stores/contentStore';
 import type { BeautifiedContent } from '../stores/contentStore';
 import TiptapEditor from '../components/editor/TiptapEditor';
+import AiAssistantPanel from '../components/editor/AiAssistantPanel';
 import PlatformCard from '../components/publish/PlatformCard';
 import PublishButton from '../components/publish/PublishButton';
 import ToastContainer, { showToast } from '../components/publish/Toast';
@@ -75,10 +76,54 @@ export default function Editor() {
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [aiLoading, setAiLoading] = useState<string | null>(null);
+  const [aiPanelOpen, setAiPanelOpen] = useState(false);
+  const [editorKey, setEditorKey] = useState(0);
+  const [isAiModified, setIsAiModified] = useState(false);
+  const editorRef = useRef<HTMLDivElement>(null);
+
+  const getSelectedText = useCallback((): string => {
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed || !sel.toString().trim()) return '';
+    return sel.toString();
+  }, []);
+
+  const handleApplyOptimization = useCallback((title: string, htmlBody: string) => {
+    setDraft({ title, htmlContent: htmlBody });
+    setEditorKey((k) => k + 1);
+    setIsAiModified(true);
+    showToast('success', 'AI 优化已应用', '标题和正文已更新到编辑器');
+  }, [setDraft]);
+
+  const handleApplySelectionOptimization = useCallback((originalText: string, optimizedText: string) => {
+    const sel = window.getSelection();
+    if (!sel || !sel.rangeCount) return;
+    try {
+      const range = sel.getRangeAt(0);
+      range.deleteContents();
+      const span = document.createElement('span');
+      span.innerHTML = optimizedText;
+      const frag = document.createDocumentFragment();
+      let child: Node | null;
+      while ((child = span.firstChild)) frag.appendChild(child);
+      range.insertNode(frag);
+      range.collapse(false);
+      sel.removeAllRanges();
+      sel.addRange(range);
+      // Trigger content update
+      const editorEl = document.querySelector('.tiptap.ProseMirror') as HTMLElement;
+      if (editorEl) {
+        setDraft({ htmlContent: editorEl.innerHTML });
+      }
+      showToast('success', '选中文字已替换', 'AI 优化后的文字已写入编辑器');
+    } catch {
+      showToast('error', '替换失败', '请确保编辑器中的文字仍被选中');
+    }
+  }, [setDraft]);
 
   const handleEditorChange = useCallback((html: string, _text: string) => {
     setDraft({ htmlContent: html });
     setError('');
+    setIsAiModified(false);
   }, [setDraft]);
 
   const handleAiTitle = async () => {
@@ -284,6 +329,17 @@ export default function Editor() {
                     {aiLoading === 'tags' ? <RefreshCw size={13} className="animate-spin" /> : <Sparkles size={13} />}
                     标签建议
                   </button>
+                  <button
+                    onClick={() => setAiPanelOpen(!aiPanelOpen)}
+                    className={`flex items-center gap-1.5 px-4 py-2 rounded-[12px] text-[13px] font-medium transition-all duration-200 ${
+                      aiPanelOpen
+                        ? 'bg-[var(--accent)]/10 text-[var(--accent-deep)] border border-[var(--accent)]/30'
+                        : 'bg-[var(--accent)] text-white hover:bg-[var(--accent-deep)] shadow-[0_4px_12px_rgba(91,108,240,0.25)]'
+                    }`}
+                  >
+                    <MessageCircle size={13} />
+                    AI 助手
+                  </button>
                   <button onClick={handleGoToPlatform} className="px-btn-primary">
                     下一步 <ArrowRight size={13} />
                   </button>
@@ -302,59 +358,79 @@ export default function Editor() {
         </section>
 
         {step === 'draft' && (
-          <section className="px-card px-paper overflow-hidden">
-            <div className="border-b border-[rgba(49,56,45,0.1)] px-6 py-5 md:px-8">
-              <div>
-                <div className="px-label mb-3">正文编辑区</div>
-                <p className="font-['Cormorant_Garamond'] text-[34px] leading-none tracking-[-0.05em] text-[var(--ink)]">
-                  当前主稿
-                </p>
-              </div>
-              <div className="mt-4 grid gap-3 md:grid-cols-3">
-                <input
-                  type="text"
-                  value={draft.title}
-                  onChange={(event) => {
-                    setDraft({ title: event.target.value });
-                    setError('');
-                  }}
-                  placeholder="输入标题"
-                  className="px-input"
-                />
-                <input
-                  type="text"
-                  value={draft.tags}
-                  onChange={(event) => setDraft({ tags: event.target.value })}
-                  placeholder="输入标签，用逗号分隔"
-                  className="px-input"
-                />
-                <input
-                  type="text"
-                  value={draft.coverImage}
-                  onChange={(event) => setDraft({ coverImage: event.target.value })}
-                  placeholder="封面图地址，可选"
-                  className="px-input"
-                />
-              </div>
-            </div>
-            <div className="px-4 pb-4 pt-2 md:px-6 md:pb-6">
-              <TiptapEditor
-                content={draft.htmlContent}
-                placeholder="在这里开始写作，完成后点击「下一步」进入平台适配阶段。"
-                onChange={handleEditorChange}
-              />
-            </div>
-
-            {error && (
-              <div className="mx-6 mb-6 rounded-[22px] border border-red-300/40 bg-red-100/60 px-4 py-3 text-[12px] text-red-700">
-                <div className="flex items-center gap-2 font-['IBM_Plex_Mono'] text-[10px] uppercase tracking-[0.16em]">
-                  <AlertCircle size={12} />
-                  校验提示
+          <div className="flex gap-0" ref={editorRef}>
+            <section className="px-card px-paper overflow-hidden flex-1 min-w-0">
+              <div className="border-b border-[rgba(49,56,45,0.1)] px-6 py-5 md:px-8">
+                <div>
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="px-label">正文编辑区</div>
+                    {isAiModified && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 border border-amber-200/60 text-amber-700 font-['IBM_Plex_Mono'] text-[9px] uppercase tracking-[0.14em]">
+                        <Sparkles size={10} /> AI 修改
+                      </span>
+                    )}
+                  </div>
+                  <p className="font-['Cormorant_Garamond'] text-[34px] leading-none tracking-[-0.05em] text-[var(--ink)]">
+                    当前主稿
+                  </p>
                 </div>
-                <p className="mt-2 leading-6">{error}</p>
+                <div className="mt-4 grid gap-3 md:grid-cols-3">
+                  <input
+                    type="text"
+                    value={draft.title}
+                    onChange={(event) => {
+                      setDraft({ title: event.target.value });
+                      setError('');
+                    }}
+                    placeholder="输入标题"
+                    className="px-input"
+                  />
+                  <input
+                    type="text"
+                    value={draft.tags}
+                    onChange={(event) => setDraft({ tags: event.target.value })}
+                    placeholder="输入标签，用逗号分隔"
+                    className="px-input"
+                  />
+                  <input
+                    type="text"
+                    value={draft.coverImage}
+                    onChange={(event) => setDraft({ coverImage: event.target.value })}
+                    placeholder="封面图地址，可选"
+                    className="px-input"
+                  />
+                </div>
               </div>
-            )}
-          </section>
+              <div className={`px-4 pb-4 pt-2 md:px-6 md:pb-6 ${isAiModified ? 'ai-modified-editor' : ''}`}>
+                <TiptapEditor
+                  key={editorKey}
+                  content={draft.htmlContent}
+                  placeholder="在这里开始写作，完成后点击「下一步」进入平台适配阶段。"
+                  onChange={handleEditorChange}
+                />
+              </div>
+
+              {error && (
+                <div className="mx-6 mb-6 rounded-[22px] border border-red-300/40 bg-red-100/60 px-4 py-3 text-[12px] text-red-700">
+                  <div className="flex items-center gap-2 font-['IBM_Plex_Mono'] text-[10px] uppercase tracking-[0.16em]">
+                    <AlertCircle size={12} />
+                    校验提示
+                  </div>
+                  <p className="mt-2 leading-6">{error}</p>
+                </div>
+              )}
+            </section>
+
+            <AiAssistantPanel
+              open={aiPanelOpen}
+              onClose={() => setAiPanelOpen(false)}
+              articleTitle={draft.title}
+              articleContent={draft.htmlContent}
+              getSelectedText={getSelectedText}
+              onApplyOptimization={handleApplyOptimization}
+              onApplySelectionOptimization={handleApplySelectionOptimization}
+            />
+          </div>
         )}
 
         {step === 'platform' && (

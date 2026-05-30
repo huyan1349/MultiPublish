@@ -582,6 +582,22 @@
   pointer-events: none;
 }
 
+/* AI modified editor content */
+.ai-modified-editor .ProseMirror p {
+  font-style: italic;
+  color: #92400e;
+}
+
+.ai-modified-editor .ProseMirror p strong {
+  color: #78350f;
+}
+
+.ai-modified-editor .ProseMirror h2,
+.ai-modified-editor .ProseMirror h3 {
+  font-style: normal;
+  color: var(--ink);
+}
+
 .ProseMirror img {
   max-width: 100%;
   border-radius: 22px;
