@@ -158,22 +158,13 @@ export default function Sidepanel() {
   const publishOne = async (output: PreviewOutput) => {
     setPublishing(output.outputId); setNotice(null);
     try {
-      if (output.platform === 'wechat') {
-        const html = output.body || '';
-        const blob = new Blob([html], { type: 'text/html' });
-        const textBlob = new Blob([html.replace(/<[^>]*>/g, '')], { type: 'text/plain' });
-        await navigator.clipboard.write([
-          new ClipboardItem({ 'text/html': blob, 'text/plain': textBlob }),
-        ]);
-      }
-
       const response = await chrome.runtime.sendMessage({
         type: 'PUBLISH_TO_PLATFORM',
         payload: {
           platform: output.platform,
           platformName: output.platformName,
           content: output,
-          autoLayout: (output.platform === 'xiaohongshu') ? autoLayout : undefined,
+          autoLayout: (output.platform === 'xiaohongshu' || output.platform === 'wechat') ? autoLayout : undefined,
         },
       }) as PublishResult | undefined;
       const result: PublishResult = response || { platform: output.platform, platformName: output.platformName, status: 'failed', message: '未收到发布结果' };
@@ -320,23 +311,17 @@ export default function Sidepanel() {
               )}
 
               {/* Auto Layout Toggle */}
-              {active.platform === 'xiaohongshu' && (
+              {(active.platform === 'xiaohongshu' || active.platform === 'wechat') && (
                 <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 12, color: 'var(--text-secondary)', padding: '4px 0' }}>
                   <input
                     type="checkbox"
                     checked={autoLayout}
                     onChange={(e) => setAutoLayout(e.target.checked)}
-                    style={{ accentColor: '#FF5A5F', width: 14, height: 14 }}
+                    style={{ accentColor: active.platform === 'xiaohongshu' ? '#FF5A5F' : '#07C160', width: 14, height: 14 }}
                   />
-                  <Sparkles size={12} style={{ color: '#FF5A5F' }} />
-                  一键排版后自动发布（排版→下一步→发布）
+                  <Sparkles size={12} style={{ color: active.platform === 'xiaohongshu' ? '#FF5A5F' : '#07C160' }} />
+                  {active.platform === 'xiaohongshu' ? '一键排版后自动发布（排版→下一步→发布）' : '填充后自动发布（群发→确认）'}
                 </label>
-              )}
-              {active.platform === 'wechat' && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--text-secondary)', padding: '4px 0' }}>
-                  <ClipboardCopy size={12} style={{ color: '#07C160' }} />
-                  点击发布后内容将复制到剪贴板，在公众号编辑器中 Ctrl+V 粘贴即可
-                </div>
               )}
 
               {/* Action Buttons */}
@@ -574,7 +559,7 @@ export default function Sidepanel() {
   /* ══════════════ SETTINGS PAGE ══════════════ */
   if (page === 'settings') {
     const platformStatus = [
-      { id: 'wechat' as PlatformType, name: '公众号', color: '#07C160', status: '剪贴板发布', detail: '复制富文本到剪贴板，粘贴即发布', done: true },
+      { id: 'wechat' as PlatformType, name: '公众号', color: '#07C160', status: '自动发布', detail: '自动填充 + 自动群发', done: true },
       { id: 'zhihu' as PlatformType, name: '知乎', color: '#448AFF', status: '完整发布链路', detail: '自动填充 + 自动发布', done: true },
       { id: 'bilibili' as PlatformType, name: 'B站', color: '#FB7299', status: '填充可用', detail: '手动确认发布', done: false },
       { id: 'xiaohongshu' as PlatformType, name: '小红书', color: '#FF5A5F', status: '完整发布链路', detail: '自动填充 + 一键排版 + 自动发布', done: true },
