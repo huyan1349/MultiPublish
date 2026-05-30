@@ -71,6 +71,7 @@ export default function Inspiration() {
   const [history, setHistory] = useState<InspirationResult[]>([]);
   const [error, setError] = useState('');
   const { revealed, isRevealing } = useTypewriterReveal(result);
+  const resultRef = useRef<HTMLDivElement>(null);
 
   const handleGenerate = useCallback(async (overrideTopic?: string) => {
     const t = overrideTopic ?? topic;
@@ -103,18 +104,18 @@ export default function Inspiration() {
 
   return (
     <div className="h-full overflow-y-auto scrollbar-thin">
-      <div className="max-w-[780px] mx-auto px-10 py-14">
-        <div className="flex items-center gap-2.5 mb-2">
+      <div className="max-w-[800px] mx-auto px-12 py-16">
+        <div className="flex items-center gap-3 mb-3 px-reveal-up">
           <div className="px-dot" style={{ backgroundColor: '#FF3B30' }} />
           <span className="px-label">INSPIRATION</span>
         </div>
-        <h1 className="font-mono font-bold text-[24px] text-tx tracking-tight mb-10">
+        <h1 className="font-serif text-[32px] text-tx tracking-tight mb-12 px-reveal-up" style={{ animationDelay: '0.05s' }}>
           灵感<span className="text-dot-red">.</span>创作
         </h1>
 
-        <div className="px-card p-5 mb-8">
-          <div className="px-label mb-3">TOPIC</div>
-          <div className="flex gap-2.5">
+        <div className="px-card p-6 mb-10 px-reveal-up" style={{ animationDelay: '0.1s' }}>
+          <div className="px-label mb-3.5">TOPIC</div>
+          <div className="flex gap-3">
             <input
               type="text"
               name="topic"
@@ -126,7 +127,11 @@ export default function Inspiration() {
               placeholder="输入话题（留空随机生成）…"
               className="px-input flex-1"
             />
-            <button onClick={() => handleGenerate()} disabled={loading} className="px-btn-primary">
+            <button
+              onClick={() => handleGenerate()}
+              disabled={loading}
+              className="px-btn-primary px-glow transition-[background-color,color,box-shadow] duration-200"
+            >
               {loading ? (
                 <><RefreshCw size={12} className="animate-spin" /> GENERATING…</>
               ) : (
@@ -135,13 +140,13 @@ export default function Inspiration() {
             </button>
           </div>
 
-          <div className="flex flex-wrap gap-1.5 mt-3">
+          <div className="flex flex-wrap gap-2 mt-4">
             {TOPIC_SUGGESTIONS.map((chip) => (
               <button
                 key={chip}
                 onClick={() => handleTopicChip(chip)}
                 disabled={loading}
-                className="px-tag hover:bg-px-hover hover:text-tx cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                className="px-tag hover:bg-px-hover hover:text-tx cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed transition-[background-color,color,transform] duration-150 hover:scale-105 active:scale-95"
               >
                 {chip}
               </button>
@@ -149,52 +154,59 @@ export default function Inspiration() {
           </div>
 
           {error && (
-            <p className="font-mono text-[9px] text-dot-red mt-2.5 px-fade-in">{error}</p>
+            <p className="font-mono text-[9px] text-dot-red mt-3 px-fade-in">{error}</p>
           )}
         </div>
 
         {loading && !hasResult && (
-          <div className="px-card border-dashed border-px-border p-14 text-center">
-            <div className="inline-flex items-center gap-2 font-mono text-[10px] text-tx-mute">
-              <RefreshCw size={13} className="animate-spin" />
+          <div className="px-card border-dashed border-px-border p-16 text-center px-fade-in">
+            <div className="inline-flex items-center gap-2.5 font-mono text-[10px] text-tx-mute">
+              <RefreshCw size={14} className="animate-spin" strokeWidth={1.5} />
               <span>AI 正在思考</span>
-              <span className="px-blink">▌</span>
+              <span className="px-blink text-dot-red">▌</span>
             </div>
           </div>
         )}
 
         {!loading && !hasResult && (
-          <div className="px-card border-dashed border-px-border p-14 text-center dot-grid">
+          <div className="px-card border-dashed border-px-border p-16 text-center dot-grid px-fade-in">
             <div className="relative z-10">
-              <Wand2 size={20} className="mx-auto text-tx-faint mb-4" strokeWidth={1.5} />
-              <p className="font-mono text-[11px] text-tx-dim mb-1">输入话题，AI 为你生成创作灵感</p>
+              <Wand2 size={24} className="mx-auto text-tx-faint mb-5 px-float" strokeWidth={1.5} />
+              <p className="font-serif text-[16px] text-tx-dim mb-2">输入话题，AI 为你生成创作灵感</p>
               <p className="font-mono text-[9px] text-tx-faint font-light">或点击上方话题标签快速开始</p>
             </div>
           </div>
         )}
 
         {revealed && (
-          <div className="px-card p-5 mb-8 px-fade-in">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <Wand2 size={12} className="text-dot-red" />
+          <div ref={resultRef} className="px-card px-border-accent p-6 mb-10 px-fade-in shadow-elevated">
+            <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center gap-2.5">
+                <Wand2 size={13} className="text-dot-red" strokeWidth={1.5} />
                 <span className="font-mono font-bold text-[10px] text-tx tracking-wide">RESULT</span>
               </div>
               <span className="px-tag">{revealed.style}</span>
             </div>
 
-            <h2 className="font-mono font-bold text-[15px] text-tx mb-3">
+            <h2 className="font-serif text-[22px] text-tx mb-5 leading-snug">
               {revealed.title}
               {isRevealing && <span className="px-blink text-dot-red">▌</span>}
             </h2>
 
-            <div className="mb-4">
+            <div className="mb-5">
               <span className="px-label">OUTLINE</span>
-              <div className="mt-2 space-y-1.5">
+              <div className="mt-3 space-y-2">
                 {revealed.outlineLines.map((line, i) => (
-                  <div key={i} className="flex items-start gap-2.5 font-mono text-[11px] text-tx-dim px-slide-in">
-                    <span className="text-tx-faint mt-px min-w-[16px] text-right font-light">{String(i + 1).padStart(2, '0')}</span>
-                    <span>{line}</span>
+                  <div
+                    key={i}
+                    className="flex items-start gap-3 font-mono text-[11px] text-tx-dim px-slide-in"
+                    style={{ animationDelay: `${i * 0.03}s` }}
+                  >
+                    <span className="text-tx-faint mt-px min-w-[20px] text-right font-light tabular-nums">
+                      {String(i + 1).padStart(2, '0')}
+                    </span>
+                    <div className="w-px h-full bg-px-border self-stretch shrink-0" />
+                    <span className="leading-relaxed">{line}</span>
                   </div>
                 ))}
                 {isRevealing && revealed.outlineLines.length === 0 && (
@@ -203,17 +215,33 @@ export default function Inspiration() {
               </div>
             </div>
 
-            <div className="flex flex-wrap gap-1 mb-5">
+            <div className="flex flex-wrap gap-1.5 mb-6">
               {revealed.tags.map((tag, i) => (
-                <span key={i} className="px-tag px-scale-in">{tag}</span>
+                <span
+                  key={i}
+                  className="px-tag px-scale-in"
+                  style={{ animationDelay: `${i * 0.04}s` }}
+                >
+                  {tag}
+                </span>
               ))}
             </div>
 
-            <div className="flex items-center gap-2">
-              <button onClick={() => handleUseThis(result!)} disabled={isRevealing} className="px-btn-primary">
+            <div className="px-divider mb-5" />
+
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => handleUseThis(result!)}
+                disabled={isRevealing}
+                className="px-btn-primary px-glow transition-[background-color,color,box-shadow] duration-200"
+              >
                 <ArrowRight size={12} /> USE THIS
               </button>
-              <button onClick={() => handleGenerate()} disabled={loading || isRevealing} className="px-btn-secondary">
+              <button
+                onClick={() => handleGenerate()}
+                disabled={loading || isRevealing}
+                className="px-btn-secondary"
+              >
                 <RotateCw size={12} /> REGENERATE
               </button>
             </div>
@@ -221,21 +249,24 @@ export default function Inspiration() {
         )}
 
         {history.length > (hasResult ? 1 : 0) && (
-          <div>
-            <div className="px-label mb-3">HISTORY</div>
-            <div className="space-y-0.5">
+          <div className="px-reveal-up">
+            <div className="px-label mb-4">HISTORY</div>
+            <div className="space-y-1">
               {history.slice(hasResult ? 1 : 0).map((item, i) => (
                 <button
                   key={i}
                   onClick={() => setResult(item)}
-                  className="w-full px-card p-3 text-left flex items-center justify-between group"
+                  className="w-full px-card p-4 text-left flex items-center justify-between group transition-[border-color,box-shadow] duration-200 hover:shadow-elevated"
                 >
-                  <div className="min-w-0 flex items-center gap-2.5">
+                  <div className="min-w-0 flex items-center gap-3">
                     <div className="px-dot" style={{ backgroundColor: '#FF3B30' }} />
-                    <span className="font-mono text-[10px] text-tx truncate">{item.title}</span>
+                    <span className="font-serif text-[13px] text-tx truncate">{item.title}</span>
                     <span className="px-tag">{item.style}</span>
                   </div>
-                  <ArrowRight size={9} className="text-tx-faint group-hover:text-tx-dim transition-colors shrink-0" />
+                  <ArrowRight
+                    size={10}
+                    className="text-tx-faint group-hover:text-tx-dim group-hover:translate-x-0.5 transition-[color,transform] duration-200 shrink-0"
+                  />
                 </button>
               ))}
             </div>

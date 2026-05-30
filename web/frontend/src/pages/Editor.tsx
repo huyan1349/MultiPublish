@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Sparkles, AlertCircle, Save, ArrowLeft, Wand2, RefreshCw } from 'lucide-react';
 import { useContentStore } from '../stores/contentStore';
@@ -19,21 +19,24 @@ function ExtensionIndicator() {
   const extStatus = useExtensionStatus();
   if (extStatus.checking) {
     return (
-      <span className="flex items-center gap-1.5 font-mono text-[9px] text-amber-600 bg-amber-50 px-2 py-1 border border-amber-200">
-        <span className="px-dot bg-amber-400 px-blink" /> CHECKING…
+      <span className="flex items-center gap-2 font-mono text-[9px] text-amber-700 bg-amber-50/80 px-3 py-1.5 border border-amber-200/60">
+        <span className="px-dot bg-amber-400 px-blink" />
+        CHECKING…
       </span>
     );
   }
   if (extStatus.available) {
     return (
-      <span className="flex items-center gap-1.5 font-mono text-[9px] text-emerald-600 bg-emerald-50 px-2 py-1 border border-emerald-200">
-        <span className="px-dot bg-emerald-500" /> EXT CONNECTED{extStatus.version ? ` V${extStatus.version}` : ''}
+      <span className="flex items-center gap-2 font-mono text-[9px] text-emerald-700 bg-emerald-50/80 px-3 py-1.5 border border-emerald-200/60">
+        <span className="px-dot bg-emerald-500" />
+        EXT CONNECTED{extStatus.version ? ` V${extStatus.version}` : ''}
       </span>
     );
   }
   return (
-    <span className="flex items-center gap-1.5 font-mono text-[9px] text-dot-red bg-red-50 px-2 py-1 border border-red-200">
-      <span className="px-dot bg-dot-red" /> NO EXT
+    <span className="flex items-center gap-2 font-mono text-[9px] text-red-700 bg-red-50/80 px-3 py-1.5 border border-red-200/60">
+      <span className="px-dot bg-dot-red" />
+      NO EXT
     </span>
   );
 }
@@ -50,6 +53,16 @@ export default function Editor() {
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [aiLoading, setAiLoading] = useState<string | null>(null);
+  const [headerScrolled, setHeaderScrolled] = useState(false);
+  const editorScrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = editorScrollRef.current;
+    if (!el) return;
+    const onScroll = () => setHeaderScrolled(el.scrollTop > 8);
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => el.removeEventListener('scroll', onScroll);
+  }, []);
 
   const handleEditorChange = useCallback((html: string, _text: string) => {
     setDraft({ htmlContent: html });
@@ -149,79 +162,164 @@ export default function Editor() {
   const publishing = Array.from(platformStates.values()).some(s => s.status === 'publishing');
 
   return (
-    <div className="h-full flex flex-col bg-px-bg">
+    <div className="h-full flex flex-col bg-px-bg grain">
       <ToastContainer />
-      <header className="flex items-center justify-between px-6 py-3 border-b border-px-border bg-white shrink-0">
-        <div className="flex items-center gap-3">
-          <button onClick={() => navigate('/')} className="text-tx-mute hover:text-tx transition-colors p-1" aria-label="返回首页">
+
+      <header
+        className={`flex items-center justify-between px-8 py-3.5 border-b border-px-border bg-white shrink-0 transition-[box-shadow] duration-300 ${
+          headerScrolled ? 'px-header-shadow' : ''
+        }`}
+      >
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => navigate('/')}
+            className="text-tx-mute hover:text-tx transition-colors p-1.5 hover:bg-px-surface"
+            aria-label="返回首页"
+          >
             <ArrowLeft size={14} strokeWidth={1.5} />
           </button>
+          <div className="w-px h-4 bg-px-border" />
           <span className="font-mono font-bold text-[10px] text-tx tracking-pixel">EDITOR</span>
         </div>
+
         <div className="flex items-center gap-2">
           <ExtensionIndicator />
-          <button onClick={handleAiTitle} disabled={!!aiLoading} className="px-btn-ghost text-[9px]">
-            {aiLoading === 'title' ? <RefreshCw size={11} className="animate-spin" /> : <Wand2 size={11} />} AI TITLE
+          <div className="w-px h-4 bg-px-border mx-1" />
+          <button
+            onClick={handleAiTitle}
+            disabled={!!aiLoading}
+            className="px-btn-ghost text-[9px] px-glow transition-[background-color,color,box-shadow] duration-200"
+          >
+            {aiLoading === 'title' ? <RefreshCw size={11} className="animate-spin" /> : <Wand2 size={11} />}
+            AI TITLE
           </button>
-          <button onClick={handleAiTags} disabled={!!aiLoading} className="px-btn-ghost text-[9px]">
-            {aiLoading === 'tags' ? <RefreshCw size={11} className="animate-spin" /> : <Sparkles size={11} />} AI TAGS
+          <button
+            onClick={handleAiTags}
+            disabled={!!aiLoading}
+            className="px-btn-ghost text-[9px] px-glow transition-[background-color,color,box-shadow] duration-200"
+          >
+            {aiLoading === 'tags' ? <RefreshCw size={11} className="animate-spin" /> : <Sparkles size={11} />}
+            AI TAGS
           </button>
-          <button onClick={loadDemo} className="px-btn-ghost text-[9px]">DEMO</button>
-          <button onClick={handleSaveToBackend} disabled={saving} className="px-btn-primary text-[9px]">
-            <Save size={11} /> {saving ? 'SAVING…' : 'SAVE'}
+          <div className="w-px h-4 bg-px-border mx-1" />
+          <button onClick={loadDemo} className="px-btn-secondary text-[9px]">DEMO</button>
+          <button
+            onClick={handleSaveToBackend}
+            disabled={saving}
+            className="px-btn-primary text-[9px] shadow-elevated"
+          >
+            <Save size={11} />
+            {saving ? 'SAVING…' : 'SAVE'}
           </button>
         </div>
       </header>
+
       <div className="flex-1 flex overflow-hidden">
         <div className="flex-[5] flex flex-col min-w-0 border-r border-px-border bg-white">
-          <div className="px-8 pt-6 pb-3 space-y-3">
-            <input type="text" name="title" autoComplete="off" aria-label="标题" value={draft.title} onChange={e => { setDraft({ title: e.target.value }); setError(''); }}
-              placeholder="TITLE…" className="w-full bg-transparent font-mono font-bold text-lg text-tx placeholder:text-tx-faint focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-tx tracking-wide" />
+          <div className="px-10 pt-8 pb-4 space-y-4">
+            <input
+              type="text"
+              name="title"
+              autoComplete="off"
+              aria-label="标题"
+              value={draft.title}
+              onChange={e => { setDraft({ title: e.target.value }); setError(''); }}
+              placeholder="Untitled…"
+              className="w-full bg-transparent font-serif font-normal text-[26px] text-tx placeholder:text-tx-faint focus-visible:outline-none tracking-tight leading-tight"
+            />
             <div className="flex gap-3">
-              <input type="text" name="tags" autoComplete="off" aria-label="标签" value={draft.tags} onChange={e => setDraft({ tags: e.target.value })}
-                placeholder="TAGS (comma separated)…" className="px-input flex-1" />
-              <input type="url" name="coverImage" autoComplete="url" aria-label="封面图片URL" value={draft.coverImage} onChange={e => setDraft({ coverImage: e.target.value })}
-                placeholder="COVER URL…" className="px-input flex-1" spellCheck={false} />
+              <input
+                type="text"
+                name="tags"
+                autoComplete="off"
+                aria-label="标签"
+                value={draft.tags}
+                onChange={e => setDraft({ tags: e.target.value })}
+                placeholder="TAGS (comma separated)…"
+                className="px-input flex-1"
+              />
+              <input
+                type="url"
+                name="coverImage"
+                autoComplete="url"
+                aria-label="封面图片URL"
+                value={draft.coverImage}
+                onChange={e => setDraft({ coverImage: e.target.value })}
+                placeholder="COVER URL…"
+                className="px-input flex-1"
+                spellCheck={false}
+              />
             </div>
+            <div className="px-divider" />
           </div>
-          <div className="flex-1 overflow-y-auto px-8 pb-8 scrollbar-thin">
-            <TiptapEditor content={draft.htmlContent} placeholder="Start writing… # heading, **bold**, - list…" onChange={handleEditorChange} />
+
+          <div ref={editorScrollRef} className="flex-1 overflow-y-auto px-10 pb-10 scrollbar-thin">
+            <TiptapEditor
+              content={draft.htmlContent}
+              placeholder="Start writing… # heading, **bold**, - list…"
+              onChange={handleEditorChange}
+            />
           </div>
         </div>
-        <div className="flex-[2] flex flex-col min-w-[280px] max-w-[360px] bg-px-bg">
-          <div className="px-4 pt-5 pb-2"><span className="px-label">TARGET PLATFORMS</span></div>
-          <div className="flex-1 overflow-y-auto px-4 space-y-2 pb-4 scrollbar-thin">
+
+        <div className="flex-[2] flex flex-col min-w-[300px] max-w-[380px] bg-px-bg">
+          <div className="px-5 pt-6 pb-3">
+            <div className="flex items-center gap-2.5">
+              <div className="px-dot" style={{ backgroundColor: '#FF3B30' }} />
+              <span className="px-label">TARGET PLATFORMS</span>
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto px-5 space-y-2.5 pb-4 scrollbar-thin">
             {allPlatforms.map(platform => {
               const state = platformStates.get(platform);
               if (!state) return null;
               return (
-                <PlatformCard key={platform} platform={platform} platformName={state.platformName}
-                  selected={selectedPlatforms.has(platform)} onToggle={() => togglePlatform(platform)}
-                  status={state.status} statusMessage={state.message}
-                  titleCount={state.meta.titleCharCount} titleMax={state.meta.maxTitleLength}
-                  bodyCount={state.meta.bodyCharCount} bodyMax={state.meta.maxBodyLength}
-                  tagCount={state.meta.tagCount} tagMax={state.meta.maxTags}
-                  messages={state.validation.messages} previewBody={state.output.body} previewTags={state.output.tags}
-                  draftTitle={draft.title} draftHtmlContent={draft.htmlContent}
+                <PlatformCard
+                  key={platform}
+                  platform={platform}
+                  platformName={state.platformName}
+                  selected={selectedPlatforms.has(platform)}
+                  onToggle={() => togglePlatform(platform)}
+                  status={state.status}
+                  statusMessage={state.message}
+                  titleCount={state.meta.titleCharCount}
+                  titleMax={state.meta.maxTitleLength}
+                  bodyCount={state.meta.bodyCharCount}
+                  bodyMax={state.meta.maxBodyLength}
+                  tagCount={state.meta.tagCount}
+                  tagMax={state.meta.maxTags}
+                  messages={state.validation.messages}
+                  previewBody={state.output.body}
+                  previewTags={state.output.tags}
+                  draftTitle={draft.title}
+                  draftHtmlContent={draft.htmlContent}
                   beautifiedContent={beautifiedOutputs.get(platform)}
                   onBeautifyStart={() => handleBeautifyStart(platform)}
                   onBeautifyComplete={handleBeautifyComplete(platform)}
                   onBeautifyError={handleBeautifyError(platform)}
-                  onApplyBeautified={handleApplyBeautified(platform)} />
+                  onApplyBeautified={handleApplyBeautified(platform)}
+                />
               );
             })}
           </div>
+
           {error && (
-            <div className="px-4 pb-2 px-fade-in">
-              <div className="p-3 border border-dot-red/30 bg-dot-red/5 text-dot-red text-[11px] font-mono flex items-center gap-2">
-                <AlertCircle size={11} /> {error}
+            <div className="px-5 pb-3 px-fade-in">
+              <div className="p-3.5 border border-dot-red/20 bg-dot-red/[0.04] text-dot-red text-[11px] font-mono flex items-center gap-2.5 shadow-elevated">
+                <AlertCircle size={12} strokeWidth={1.5} className="shrink-0" />
+                <span>{error}</span>
               </div>
             </div>
           )}
-          <div className="px-4 py-3 border-t border-px-border bg-white">
-            <PublishButton publishing={publishing} selectedCount={Array.from(selectedPlatforms).length}
+
+          <div className="px-5 py-4 border-t border-px-border bg-white">
+            <PublishButton
+              publishing={publishing}
+              selectedCount={Array.from(selectedPlatforms).length}
               platformStatuses={new Map(Array.from(selectedPlatforms).map(p => [p, platformStates.get(p)?.status || 'idle']))}
-              onPublish={handlePublish} />
+              onPublish={handlePublish}
+            />
           </div>
         </div>
       </div>

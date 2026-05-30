@@ -18,7 +18,7 @@ const ToolButton = ({ onClick, isActive, title, children }: {
     onClick={onClick}
     title={title}
     aria-label={title}
-    className={`p-1.5 transition-[background-color,color,transform] duration-100 active:scale-90 ${
+    className={`p-1.5 transition-all duration-100 active:scale-90 ${
       isActive
         ? 'bg-tx text-white'
         : 'text-tx-dim hover:bg-px-surface hover:text-tx'
@@ -27,6 +27,8 @@ const ToolButton = ({ onClick, isActive, title, children }: {
     {children}
   </button>
 );
+
+const Separator = () => <span className="w-px h-3.5 bg-px-border mx-0.5" />;
 
 export default function TiptapEditor({ content, placeholder, onChange }: TiptapEditorProps) {
   const editor = useEditor({
@@ -56,14 +58,14 @@ export default function TiptapEditor({ content, placeholder, onChange }: TiptapE
         <ToolButton onClick={() => editor.chain().focus().toggleCode().run()} isActive={editor.isActive('code')} title="行内代码">
           <Code size={14} strokeWidth={1.5} />
         </ToolButton>
-        <span className="w-px h-3.5 bg-px-border mx-0.5" />
+        <Separator />
         <ToolButton onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} isActive={editor.isActive('heading', { level: 2 })} title="二级标题">
           <Heading2 size={14} strokeWidth={1.5} />
         </ToolButton>
         <ToolButton onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()} isActive={editor.isActive('heading', { level: 3 })} title="三级标题">
           <Heading3 size={14} strokeWidth={1.5} />
         </ToolButton>
-        <span className="w-px h-3.5 bg-px-border mx-0.5" />
+        <Separator />
         <ToolButton onClick={() => editor.chain().focus().toggleBulletList().run()} isActive={editor.isActive('bulletList')} title="无序列表">
           <List size={14} strokeWidth={1.5} />
         </ToolButton>

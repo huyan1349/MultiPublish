@@ -51,10 +51,10 @@ export default function ToastContainer() {
               layout
               initial={{ opacity: 0, x: 40, scale: 0.96 }}
               animate={{ opacity: 1, x: 0, scale: 1 }}
-              exit={{ opacity: 0, x: 30, scale: 0.96 }}
-              transition={{ duration: 0.18, ease: [0.25, 0.1, 0.25, 1] }}
-              className="pointer-events-auto flex items-start gap-3 p-4 bg-white border min-w-[300px] shadow-[0_2px_12px_rgba(0,0,0,0.08)]"
-              style={{ borderLeftWidth: 3, borderLeftColor: borderColor[toast.type], borderColor: '#E2E2E0' }}
+              exit={{ opacity: 0, x: 40, scale: 0.96 }}
+              transition={{ duration: 0.2, ease: [0.25, 0.1, 0.25, 1] }}
+              className="pointer-events-auto flex items-start gap-3 p-4 bg-white border min-w-[300px] shadow-elevated"
+              style={{ borderLeftWidth: 3, borderLeftColor: borderColor[toast.type], borderColor: '#E0E0DE' }}
             >
               <motion.div
                 initial={{ scale: 0.5, opacity: 0 }}
@@ -67,7 +67,11 @@ export default function ToastContainer() {
                 <p className="text-sm font-medium text-tx">{toast.title}</p>
                 <p className="text-[11px] text-tx-dim mt-0.5">{toast.message}</p>
               </div>
-              <button onClick={() => setToasts((prev) => prev.filter((t) => t.id !== toast.id))} className="text-tx-faint hover:text-tx transition-colors">
+              <button
+                onClick={() => setToasts((prev) => prev.filter((t) => t.id !== toast.id))}
+                className="text-tx-faint hover:text-tx transition-colors"
+                aria-label="关闭提示"
+              >
                 <X size={13} />
               </button>
             </motion.div>

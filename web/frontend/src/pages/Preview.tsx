@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, ExternalLink, RefreshCw } from 'lucide-react';
+import { ArrowLeft, ExternalLink, RefreshCw, CheckCircle2, XCircle, AlertTriangle, Info } from 'lucide-react';
 import { api } from '../api/client';
 import { publishToPlatform, isExtensionAvailable } from '../utils/extensionBridge';
 import type { PlatformType } from '../adapters/types';
@@ -29,6 +29,9 @@ type PublishState = 'idle' | 'publishing' | 'success' | 'failed';
 const platformColors: Record<string, string> = {
   wechat: '#07C160', zhihu: '#0066FF', bilibili: '#FB7299', xiaohongshu: '#FF2442',
 };
+
+const validationIcon: Record<string, typeof XCircle> = { error: XCircle, warning: AlertTriangle, info: Info };
+const validationColor: Record<string, string> = { error: 'text-dot-red', warning: 'text-amber-500', info: 'text-tx-dim' };
 
 export default function Preview() {
   const { id } = useParams<{ id: string }>();
@@ -95,7 +98,7 @@ export default function Preview() {
             <ArrowLeft size={17} strokeWidth={1.5} />
           </button>
           <div className="flex-1 min-w-0">
-            <h1 className="font-mono font-bold text-[24px] text-tx tracking-tight truncate">{content.title}</h1>
+            <h1 className="font-serif font-bold text-[24px] text-tx tracking-tight truncate">{content.title}</h1>
             <div className="flex gap-1.5 mt-2">
               {content.tags.map((t, i) => (
                 <span key={i} className="px-tag">{t}</span>
@@ -144,9 +147,9 @@ export default function Preview() {
                         {state === 'publishing' ? (
                           <><RefreshCw size={12} className="animate-spin" /> PUBLISHING</>
                         ) : state === 'success' ? (
-                          <>PUBLISHED</>
+                          <><CheckCircle2 size={12} /> PUBLISHED</>
                         ) : state === 'failed' ? (
-                          <>RETRY</>
+                          <><XCircle size={12} /> RETRY</>
                         ) : (
                           <><ExternalLink size={12} /> PUBLISH</>
                         )}
@@ -155,14 +158,14 @@ export default function Preview() {
 
                     {output.validationMessages.length > 0 && (
                       <div className="mb-4 space-y-1">
-                        {output.validationMessages.map((m, i) => (
-                          <p key={i} className={`text-[11px] font-mono ${
-                            m.level === 'error' ? 'text-dot-red' :
-                            m.level === 'warning' ? 'text-amber-500' : 'text-tx-dim'
-                          }`}>
-                            {m.level === 'error' ? '✕' : m.level === 'warning' ? '!' : 'i'} {m.message}
-                          </p>
-                        ))}
+                        {output.validationMessages.map((m, i) => {
+                          const Icon = validationIcon[m.level] || Info;
+                          return (
+                            <p key={i} className={`flex items-center gap-1 text-[11px] font-mono ${validationColor[m.level] || 'text-tx-dim'}`}>
+                              <Icon size={10} /> {m.message}
+                            </p>
+                          );
+                        })}
                       </div>
                     )}
 
@@ -182,13 +185,14 @@ export default function Preview() {
                     </div>
                     <div className="mt-4">
                       <p className="px-label mb-2">BODY</p>
-                      <pre className="text-[12px] text-tx-dim bg-px-surface p-4 whitespace-pre-wrap font-mono leading-relaxed max-h-48 overflow-y-auto border border-px-border">
+                      <pre className="text-[12px] text-tx-dim bg-px-surface p-4 whitespace-pre-wrap font-mono leading-relaxed max-h-48 overflow-y-auto border border-px-border scrollbar-thin">
                         {output.body}
                       </pre>
                     </div>
 
                     {publishMessages.has(output.platform) && (
-                      <p className={`mt-4 text-xs font-mono ${state === 'success' ? 'text-emerald-600' : 'text-dot-red'}`}>
+                      <p className={`mt-4 text-xs font-mono flex items-center gap-1.5 ${state === 'success' ? 'text-emerald-600' : 'text-dot-red'}`}>
+                        {state === 'success' ? <CheckCircle2 size={11} /> : <XCircle size={11} />}
                         {publishMessages.get(output.platform)}
                       </p>
                     )}

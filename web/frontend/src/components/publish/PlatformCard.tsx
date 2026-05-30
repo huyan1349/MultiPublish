@@ -89,11 +89,10 @@ export default function PlatformCard({
 
   return (
     <div
-      className={`border transition-[border-color,opacity,box-shadow] duration-200 cursor-pointer overflow-hidden
+      className={`border transition-all duration-200 cursor-pointer overflow-hidden
         ${selected
           ? 'bg-white border-px-border hover:border-tx-mute'
           : 'bg-px-surface border-px-border-subtle opacity-40 hover:opacity-70'}`}
-      style={{ borderRadius: 0 }}
       onClick={onToggle}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggle(); } }}
       role="button"
@@ -119,7 +118,7 @@ export default function PlatformCard({
               <button
                 onClick={handleBeautify}
                 disabled={beautifying}
-                className={`px-btn-ghost text-[8px] px-1.5 py-1 transition-[background-color,color,box-shadow] duration-200
+                className={`px-btn-ghost text-[8px] px-1.5 py-1 transition-all duration-200
                   ${beautifying ? 'opacity-60' : ''}
                   ${hasBeautified ? 'shadow-[0_0_0_1px_rgba(0,0,0,0.08)]' : ''}`}
                 title="AI 美化"
@@ -129,7 +128,7 @@ export default function PlatformCard({
               </button>
               <button
                 onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
-                className="text-tx-faint hover:text-tx-dim transition-[color] duration-200 p-0.5"
+                className="text-tx-faint hover:text-tx-dim transition-colors duration-200 p-0.5"
                 aria-label={expanded ? '收起详情' : '展开详情'}
               >
                 {expanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
