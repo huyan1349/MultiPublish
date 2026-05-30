@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ExternalLink, FileText, Inbox } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { api } from '../api/client';
 
 interface PublishRecord {
@@ -73,15 +74,26 @@ export default function Records() {
               <p className="text-[14px] leading-7 text-[var(--ink-soft)]">还没有发布记录，等你发出第一篇内容后，这里会自动出现。</p>
             </div>
           ) : (
-            <div className="space-y-3">
-              {records.map((record, i) => {
+            <motion.div
+              className="space-y-3"
+              initial="hidden"
+              animate="show"
+              variants={{
+                show: { transition: { staggerChildren: 0.07, delayChildren: 0.04 } },
+              }}
+            >
+              {records.map((record) => {
                 const status = statusConfig[record.status] || { label: record.status, color: '#7f877c' };
                 const color = platformColors[record.platform] || '#6b7280';
                 return (
-                  <div
+                  <motion.div
                     key={record.id}
-                    className="rounded-[24px] border border-[rgba(49,56,45,0.1)] bg-[rgba(255,255,255,0.72)] p-5 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_6px_20px_rgba(41,48,39,0.06)]"
-                    style={{ animation: `px-list-item-in 480ms cubic-bezier(0.22,0.61,0.36,1) both ${i * 60 + 40}ms` }}
+                    className="rounded-[24px] border border-[rgba(49,56,45,0.1)] bg-[rgba(255,255,255,0.72)] p-5 transition-all duration-400 hover:-translate-y-0.5 hover:shadow-[0_8px_24px_rgba(41,48,39,0.07)]"
+                    variants={{
+                      hidden: { opacity: 0 },
+                      show: { opacity: 1 },
+                    }}
+                    transition={{ duration: 0.35, ease: 'easeOut' }}
                   >
                     <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                       <div className="min-w-0">
@@ -101,10 +113,10 @@ export default function Records() {
                         )}
                       </div>
                     </div>
-                  </div>
+                  </motion.div>
                 );
               })}
-            </div>
+            </motion.div>
           )}
         </section>
       </div>
