@@ -48,6 +48,7 @@ const LOGIN_INDICATORS = [
       return;
     }
 
+    // ── 获取图片并分类 ──
     let coverImages: { id: string; dataUrl: string; filename: string; mimeType: string }[] = [];
     let bodyImages: { id: string; dataUrl: string; filename: string; mimeType: string }[] = [];
     try {
@@ -58,6 +59,7 @@ const LOGIN_INDICATORS = [
       bodyImages = allImages.filter(img => img.id !== 'cover');
     } catch (e) { console.log('[XHS-IMG] GET_IMAGES err:', e); }
 
+    // ── 上传正文图片（在封面前，避免封面操作干扰编辑器）──
     if (bodyImages.length > 0) {
       const bodyEl = findBodyEditor();
       if (bodyEl) {
@@ -73,12 +75,14 @@ const LOGIN_INDICATORS = [
       }
     }
 
+    // ── 上传封面图 ──
     for (const img of coverImages) {
       const ok = await _xhsUploadCover(img);
       console.log('[XHS-IMG-COVER]', img.id, ok ? 'OK' : 'FAIL');
       if (ok) await sleep(2000);
     }
 
+    // ── 封面上传后验证正文完整性 ──
     {
       const bodyEl = findBodyEditor();
       if (bodyEl) {
@@ -207,6 +211,10 @@ async function checkLogin(): Promise<boolean> {
   return true;
 }
 
+/* ═══════════════════════════════════════════
+   导航流程：发布笔记 → 写长文 → 新的创作
+   ═══════════════════════════════════════════ */
+
 async function navigateToLongArticleEditor(): Promise<boolean> {
   if (await isLongArticleEditorReady()) return true;
 
@@ -252,6 +260,10 @@ async function isLongArticleEditorReady(): Promise<boolean> {
 
   return false;
 }
+
+/* ═══════════════════════════════════════════
+   长文编辑器填充
+   ═══════════════════════════════════════════ */
 
 async function tryFillLongArticle(
   title: string,
@@ -336,6 +348,10 @@ async function appendTagsToBody(editor: HTMLElement, tags: string[]): Promise<vo
   await sleep(300);
   showContentBridgeToast('✅ 话题标签已追加', 'success');
 }
+
+/* ═══════════════════════════════════════════
+   自动排版发布流程
+   ═══════════════════════════════════════════ */
 
 async function clickAutoLayout(): Promise<boolean> {
   const btn = await findElementByText('一键排版', NAV_TIMEOUT);
@@ -608,6 +624,10 @@ function hasPublishSuccessSignal(): boolean {
   return /发布成功|笔记已发布|已发布|提交成功|审核中/.test(text);
 }
 
+/* ═══════════════════════════════════════════
+   填充策略
+   ═══════════════════════════════════════════ */
+
 async function fillInput(el: HTMLElement, value: string): Promise<boolean> {
   if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
     return fillNativeInput(el, value);
@@ -702,6 +722,10 @@ function editorContains(editor: HTMLElement, expected: string): boolean {
   return !t || compactText(editor.innerText || editor.textContent || '').includes(t);
 }
 
+/* ═══════════════════════════════════════════
+   文本查找与点击
+   ═══════════════════════════════════════════ */
+
 async function clickByText(text: string, timeout: number): Promise<boolean> {
   const el = await findElementByText(text, timeout);
   if (el) {
@@ -742,11 +766,15 @@ function findButtonByText(labels: string[], root: ParentNode = document): HTMLEl
   return candidates[0]?.el || null;
 }
 
+/* ═══════════════════════════════════════════
+   DOM Helpers
+   ═══════════════════════════════════════════ */
+
 function clickElement(el: HTMLElement) {
   el.scrollIntoView({ block: 'center', inline: 'center' });
   el.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
   el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
- el.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true }));
+  el.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true }));
   el.click();
 }
 
@@ -790,10 +818,12 @@ function waitForElement<T extends HTMLElement>(finder: () => T | null, timeout: 
   });
 }
 
+/* ── 图片上传 ── */
+
 function _xhsDataUrlToBlob(dataUrl: string): Blob {
   const parts = dataUrl.split(',');
   const mime = (parts[0].match(/data:(.*?);/) || [])[1] || 'image/png';
-  let payload = parts.slice(1).join(',');
+  let payload = parts.slice(1).join(','); // handle commas in base64
   const isBase64 = parts[0].includes('base64');
   if (isBase64) {
     try { payload = atob(payload); } catch {
@@ -877,6 +907,7 @@ async function _xhsUploadBodyImage(img: { dataUrl: string; filename: string; mim
 
   const before = bodyEl.querySelectorAll('img').length;
 
+  // Strategy 1: 编辑器容器内的 file input
   const editorContainer = bodyEl.closest('.editor-container, .tiptap-container, [class*="editor"]') || bodyEl.parentElement;
   if (editorContainer) {
     const editorInputs = editorContainer.querySelectorAll<HTMLInputElement>('input[type="file"]');
@@ -901,6 +932,7 @@ async function _xhsUploadBodyImage(img: { dataUrl: string; filename: string; mim
     }
   }
 
+  // Strategy 2: 页面上所有 accept 含 image 的 file input
   const allInputs = Array.from(document.querySelectorAll<HTMLInputElement>('input[type="file"]'));
   const imageInputs = allInputs.filter(i => (i.getAttribute('accept') || '').toLowerCase().includes('image'));
   console.log('[XHS-IMG-BODY] S2: image inputs:', imageInputs.length);
@@ -912,6 +944,7 @@ async function _xhsUploadBodyImage(img: { dataUrl: string; filename: string; mim
     if (ok) { console.log('[XHS-IMG-BODY] S2 success'); return true; }
   }
 
+  // Strategy 3: ClipboardEvent 粘贴图片
   console.log('[XHS-IMG-BODY] S3: paste approach');
   try {
     bodyEl.focus();
@@ -925,6 +958,7 @@ async function _xhsUploadBodyImage(img: { dataUrl: string; filename: string; mim
     if (ok) { console.log('[XHS-IMG-BODY] S3 success'); return true; }
   } catch (e) { console.log('[XHS-IMG-BODY] S3 error:', e); }
 
+  // Strategy 4: 点击工具栏图片按钮 + 捕获 file input
   console.log('[XHS-IMG-BODY] S4: toolbar approach');
   const capturedInput = await _xhsClickToolbarCaptureInput();
   if (capturedInput) {
@@ -961,6 +995,7 @@ async function _xhsClickToolbarCaptureInput(): Promise<HTMLInputElement | null> 
     return origClick.call(this);
   };
 
+  // 搜索工具栏中的图片按钮
   const toolbarBtns = Array.from(document.querySelectorAll<HTMLElement>(
     '[class*="toolbar"] button, [class*="Toolbar"] button, [class*="toolbar"] [role="button"]'
   )).filter(btn => {
@@ -973,6 +1008,7 @@ async function _xhsClickToolbarCaptureInput(): Promise<HTMLInputElement | null> 
     if (capturedInput) break;
   }
 
+  // ProseMirror / Tiptap 工具栏
   if (!capturedInput) {
     const pmToolbar = document.querySelector('.ProseMirror-toolbar, .tiptap-toolbar, [class*="toolbar"]');
     if (pmToolbar) {

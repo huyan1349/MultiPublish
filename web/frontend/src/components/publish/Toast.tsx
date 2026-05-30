@@ -4,7 +4,7 @@ import { X, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react';
 
 interface ToastData {
   id: number;
-  type: 'success' | 'error' | 'warning';
+  type: 'success' | 'error' | 'warning' | 'info';
   title: string;
   message: string;
 }
@@ -16,16 +16,18 @@ export function showToast(type: ToastData['type'], title: string, message: strin
   addToastFn?.({ type, title, message });
 }
 
-const iconMap = { success: CheckCircle2, error: XCircle, warning: AlertTriangle };
+const iconMap = { success: CheckCircle2, error: XCircle, warning: AlertTriangle, info: AlertTriangle };
 const borderColor = {
   success: '#6f846d',
   error: '#b45d5d',
   warning: '#6d8aa6',
+  info: '#5b6cf0',
 };
 const iconColor = {
   success: '#6f846d',
   error: '#b45d5d',
   warning: '#6d8aa6',
+  info: '#5b6cf0',
 };
 
 export default function ToastContainer() {

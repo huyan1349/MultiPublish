@@ -1,15 +1,15 @@
-﻿import { useState, useCallback, useRef, useEffect } from 'react';
+﻿﻿import { useState, useCallback, useRef, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AlertCircle, ArrowLeft, ArrowRight, MessageCircle, RefreshCw, Save, Sparkles, Wand2, Zap, FileText, List } from 'lucide-react';
 import { useContentStore } from '../stores/contentStore';
 import type { BeautifiedContent } from '../stores/contentStore';
-import TiptapEditor from '../components/editor/TiptapEditor';
+import TiptapEditor, { type TiptapEditorHandle } from '../components/editor/TiptapEditor';
 import AiAssistantPanel from '../components/editor/AiAssistantPanel';
 import PlatformCard from '../components/publish/PlatformCard';
 import PublishButton from '../components/publish/PublishButton';
 import ToastContainer, { showToast } from '../components/publish/Toast';
 import { publishViaExtension, isExtensionInstalled } from '../utils/extensionBridge'
-import { buildImagePayloads } from '../utils/imageUtils';;
+import { buildImagePayloads, resolveBodyImages, stripDataUrlImages } from '../utils/imageUtils';
 import { useExtensionStatus } from '../hooks/useExtensionStatus';
 import { generateTitle, suggestTags, generateContentFromOutline, beautifyContentForPlatform } from '../services/deepseek';
 import { api } from '../api/client';
@@ -17,11 +17,11 @@ import type { PlatformType } from '../adapters/types';
 
 const allPlatforms: PlatformType[] = ['wechat', 'zhihu', 'bilibili', 'xiaohongshu'];
 
-const PLATFORM_BRAND: Record<string, { color: string; soft: string; deep: string; hex: string; hexDeep: string; hexSoft: string }> = {
-  wechat:      { color: 'var(--platform-wechat)', soft: 'var(--platform-wechat-soft)', deep: 'var(--platform-wechat-deep)', hex: '#07C160', hexDeep: '#059a4c', hexSoft: 'rgba(7,193,96,0.10)' },
-  zhihu:       { color: 'var(--platform-zhihu)', soft: 'var(--platform-zhihu-soft)', deep: 'var(--platform-zhihu-deep)', hex: '#0066FF', hexDeep: '#0052cc', hexSoft: 'rgba(0,102,255,0.10)' },
-  bilibili:    { color: 'var(--platform-bilibili)', soft: 'var(--platform-bilibili-soft)', deep: 'var(--platform-bilibili-deep)', hex: '#FB7299', hexDeep: '#e0557a', hexSoft: 'rgba(251,114,153,0.10)' },
-  xiaohongshu: { color: 'var(--platform-xiaohongshu)', soft: 'var(--platform-xiaohongshu-soft)', deep: 'var(--platform-xiaohongshu-deep)', hex: '#FF2442', hexDeep: '#d91c37', hexSoft: 'rgba(255,36,66,0.10)' },
+const PLATFORM_BRAND: Record<string, { color: string; soft: string; deep: string }> = {
+  wechat: { color: 'var(--platform-wechat)', soft: 'var(--platform-wechat-soft)', deep: 'var(--platform-wechat-deep)' },
+  zhihu: { color: 'var(--platform-zhihu)', soft: 'var(--platform-zhihu-soft)', deep: 'var(--platform-zhihu-deep)' },
+  bilibili: { color: 'var(--platform-bilibili)', soft: 'var(--platform-bilibili-soft)', deep: 'var(--platform-bilibili-deep)' },
+  xiaohongshu: { color: 'var(--platform-xiaohongshu)', soft: 'var(--platform-xiaohongshu-soft)', deep: 'var(--platform-xiaohongshu-deep)' },
 };
 
 const PLATFORM_NAMES: Record<PlatformType, string> = {
@@ -106,6 +106,7 @@ export default function Editor() {
     beautifiedOutputs,
     setBeautifiedOutput,
     applyBeautifiedContent,
+    clearBeautifiedOutput,
   } = useContentStore();
 
   const [error, setError] = useState('');
@@ -115,6 +116,7 @@ export default function Editor() {
   const [editorKey, setEditorKey] = useState(0);
   const [isAiModified, setIsAiModified] = useState(false);
   const editorRef = useRef<HTMLDivElement>(null);
+  const tiptapRef = useRef<TiptapEditorHandle>(null);
 
   // Outline state
   const [outline, setOutline] = useState({ topic: paramTopic, points: paramPoints, style: '' });
@@ -146,28 +148,26 @@ export default function Editor() {
 
   const handleApplyOptimization = useCallback((title: string, htmlBody: string) => {
     setDraft({ title, htmlContent: htmlBody });
-    setEditorKey((k) => k + 1);
     setIsAiModified(true);
-    showToast('success', 'AI 优化已应用', '标题和正文已更新到编辑器');
-  }, [setDraft]);
+    if (step === 'outline') {
+      setOutline((o) => ({ ...o, topic: title }));
+      setStep('content');
+      showToast('success', 'AI 优化已应用', '已跳转到内容编辑，标题和正文已更新');
+    } else {
+      tiptapRef.current?.setContent(htmlBody);
+      showToast('success', 'AI 优化已应用', '标题和正文已更新到编辑器');
+    }
+  }, [setDraft, step]);
 
-  const handleApplySelectionOptimization = useCallback((originalText: string, optimizedText: string) => {
-    const sel = window.getSelection();
-    if (!sel || !sel.rangeCount) return;
+  const handleApplySelectionOptimization = useCallback((_originalText: string, optimizedText: string) => {
+    const editor = tiptapRef.current?.getEditor();
+    if (!editor) {
+      showToast('error', '替换失败', '编辑器未就绪');
+      return;
+    }
     try {
-      const range = sel.getRangeAt(0);
-      range.deleteContents();
-      const span = document.createElement('span');
-      span.innerHTML = optimizedText;
-      const frag = document.createDocumentFragment();
-      let child: Node | null;
-      while ((child = span.firstChild)) frag.appendChild(child);
-      range.insertNode(frag);
-      range.collapse(false);
-      sel.removeAllRanges();
-      sel.addRange(range);
-      const editorEl = document.querySelector('.tiptap.ProseMirror') as HTMLElement;
-      if (editorEl) setDraft({ htmlContent: editorEl.innerHTML });
+      editor.chain().focus().insertContent(optimizedText).run();
+      setDraft({ htmlContent: editor.getHTML() });
       showToast('success', '选中文字已替换', 'AI 优化后的文字已写入编辑器');
     } catch {
       showToast('error', '替换失败', '请确保编辑器中的文字仍被选中');
@@ -252,9 +252,10 @@ export default function Editor() {
     const beautified = beautifiedOutputs.get(platform);
     if (!beautified) return;
     applyBeautifiedContent(platform, beautified.title, beautified.htmlBody, beautified.tags);
+    clearBeautifiedOutput(platform);
     const state = platformStates.get(platform);
     showToast('success', `${state?.platformName || platform} 已应用`, '美化内容已经写入当前平台输出');
-  }, [beautifiedOutputs, applyBeautifiedContent, platformStates]);
+  }, [beautifiedOutputs, applyBeautifiedContent, clearBeautifiedOutput, platformStates]);
 
   // Go outline → content
   const handleGoToContent = () => {
@@ -397,7 +398,31 @@ export default function Editor() {
       if (!state) continue;
       setPlatformPublishStatus(platform, 'publishing');
       try {
-        const result = await publishViaExtension({ platform, content: state.output, autoLayout: true });
+        // 1. 将 body 中的 blob URL 替换为 data URL（与扩展端 resolveBlobUrlsInOutputs 一致）
+        let resolvedBody = await resolveBodyImages(state.output.body);
+
+        // 2. 从 resolved body 中提取图片，构建 ImagePayload[]（与扩展端 publishOne 一致）
+        const images = await buildImagePayloads(resolvedBody, draft.coverImage);
+
+        // 3. 清除 body 中的 data URL img 标签（与扩展端 Background SW 一致，避免传输超大字符串）
+        resolvedBody = stripDataUrlImages(resolvedBody);
+
+        // 4. 清除 coverImage 中的 data URL
+        let cleanCoverImage = state.output.coverImage;
+        if (cleanCoverImage && cleanCoverImage.startsWith('data:')) {
+          cleanCoverImage = undefined;
+        }
+
+        const result = await publishViaExtension({
+          platform,
+          content: {
+            ...state.output,
+            body: resolvedBody,
+            coverImage: cleanCoverImage,
+          },
+          autoLayout: true,
+          images: images.length > 0 ? images : undefined,
+        });
         if (currentContentId) {
           api.createPublishRecord({
             contentId: currentContentId, platform, platformName: state.platformName,
@@ -429,7 +454,23 @@ export default function Editor() {
   const generatedContent = generatedContents[activePlatform];
 
   return (
-    <div className="">
+    <div
+      className=""
+      onDragOver={(e) => { e.preventDefault(); }}
+      onDrop={(e) => {
+        e.preventDefault();
+        if (e.dataTransfer?.files.length) {
+          const hasImage = Array.from(e.dataTransfer.files).some((f) => f.type.startsWith('image/'));
+          if (hasImage) {
+            if (tiptapRef.current) {
+              tiptapRef.current.insertImages(e.dataTransfer.files);
+            } else {
+              showToast('info', '提示', '请先进入「内容生成」步骤再插入图片');
+            }
+          }
+        }
+      }}
+    >
       <style>{`
         @keyframes pulse-glow {
           0%, 100% { box-shadow: var(--glow-shadow); transform: translateY(0); }
@@ -502,7 +543,15 @@ export default function Editor() {
               <ExtensionIndicator />
               {step === 'outline' && (
                 <>
-                  {!isEditing && <button onClick={loadDemo} className="px-btn-secondary">载入示例</button>}
+                  {!isEditing && <button onClick={() => {
+                    loadDemo();
+                    setOutline({
+                      topic: '我做了一个多平台内容发布工具',
+                      points: '多平台内容发布的痛点：每个平台格式、语气不同\n核心功能：统一编辑、智能适配、一键发布、发布记录\n架构设计：标准内容模型 + 平台适配器模式\n差异化：一次创作，多端适配，真实发布\n策略模式可扩展：新增平台只需一个 Adapter',
+                      style: '',
+                    });
+                    setError('');
+                  }} className="px-btn-secondary">载入示例</button>}
                   <button
                     onClick={() => setAiPanelOpen(!aiPanelOpen)}
                     className={`flex items-center gap-1.5 px-4 py-2 rounded-[12px] text-[13px] font-medium transition-all duration-200 ${
@@ -690,13 +739,14 @@ export default function Editor() {
                     disabled={!selectedFormat || generating}
                     className={`flex items-center gap-2 px-6 py-3 rounded-[14px] text-white text-[13px] font-medium transition-all duration-200 hover:shadow-lg disabled:hover:shadow-none
                       ${selectedFormat && !generating ? 'animate-pulse-glow' : ''}
+                      ${!selectedFormat ? 'opacity-40' : ''}
                       ${generating ? 'opacity-70' : 'hover:-translate-y-0.5'}`}
                     style={{
                       background: selectedFormat
-                        ? `linear-gradient(135deg, ${PLATFORM_BRAND[activePlatform]?.hex}, ${PLATFORM_BRAND[activePlatform]?.hexDeep})`
-                        : '#1a1a1a',
-                      ['--glow-shadow' as string]: selectedFormat ? `0 8px 24px ${PLATFORM_BRAND[activePlatform]?.hex}40` : 'none',
-                      ['--glow-shadow-strong' as string]: selectedFormat ? `0 8px 36px ${PLATFORM_BRAND[activePlatform]?.hex}60, 0 0 60px ${PLATFORM_BRAND[activePlatform]?.hex}20` : 'none',
+                        ? `linear-gradient(135deg, ${PLATFORM_BRAND[activePlatform]?.color}, ${PLATFORM_BRAND[activePlatform]?.color}dd)`
+                        : 'var(--ink-faint)',
+                      ['--glow-shadow' as string]: selectedFormat ? `0 8px 24px ${PLATFORM_BRAND[activePlatform]?.color}40` : 'none',
+                      ['--glow-shadow-strong' as string]: selectedFormat ? `0 8px 36px ${PLATFORM_BRAND[activePlatform]?.color}60, 0 0 60px ${PLATFORM_BRAND[activePlatform]?.color}20` : 'none',
                     }}
                   >
                     {generating ? (
@@ -761,20 +811,20 @@ export default function Editor() {
                         </span>
                         <span className="ai-cursor text-[15px]" />
                       </div>
-                      <div className="shimmer-bar h-5 w-3/4" style={{ '--shimmer-from': `${PLATFORM_BRAND[activePlatform]?.soft}`, '--shimmer-via': `${PLATFORM_BRAND[activePlatform]?.hex}20`, '--shimmer-to': `${PLATFORM_BRAND[activePlatform]?.soft}` } as React.CSSProperties} />
-                      <div className="shimmer-bar h-5 w-full" style={{ '--shimmer-from': `${PLATFORM_BRAND[activePlatform]?.soft}`, '--shimmer-via': `${PLATFORM_BRAND[activePlatform]?.hex}20`, '--shimmer-to': `${PLATFORM_BRAND[activePlatform]?.soft}` } as React.CSSProperties} />
-                      <div className="shimmer-bar h-5 w-2/3" style={{ '--shimmer-from': `${PLATFORM_BRAND[activePlatform]?.soft}`, '--shimmer-via': `${PLATFORM_BRAND[activePlatform]?.hex}20`, '--shimmer-to': `${PLATFORM_BRAND[activePlatform]?.soft}` } as React.CSSProperties} />
-                      <div className="shimmer-bar h-5 w-5/6" style={{ '--shimmer-from': `${PLATFORM_BRAND[activePlatform]?.soft}`, '--shimmer-via': `${PLATFORM_BRAND[activePlatform]?.hex}20`, '--shimmer-to': `${PLATFORM_BRAND[activePlatform]?.soft}` } as React.CSSProperties} />
-                      <div className="shimmer-bar h-5 w-1/2" style={{ '--shimmer-from': `${PLATFORM_BRAND[activePlatform]?.soft}`, '--shimmer-via': `${PLATFORM_BRAND[activePlatform]?.hex}20`, '--shimmer-to': `${PLATFORM_BRAND[activePlatform]?.soft}` } as React.CSSProperties} />
-                      <div className="shimmer-bar h-5 w-3/4 mt-8" style={{ '--shimmer-from': `${PLATFORM_BRAND[activePlatform]?.soft}`, '--shimmer-via': `${PLATFORM_BRAND[activePlatform]?.hex}20`, '--shimmer-to': `${PLATFORM_BRAND[activePlatform]?.soft}` } as React.CSSProperties} />
-                      <div className="shimmer-bar h-5 w-full" style={{ '--shimmer-from': `${PLATFORM_BRAND[activePlatform]?.soft}`, '--shimmer-via': `${PLATFORM_BRAND[activePlatform]?.hex}20`, '--shimmer-to': `${PLATFORM_BRAND[activePlatform]?.soft}` } as React.CSSProperties} />
+                      <div className="shimmer-bar h-5 w-3/4" style={{ '--shimmer-from': `${PLATFORM_BRAND[activePlatform]?.soft}`, '--shimmer-via': `${PLATFORM_BRAND[activePlatform]?.color}20`, '--shimmer-to': `${PLATFORM_BRAND[activePlatform]?.soft}` } as React.CSSProperties} />
+                      <div className="shimmer-bar h-5 w-full" style={{ '--shimmer-from': `${PLATFORM_BRAND[activePlatform]?.soft}`, '--shimmer-via': `${PLATFORM_BRAND[activePlatform]?.color}20`, '--shimmer-to': `${PLATFORM_BRAND[activePlatform]?.soft}` } as React.CSSProperties} />
+                      <div className="shimmer-bar h-5 w-2/3" style={{ '--shimmer-from': `${PLATFORM_BRAND[activePlatform]?.soft}`, '--shimmer-via': `${PLATFORM_BRAND[activePlatform]?.color}20`, '--shimmer-to': `${PLATFORM_BRAND[activePlatform]?.soft}` } as React.CSSProperties} />
+                      <div className="shimmer-bar h-5 w-5/6" style={{ '--shimmer-from': `${PLATFORM_BRAND[activePlatform]?.soft}`, '--shimmer-via': `${PLATFORM_BRAND[activePlatform]?.color}20`, '--shimmer-to': `${PLATFORM_BRAND[activePlatform]?.soft}` } as React.CSSProperties} />
+                      <div className="shimmer-bar h-5 w-1/2" style={{ '--shimmer-from': `${PLATFORM_BRAND[activePlatform]?.soft}`, '--shimmer-via': `${PLATFORM_BRAND[activePlatform]?.color}20`, '--shimmer-to': `${PLATFORM_BRAND[activePlatform]?.soft}` } as React.CSSProperties} />
+                      <div className="shimmer-bar h-5 w-3/4 mt-8" style={{ '--shimmer-from': `${PLATFORM_BRAND[activePlatform]?.soft}`, '--shimmer-via': `${PLATFORM_BRAND[activePlatform]?.color}20`, '--shimmer-to': `${PLATFORM_BRAND[activePlatform]?.soft}` } as React.CSSProperties} />
+                      <div className="shimmer-bar h-5 w-full" style={{ '--shimmer-from': `${PLATFORM_BRAND[activePlatform]?.soft}`, '--shimmer-via': `${PLATFORM_BRAND[activePlatform]?.color}20`, '--shimmer-to': `${PLATFORM_BRAND[activePlatform]?.soft}` } as React.CSSProperties} />
                     </div>
                   )}
 
                   {/* Streaming blur-reveal content */}
                   {streamingHtml && !streamingDone && (
                     <div className="relative">
-                      <div className="flex items-center gap-2 mb-4 pb-3" style={{ borderBottom: `1px solid ${PLATFORM_BRAND[activePlatform]?.hex}18` }}>
+                      <div className="flex items-center gap-2 mb-4 pb-3" style={{ borderBottom: `1px solid ${PLATFORM_BRAND[activePlatform]?.color}18` }}>
                         <Sparkles size={12} style={{ color: PLATFORM_BRAND[activePlatform]?.color }} />
                         <span className="text-[12px] font-medium" style={{ color: PLATFORM_BRAND[activePlatform]?.color }}>
                           AI 正在写入…
@@ -804,7 +854,7 @@ export default function Editor() {
                   {streamingDone && (
                     <div
                       className="rounded-[18px] border py-5 px-5 text-center"
-                      style={{ borderColor: `${PLATFORM_BRAND[activePlatform]?.hex}20`, backgroundColor: `${PLATFORM_BRAND[activePlatform]?.soft}` }}
+                      style={{ borderColor: `${PLATFORM_BRAND[activePlatform]?.color}20`, backgroundColor: `${PLATFORM_BRAND[activePlatform]?.soft}` }}
                     >
                       <Sparkles size={18} className="mx-auto mb-2" style={{ color: PLATFORM_BRAND[activePlatform]?.color }} />
                       <span className="text-[13px] font-medium" style={{ color: PLATFORM_BRAND[activePlatform]?.deep }}>
@@ -817,6 +867,7 @@ export default function Editor() {
                   {!generating && !streamingHtml && !streamingDone && (
                     <TiptapEditor
                       key={editorKey}
+                      ref={tiptapRef}
                       content={draft.htmlContent}
                       placeholder="AI 生成的内容将显示在这里，你可以直接编辑修改..."
                       onChange={handleEditorChange}
@@ -959,6 +1010,7 @@ export default function Editor() {
                         tagCount={state.meta.tagCount}
                         tagMax={state.meta.maxTags}
                         messages={state.validation.messages}
+                        previewTitle={state.output.title}
                         previewBody={state.output.body}
                         previewTags={state.output.tags}
                         draftTitle={draft.title}

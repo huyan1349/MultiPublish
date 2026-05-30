@@ -149,6 +149,7 @@ export const useContentStore = create<ContentState>((set, get) => ({
   }),
   refreshPlatformOutputs: () => {
     const content = buildContent(get().draft);
+    if (!content.title && content.blocks.length === 0) return;
     const map = new Map<PlatformType, PlatformPublishState>();
     for (const p of allPlatforms) map.set(p, buildPlatformState(p, content));
     set({ platformStates: map });

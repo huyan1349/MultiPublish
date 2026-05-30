@@ -35,10 +35,14 @@ function buildNoteBody(blocks: StandardContent['blocks']): string {
       case 'quote':
         lines.push(`💬 ${(b.text || '').replace(/\n/g, ' ')}`); lines.push(''); break;
       case 'image':
-        lines.push(`[图片: ${b.caption || b.url || ''}]`); lines.push(''); break;
+        if (b.url) {
+          lines.push(`<p style="text-align:center;margin:8px 0;"><img src="${b.url}" alt="${b.caption || '图片'}" style="max-width:100%;border-radius:4px;"/></p>`);
+        }
+        lines.push('');
+        break;
     }
   }
-  let body = lines.join('\n').substring(0, LIMITS.maxBody);
+  let body = lines.join('\n');
   if (!body.includes('#')) {
     body += '\n\n#内容创作 #效率工具 #自媒体 #干货分享';
   }

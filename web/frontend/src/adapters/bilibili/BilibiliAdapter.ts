@@ -9,11 +9,14 @@ function buildArticleBody(blocks: StandardContent['blocks']): string {
       case 'paragraph': return block.text || '';
       case 'list': return (block.items || []).map((item) => `- ${item}`).join('\n');
       case 'quote': return `> ${block.text || ''}`;
-      case 'image': return block.url ? `![${block.caption || block.text || '图片'}](${block.url})` : '';
+      case 'image':
+        return block.url
+          ? `<p style="text-align:center;margin:12px 0;"><img src="${block.url}" alt="${block.caption || block.text || '图片'}" style="max-width:100%;border-radius:4px;"/></p>`
+          : '';
       default: return '';
     }
   });
-  return lines.filter(Boolean).join('\n\n').substring(0, LIMITS.maxBody);
+  return lines.filter(Boolean).join('\n\n');
 }
 
 export const bilibiliAdapter: PlatformAdapter = {
