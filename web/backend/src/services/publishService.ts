@@ -54,6 +54,23 @@ export async function batchPublish(outputIds: string[]): Promise<PublishResult[]
   return results;
 }
 
+export async function createPublishRecord(params: {
+  contentId: string; platform: string; platformName: string;
+  status: string; message: string; mockUrl?: string;
+}) {
+  return prisma.publishRecord.create({
+    data: {
+      outputId: null, // real extension publish, not linked to a specific output
+      contentId: params.contentId,
+      platform: params.platform,
+      platformName: params.platformName,
+      status: params.status,
+      message: params.message,
+      mockUrl: params.mockUrl || null,
+    },
+  });
+}
+
 export async function getPublishRecords(contentId?: string) {
   const where = contentId ? { contentId } : {};
   const records = await prisma.publishRecord.findMany({

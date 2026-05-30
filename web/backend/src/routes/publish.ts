@@ -34,6 +34,26 @@ publishRouter.post('/publish/batch', async (req, res) => {
   }
 });
 
+// POST /api/publish-records — save real extension publish result
+publishRouter.post('/publish-records', async (req, res) => {
+  try {
+    const { contentId, platform, platformName, status, message, mockUrl } = req.body as {
+      contentId?: string; platform?: string; platformName?: string;
+      status?: string; message?: string; mockUrl?: string;
+    };
+    if (!contentId || !platform || !platformName || !status) {
+      res.status(400).json({ error: 'contentId, platform, platformName, status are required' });
+      return;
+    }
+    const record = await publishService.createPublishRecord({
+      contentId, platform, platformName, status, message: message || '', mockUrl,
+    });
+    res.status(201).json(record);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to create publish record' });
+  }
+});
+
 // GET /api/publish-records — list publish records
 publishRouter.get('/publish-records', async (req, res) => {
   try {

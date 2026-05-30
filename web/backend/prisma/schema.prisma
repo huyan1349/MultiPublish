@@ -45,7 +45,7 @@ model PlatformOutput {
 
 model PublishRecord {
   id           String   @id @default(cuid())
-  outputId     String
+  outputId     String?
   contentId    String
   platform     String
   platformName String
@@ -54,8 +54,8 @@ model PublishRecord {
   mockUrl      String?
   publishedAt  DateTime @default(now())
 
-  output  PlatformOutput @relation(fields: [outputId], references: [id])
-  content Content        @relation(fields: [contentId], references: [id])
+  output  PlatformOutput? @relation(fields: [outputId], references: [id])
+  content Content         @relation(fields: [contentId], references: [id])
 
   @@index([contentId])
   @@index([outputId])

@@ -35,11 +35,24 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const [contents, setContents] = useState<ContentItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [backendError, setBackendError] = useState(false);
   const [hoveredPrompt, setHoveredPrompt] = useState<string | null>(null);
 
   useEffect(() => {
-    api.listContents().then(setContents).catch(() => {}).finally(() => setLoading(false));
+    api.listContents()
+      .then((data) => { setContents(data); setBackendError(false); })
+      .catch(() => setBackendError(true))
+      .finally(() => setLoading(false));
   }, []);
+
+  const retryLoad = () => {
+    setLoading(true);
+    setBackendError(false);
+    api.listContents()
+      .then((data) => { setContents(data); setBackendError(false); })
+      .catch(() => setBackendError(true))
+      .finally(() => setLoading(false));
+  };
 
   const latest = contents[0];
   const draftCount = contents.length;
@@ -178,6 +191,13 @@ export default function Dashboard() {
                     <div className="h-2 w-1/4 px-shimmer" />
                   </div>
                 ))}
+              </div>
+            ) : backendError ? (
+              <div className="rounded-[28px] border border-dashed border-[rgba(49,56,45,0.18)] px-8 py-16 text-center">
+                <FileText size={18} className="mx-auto mb-4 text-[var(--accent-deep)]" />
+                <p className="font-['IBM_Plex_Mono'] text-[10px] tracking-[0.18em] text-[var(--ink-faint)]">后端未连接</p>
+                <p className="mt-2 text-[13px] leading-6 text-[var(--ink-soft)]">请启动后端服务以查看最近编辑。草稿已保存到浏览器本地。</p>
+                <button onClick={retryLoad} className="px-btn-secondary mt-4">重试</button>
               </div>
             ) : contents.length === 0 ? (
               <div className="rounded-[24px] border border-dashed border-[rgba(49,56,45,0.16)] px-6 py-16 text-center">

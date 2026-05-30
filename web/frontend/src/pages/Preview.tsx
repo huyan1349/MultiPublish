@@ -70,11 +70,32 @@ export default function Preview() {
         content: { title: output.title, body: output.body, tags: output.tags },
         autoLayout: true,
       });
+      // save publish record
+      if (id) {
+        api.createPublishRecord({
+          contentId: id,
+          platform,
+          platformName: output.platformName,
+          status: result.status,
+          message: result.message,
+          mockUrl: result.mockUrl,
+        }).catch(() => {});
+      }
       setPublishStates((prev) => new Map(prev).set(platform, result.status));
       setPublishMessages((prev) => new Map(prev).set(platform, result.message));
     } catch (err) {
+      const message = err instanceof Error ? err.message : '发布失败';
+      if (id) {
+        api.createPublishRecord({
+          contentId: id,
+          platform,
+          platformName: output.platformName,
+          status: 'failed',
+          message,
+        }).catch(() => {});
+      }
       setPublishStates((prev) => new Map(prev).set(platform, 'failed'));
-      setPublishMessages((prev) => new Map(prev).set(platform, err instanceof Error ? err.message : '发布失败'));
+      setPublishMessages((prev) => new Map(prev).set(platform, message));
     }
   }, []);
 
