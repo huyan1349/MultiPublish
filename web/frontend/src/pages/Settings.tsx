@@ -18,7 +18,22 @@ export default function Settings() {
   const [extConnected, setExtConnected] = useState(isExtensionInstalled());
 
   useEffect(() => {
-    setExtConnected(isExtensionInstalled());
+    const handler = ((e: CustomEvent) => {
+      setExtIdInput(e.detail);
+      setExtConnected(true);
+    }) as EventListener;
+    window.addEventListener('multipublish:extension-id', handler);
+    const timer = setInterval(() => {
+      const current = getExtensionId();
+      if (current !== extIdInput) {
+        setExtIdInput(current);
+        setExtConnected(isExtensionInstalled());
+      }
+    }, 3000);
+    return () => {
+      window.removeEventListener('multipublish:extension-id', handler);
+      clearInterval(timer);
+    };
   }, [extIdInput]);
 
   const showToast = (type: 'success' | 'error', msg: string) => {
@@ -63,37 +78,43 @@ export default function Settings() {
               <div className="px-label mb-5">扩展连接</div>
               <div className="space-y-4">
                 <div className="rounded-[24px] border border-[rgba(49,56,45,0.1)] bg-[rgba(255,255,255,0.72)] p-5">
-                  <div className="flex items-center justify-between gap-4 mb-4">
+                  <div className="flex items-center justify-between gap-4 mb-3">
                     <div>
                       <div className="text-[14px] text-[var(--ink)] flex items-center gap-2">
                         <Zap size={14} />
                         Chrome 扩展状态
                       </div>
                       <p className="mt-2 text-[13px] leading-6 text-[var(--ink-soft)]">
-                        配置扩展 ID 后，Web 页面可通过扩展实现一键真实发布到各平台。
+                        安装 MultiPublish 扩展后自动检测连接，无需手动配置。
                       </p>
                     </div>
                     {extConnected ? (
                       <span className="px-tag"><Check size={10} className="text-green-600" /> 已连接</span>
                     ) : (
-                      <span className="px-tag"><AlertCircle size={10} className="text-amber-500" /> 未连接</span>
+                      <span className="px-tag"><AlertCircle size={10} className="text-amber-500" /> 未检测到</span>
                     )}
                   </div>
-                  <div className="flex gap-2">
-                    <input
-                      value={extIdInput}
-                      onChange={(e) => setExtIdInput(e.target.value)}
-                      placeholder="输入 Chrome 扩展 ID（如 abcdefghijklmnopqrstuvwxyz）"
-                      className="flex-1 px-3 py-2 rounded-xl border border-[rgba(49,56,45,0.12)] bg-white text-[13px] text-[var(--ink)] placeholder:text-[var(--ink-faint)] focus:outline-none focus:border-[var(--accent)]/40"
-                    />
-                    <button onClick={handleSaveExtId} className="px-btn-primary text-[13px] whitespace-nowrap">
-                      保存
-                    </button>
-                  </div>
-                  <div className="mt-3 flex items-center gap-2 text-[12px] text-[var(--ink-faint)]">
-                    <ExternalLink size={10} />
-                    <span>获取方式：Chrome → chrome://extensions → 开发者模式 → 复制 MultiPublish 扩展 ID</span>
-                  </div>
+                  {extConnected && extIdInput && (
+                    <div className="mb-3 rounded-xl bg-green-50/60 px-3 py-2 text-[12px] text-green-700 font-mono break-all">
+                      扩展 ID: {extIdInput}
+                    </div>
+                  )}
+                  <details className="group">
+                    <summary className="cursor-pointer text-[12px] text-[var(--ink-faint)] hover:text-[var(--ink-soft)] transition">
+                      自动检测失败？手动输入扩展 ID
+                    </summary>
+                    <div className="mt-3 flex gap-2">
+                      <input
+                        value={extIdInput}
+                        onChange={(e) => setExtIdInput(e.target.value)}
+                        placeholder="输入 Chrome 扩展 ID"
+                        className="flex-1 px-3 py-2 rounded-xl border border-[rgba(49,56,45,0.12)] bg-white text-[13px] text-[var(--ink)] placeholder:text-[var(--ink-faint)] focus:outline-none focus:border-[var(--accent)]/40"
+                      />
+                      <button onClick={handleSaveExtId} className="px-btn-primary text-[13px] whitespace-nowrap">
+                        保存
+                      </button>
+                    </div>
+                  </details>
                 </div>
               </div>
             </div>

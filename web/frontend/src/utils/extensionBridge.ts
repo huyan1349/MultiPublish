@@ -1,4 +1,11 @@
-const EXTENSION_ID = localStorage.getItem('cb_extension_id') || '';
+let _extensionId = localStorage.getItem('cb_extension_id') || '';
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('multipublish:extension-id', ((e: CustomEvent) => {
+    _extensionId = e.detail;
+    localStorage.setItem('cb_extension_id', _extensionId);
+  }) as EventListener);
+}
 
 export interface ExtensionPublishPayload {
   platform: 'wechat' | 'zhihu' | 'bilibili' | 'xiaohongshu';
@@ -35,7 +42,7 @@ function getChrome(): ChromeNs | null {
 }
 
 export function isExtensionInstalled(): boolean {
-  return !!EXTENSION_ID || !!getChrome()?.runtime;
+  return !!_extensionId || !!getChrome()?.runtime;
 }
 
 export async function publishViaExtension(
@@ -48,8 +55,9 @@ async function publishViaExtensionMessage(
   payload: ExtensionPublishPayload,
 ): Promise<ExtensionPublishResult> {
   return new Promise((resolve, reject) => {
-    if (!EXTENSION_ID) {
-      reject(new Error('未配置扩展 ID，请在设置中填写 Chrome 扩展 ID'));
+    const extId = _extensionId || localStorage.getItem('cb_extension_id') || '';
+    if (!extId) {
+      reject(new Error('未检测到扩展，请确认 MultiPublish 扩展已安装并启用'));
       return;
     }
 
@@ -61,7 +69,7 @@ async function publishViaExtensionMessage(
 
     try {
       cr.runtime.sendMessage(
-        EXTENSION_ID,
+        extId,
         { type: 'PUBLISH_TO_PLATFORM', ...payload },
         (response: ExtensionPublishResult) => {
           if (cr.runtime?.lastError) {
@@ -78,9 +86,10 @@ async function publishViaExtensionMessage(
 }
 
 export function setExtensionId(id: string) {
+  _extensionId = id;
   localStorage.setItem('cb_extension_id', id);
 }
 
 export function getExtensionId(): string {
-  return EXTENSION_ID;
+  return _extensionId || localStorage.getItem('cb_extension_id') || '';
 }
