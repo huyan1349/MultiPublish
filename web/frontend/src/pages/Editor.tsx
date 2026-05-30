@@ -10,7 +10,7 @@ import PublishButton from '../components/publish/PublishButton';
 import ToastContainer, { showToast } from '../components/publish/Toast';
 import { publishViaExtension, isExtensionInstalled } from '../utils/extensionBridge';
 import { useExtensionStatus } from '../hooks/useExtensionStatus';
-import { generateTitle, suggestTags, generateContentFromOutline } from '../services/deepseek';
+import { generateTitle, suggestTags, generateContentFromOutline, beautifyContentForPlatform } from '../services/deepseek';
 import { api } from '../api/client';
 import type { PlatformType } from '../adapters/types';
 
@@ -131,6 +131,9 @@ export default function Editor() {
   const [generating, setGenerating] = useState(false);
   const [generatedContents, setGeneratedContents] = useState<Record<string, { title: string; htmlBody: string; tags: string[] }>>({});
 
+  // Beautify-all state
+  const [beautifyingPlatforms, setBeautifyingPlatforms] = useState<Set<PlatformType>>(new Set());
+
   const getSelectedText = useCallback((): string => {
     const sel = window.getSelection();
     if (!sel || sel.isCollapsed || !sel.toString().trim()) return '';
@@ -193,6 +196,42 @@ export default function Editor() {
     } catch (err) {
       showToast('error', '标签生成失败', err instanceof Error ? err.message : '');
     } finally { setAiLoading(null); }
+  };
+
+  const handleBeautifyAll = async () => {
+    const targets = allPlatforms.filter((p) => selectedPlatforms.has(p));
+    if (targets.length === 0 || beautifyingPlatforms.size > 0) return;
+    showToast('info', '开始一键优化', `正在为 ${targets.length} 个平台美化内容…`);
+    for (const p of targets) {
+      setBeautifyingPlatforms((prev) => new Set(prev).add(p));
+    }
+    const results: Array<{ platform: PlatformType; result: BeautifiedContent }> = [];
+    for (const platform of targets) {
+      const state = platformStates.get(platform);
+      if (!state) continue;
+      try {
+        const res = await beautifyContentForPlatform({
+            platform,
+            platformName: PLATFORM_NAMES[platform],
+            title: draft.title || '未命名',
+            htmlContent: draft.htmlContent || state.output.body,
+            tags: state.output.tags.length > 0 ? state.output.tags : ['内容创作'],
+          });
+        setBeautifiedOutput(platform, res);
+        results.push({ platform, result: res });
+      } catch (err) {
+        showToast('error', `${PLATFORM_NAMES[platform]} 美化失败`, err instanceof Error ? err.message : '');
+      } finally {
+        setBeautifyingPlatforms((prev) => {
+          const next = new Set(prev);
+          next.delete(platform);
+          return next;
+        });
+      }
+    }
+    if (results.length > 0) {
+      showToast('success', `已优化 ${results.length}/${targets.length} 个平台`, '点击平台标签切换查看，或直接应用到对应平台');
+    }
   };
 
   const handleBeautifyStart = useCallback((_platform: PlatformType) => {}, []);
@@ -669,6 +708,22 @@ export default function Editor() {
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
+                  <button
+                    onClick={handleBeautifyAll}
+                    disabled={beautifyingPlatforms.size > 0}
+                    className="flex items-center gap-1.5 px-4 py-2.5 rounded-[12px] text-white text-[13px] font-medium transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg disabled:opacity-50 disabled:hover:translate-y-0"
+                    style={{
+                      background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)',
+                      boxShadow: '0 6px 20px rgba(139,92,246,0.3)',
+                    }}
+                  >
+                    {beautifyingPlatforms.size > 0 ? (
+                      <RefreshCw size={13} className="animate-spin" />
+                    ) : (
+                      <Sparkles size={13} />
+                    )}
+                    {beautifyingPlatforms.size > 0 ? `优化中 ${beautifyingPlatforms.size}…` : '一键优化全部'}
+                  </button>
                   <button onClick={handleSaveToBackend} disabled={saving} className="px-btn-secondary">
                     <Save size={13} />
                     {saving ? '保存中' : isEditing ? '保存修改' : '保存预览'}
@@ -706,7 +761,10 @@ export default function Editor() {
                       <span className="text-[9px] opacity-60">已选</span>
                     )}
                     {beautifiedOutputs.has(p) && (
-                      <span className="text-[9px] opacity-60" style={{ color: PLATFORM_BRAND[p]?.color }}>已美化</span>
+                      <Sparkles size={10} style={{ color: PLATFORM_BRAND[p]?.color }} />
+                    )}
+                    {beautifyingPlatforms.has(p) && (
+                      <RefreshCw size={10} className="animate-spin" style={{ color: PLATFORM_BRAND[p]?.color }} />
                     )}
                     {activePlatform === p && (
                       <div
