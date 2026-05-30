@@ -4,18 +4,18 @@ export default {
     extend: {
       colors: {
         px: {
-          bg: '#FAFAF9',
-          surface: '#F2F2F0',
+          bg: '#F7F7F5',
+          surface: '#EFEFED',
           card: '#FFFFFF',
-          hover: '#EBEBE9',
-          border: '#E2E2E0',
+          hover: '#E8E8E6',
+          border: '#E5E5E3',
           'border-subtle': '#EAEAE8',
         },
         tx: {
           DEFAULT: '#1A1A1A',
-          dim: '#6B6B6B',
-          mute: '#999999',
-          faint: '#C8C8C6',
+          dim: '#888888',
+          mute: '#AAAAAA',
+          faint: '#C0C0BE',
         },
         dot: {
           red: '#FF3B30',
@@ -27,15 +27,15 @@ export default {
         xiaohongshu: '#FF2442',
       },
       fontFamily: {
-        mono: ['"Space Mono"', 'monospace'],
-        sans: ['"Inter"', 'system-ui', 'sans-serif'],
+        mono: ['"JetBrains Mono"', 'monospace'],
+        sans: ['"DM Sans"', 'system-ui', 'sans-serif'],
       },
       borderRadius: {
         none: '0px',
         sm: '2px',
       },
       letterSpacing: {
-        pixel: '0.15em',
+        pixel: '0.16em',
         wide: '0.08em',
       },
     },
