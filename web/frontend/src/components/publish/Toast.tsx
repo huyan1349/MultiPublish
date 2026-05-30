@@ -18,14 +18,14 @@ export function showToast(type: ToastData['type'], title: string, message: strin
 
 const iconMap = { success: CheckCircle2, error: XCircle, warning: AlertTriangle };
 const borderColor = {
-  success: '#07C160',
-  error: '#FF3B30',
-  warning: '#F59E0B',
+  success: '#6f846d',
+  error: '#b45d5d',
+  warning: '#6d8aa6',
 };
 const iconColor = {
-  success: '#07C160',
-  error: '#FF3B30',
-  warning: '#F59E0B',
+  success: '#6f846d',
+  error: '#b45d5d',
+  warning: '#6d8aa6',
 };
 
 export default function ToastContainer() {
@@ -53,8 +53,8 @@ export default function ToastContainer() {
               animate={{ opacity: 1, x: 0, scale: 1 }}
               exit={{ opacity: 0, x: 30, scale: 0.96 }}
               transition={{ duration: 0.18, ease: [0.25, 0.1, 0.25, 1] }}
-              className="pointer-events-auto flex items-start gap-3 p-4 bg-white border min-w-[300px] shadow-[0_2px_12px_rgba(0,0,0,0.08)]"
-              style={{ borderLeftWidth: 3, borderLeftColor: borderColor[toast.type], borderColor: '#E2E2E0' }}
+              className="pointer-events-auto flex min-w-[300px] items-start gap-3 rounded-[22px] border bg-white p-4 shadow-[0_12px_28px_rgba(0,0,0,0.08)]"
+              style={{ borderLeftWidth: 3, borderLeftColor: borderColor[toast.type], borderColor: '#dfe6dc' }}
             >
               <motion.div
                 initial={{ scale: 0.5, opacity: 0 }}

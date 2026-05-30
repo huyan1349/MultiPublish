@@ -5,7 +5,7 @@ export default function Layout({ children }: { children: ReactNode }) {
   return (
     <div className="app-shell flex min-h-screen overflow-hidden">
       <Sidebar />
-      <main className="flex-1 overflow-auto px-4 py-4 md:px-5 md:py-5">
+      <main className="flex-1 overflow-auto px-2 py-2 md:px-3 md:py-3">
         {children}
       </main>
     </div>

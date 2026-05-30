@@ -5,10 +5,10 @@ import type { BeautifiedContent } from '../../stores/contentStore';
 import type { PlatformType } from '../../adapters/types';
 
 const platformMeta: Record<string, { color: string; label: string }> = {
-  wechat:      { color: '#07C160', label: 'WC' },
-  zhihu:       { color: '#0066FF', label: 'ZH' },
-  bilibili:    { color: '#FB7299', label: 'BL' },
-  xiaohongshu: { color: '#FF2442', label: 'XH' },
+  wechat:      { color: '#6f846d', label: 'WC' },
+  zhihu:       { color: '#6d8aa6', label: 'ZH' },
+  bilibili:    { color: '#50624f', label: 'BL' },
+  xiaohongshu: { color: '#8ba287', label: 'XH' },
 };
 
 const levelIcon: Record<string, typeof XCircle> = { error: XCircle, warning: AlertTriangle, info: Info };
@@ -92,8 +92,8 @@ export default function PlatformCard({
     <div
       className={`cursor-pointer overflow-hidden rounded-[28px] border transition-all duration-200
         ${selected
-          ? 'border-[rgba(120,104,89,0.16)] bg-[rgba(255,252,247,0.78)] shadow-[0_18px_32px_rgba(70,46,28,0.08)]'
-          : 'border-[rgba(120,104,89,0.1)] bg-[rgba(249,243,235,0.48)] opacity-60 hover:opacity-85'}`}
+          ? 'border-[rgba(49,56,45,0.16)] bg-[rgba(255,255,255,0.82)] shadow-[0_18px_32px_rgba(41,48,39,0.08)]'
+          : 'border-[rgba(49,56,45,0.1)] bg-[rgba(244,249,243,0.72)] opacity-60 hover:opacity-85'}`}
       onClick={onToggle}
     >
       <div className="p-5">
@@ -104,13 +104,13 @@ export default function PlatformCard({
               <span className="font-['IBM_Plex_Mono'] text-[10px] uppercase tracking-[0.18em] text-[var(--ink)]">{platformName}</span>
               <span className="font-['IBM_Plex_Mono'] text-[8px] uppercase tracking-[0.18em] text-[var(--ink-faint)]">{meta.label}</span>
               {status && status !== 'idle' && (
-                <span className="rounded-full border border-[rgba(120,104,89,0.12)] px-2 py-1 font-['IBM_Plex_Mono'] text-[8px] uppercase tracking-[0.18em] text-[var(--ink-faint)]">
-                  {status}
+                <span className="rounded-full border border-[rgba(49,56,45,0.12)] px-2 py-1 font-['IBM_Plex_Mono'] text-[8px] uppercase tracking-[0.18em] text-[var(--ink-faint)]">
+                  {status === 'publishing' ? '发布中' : status === 'success' ? '成功' : status === 'failed' ? '失败' : status}
                 </span>
               )}
             </div>
             <p className="mt-2 font-['Cormorant_Garamond'] text-[28px] leading-none tracking-[-0.05em] text-[var(--ink)]">
-              {selected ? 'Ready to adapt and publish.' : 'Currently muted from the publish run.'}
+              {selected ? '这个平台已加入当前发布批次。' : '这个平台暂时不参与本次发布。'}
             </p>
           </div>
           {beautifiedContent && (
@@ -118,17 +118,17 @@ export default function PlatformCard({
               className="ml-auto rounded-full px-3 py-1 font-['IBM_Plex_Mono'] text-[8px] uppercase tracking-[0.18em]"
               style={{ backgroundColor: meta.color + '14', color: meta.color, border: `1px solid ${meta.color}22` }}
             >
-              Beautified
+              已美化
             </span>
           )}
         </div>
 
         {selected && (
           <div className="space-y-4">
-            <div className="grid gap-3 rounded-[22px] border border-[rgba(120,104,89,0.12)] bg-[rgba(255,252,247,0.56)] p-4">
+            <div className="grid gap-3 rounded-[22px] border border-[rgba(49,56,45,0.12)] bg-[rgba(255,255,255,0.72)] p-4">
               <div>
                 <div className="mb-2 flex items-center justify-between font-['IBM_Plex_Mono'] text-[9px] uppercase tracking-[0.16em]">
-                  <span className="text-[var(--ink-faint)]">Title</span>
+                  <span className="text-[var(--ink-faint)]">标题</span>
                   <span className={titleCount > titleMax ? 'text-red-600' : 'text-[var(--ink-faint)]'}>
                     {titleCount}/{titleMax}
                   </span>
@@ -143,13 +143,13 @@ export default function PlatformCard({
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <div className="font-['IBM_Plex_Mono'] text-[9px] uppercase tracking-[0.16em] text-[var(--ink-faint)]">Body</div>
+                  <div className="font-['IBM_Plex_Mono'] text-[9px] uppercase tracking-[0.16em] text-[var(--ink-faint)]">正文</div>
                   <div className="mt-2 text-[13px] text-[var(--ink-soft)]">
                     {bodyCount.toLocaleString()}{bodyMax < Infinity ? ` / ${bodyMax.toLocaleString()}` : ''}
                   </div>
                 </div>
                 <div>
-                  <div className="font-['IBM_Plex_Mono'] text-[9px] uppercase tracking-[0.16em] text-[var(--ink-faint)]">Tags</div>
+                  <div className="font-['IBM_Plex_Mono'] text-[9px] uppercase tracking-[0.16em] text-[var(--ink-faint)]">标签</div>
                   <div className={`mt-2 text-[13px] ${tagCount > tagMax ? 'text-red-600' : 'text-[var(--ink-soft)]'}`}>
                     {tagCount}/{tagMax}
                   </div>
@@ -159,7 +159,7 @@ export default function PlatformCard({
 
             <div className="flex items-center justify-between">
               <div className="text-[12px] leading-6 text-[var(--ink-soft)]">
-                {statusMessage || 'Preview, beautify, then decide whether this channel joins the publish batch.'}
+                {statusMessage || '先看预览、再做美化，确认后决定它是否参与这次真实发布。'}
               </div>
 
               <div className="ml-3 flex items-center gap-1">
@@ -175,7 +175,7 @@ export default function PlatformCard({
                 </button>
                 <button
                   onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
-                  className="flex h-9 w-9 items-center justify-center rounded-full border border-transparent text-[var(--ink-faint)] transition-all duration-200 hover:border-[rgba(120,104,89,0.14)] hover:bg-[rgba(255,255,255,0.6)] hover:text-[var(--ink)]"
+                  className="flex h-9 w-9 items-center justify-center rounded-full border border-transparent text-[var(--ink-faint)] transition-all duration-200 hover:border-[rgba(49,56,45,0.14)] hover:bg-[rgba(255,255,255,0.6)] hover:text-[var(--ink)]"
                 >
                   {expanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
                 </button>
@@ -183,9 +183,9 @@ export default function PlatformCard({
             </div>
 
             {messages.length > 0 && (
-              <div className="rounded-[20px] border border-[rgba(120,104,89,0.12)] bg-[rgba(255,252,247,0.48)] p-4">
+              <div className="rounded-[20px] border border-[rgba(49,56,45,0.12)] bg-[rgba(255,255,255,0.62)] p-4">
                 <div className="mb-2 font-['IBM_Plex_Mono'] text-[9px] uppercase tracking-[0.16em] text-[var(--ink-faint)]">
-                  Validation notes
+                  校验提示
                 </div>
                 <div className="space-y-1.5">
                   {messages.map((m, i) => {
@@ -212,20 +212,20 @@ export default function PlatformCard({
             transition: 'max-height 0.3s ease, opacity 0.2s ease',
           }}
         >
-          <div ref={expandRef} className="border-t border-[rgba(120,104,89,0.12)] bg-[rgba(249,243,235,0.6)] px-5 py-4">
+          <div ref={expandRef} className="border-t border-[rgba(49,56,45,0.12)] bg-[rgba(244,249,243,0.76)] px-5 py-4">
             {beautifiedContent && (
-              <div className="mb-4 rounded-[22px] border border-[rgba(120,104,89,0.12)] bg-[rgba(255,252,247,0.72)] p-4">
+              <div className="mb-4 rounded-[22px] border border-[rgba(49,56,45,0.12)] bg-[rgba(255,255,255,0.82)] p-4">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-1.5">
                     <Sparkles size={9} style={{ color: meta.color }} />
-                    <span className="font-['IBM_Plex_Mono'] text-[9px] font-bold uppercase tracking-[0.18em]" style={{ color: meta.color }}>AI beautified</span>
+                    <span className="font-['IBM_Plex_Mono'] text-[9px] font-bold uppercase tracking-[0.18em]" style={{ color: meta.color }}>AI 美化结果</span>
                   </div>
                   <button
                     onClick={handleApply}
                     className="flex items-center gap-1 rounded-full px-3 py-2 font-['IBM_Plex_Mono'] text-[8px] uppercase tracking-[0.18em] text-white transition-opacity hover:opacity-90"
                     style={{ backgroundColor: meta.color, boxShadow: `0 12px 24px ${meta.color}2a` }}
                   >
-                    <Check size={9} /> APPLY
+                    <Check size={9} /> 应用
                   </button>
                 </div>
                 {beautifiedContent.title && (
@@ -242,7 +242,7 @@ export default function PlatformCard({
               </div>
             )}
 
-            <span className="font-['IBM_Plex_Mono'] text-[9px] uppercase tracking-[0.18em] text-[var(--ink-faint)]">Original</span>
+            <span className="font-['IBM_Plex_Mono'] text-[9px] uppercase tracking-[0.18em] text-[var(--ink-faint)]">原始输出</span>
             <pre className="mt-2 line-clamp-4 whitespace-pre-wrap font-['IBM_Plex_Mono'] text-[10px] leading-7 text-[var(--ink-soft)]">{previewBody}</pre>
             {previewTags.length > 0 && (
               <div className="flex flex-wrap gap-1 mt-2">

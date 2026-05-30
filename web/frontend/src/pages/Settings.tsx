@@ -5,8 +5,8 @@ import { useContentStore } from '../stores/contentStore';
 const APP_VERSION = '2.1';
 
 const CHANGELOG = [
-  { version: '2.1', date: '2026-05-30', items: ['草稿自动保存（3秒防抖，localStorage 持久化）', '灵感页打字机效果（逐行揭示标题/大纲/标签）', '灵感页 REGENERATE 按钮', '灵感页话题建议 chips', '灵感页空状态 dot-grid 设计'] },
-  { version: '2.0', date: '2026-05-28', items: ['Light Pixel 像素风 UI 重构', '四平台适配器架构', 'Tiptap 富文本编辑器', 'AI 标题/标签生成'] },
+  { version: '2.1', date: '2026-05-30', items: ['草稿自动保存', '灵感页逐步揭示结果', '发布记录与预览联动', '编辑式圆角视觉系统'] },
+  { version: '2.0', date: '2026-05-28', items: ['四平台适配器', 'Tiptap 富文本编辑器', 'AI 标题与标签建议'] },
 ];
 
 export default function Settings() {
@@ -31,84 +31,89 @@ export default function Settings() {
 
   return (
     <div className="h-full overflow-y-auto scrollbar-thin">
-      <div className="max-w-[640px] mx-auto px-12 py-16">
-        <div className="flex items-center gap-3 mb-3">
-          <div className="px-dot" style={{ backgroundColor: '#FF3B30' }} />
-          <span className="px-label">SETTINGS</span>
-        </div>
-        <h1 className="font-mono font-bold text-[28px] text-tx tracking-tight mb-12">
-          设置<span className="text-dot-red">.</span>偏好
-        </h1>
+      <div className="mx-auto flex max-w-[1100px] flex-col gap-6">
+        <section className="px-card px-paper p-6 md:p-7">
+          <div className="px-label mb-4">设置与偏好</div>
+          <h1 className="font-['Cormorant_Garamond'] text-[52px] leading-[0.92] tracking-[-0.07em] text-[var(--ink)]">
+            管理草稿、查看版本，
+            <br />
+            保持工具状态清晰。
+          </h1>
+        </section>
 
-        <div className="px-card p-6 mb-6">
-          <div className="px-label mb-4">DRAFT</div>
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-mono text-xs text-tx">自动保存</p>
-                <p className="font-mono text-[10px] text-tx-mute mt-1">编辑器内容每 3 秒自动保存到本地</p>
-              </div>
-              <span className="flex items-center gap-1 px-tag">
-                <Check size={9} className="text-emerald-500" /> ON
-              </span>
-            </div>
-            <div className="px-divider" />
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-mono text-xs text-tx">手动保存</p>
-                <p className="font-mono text-[10px] text-tx-mute mt-1">立即将当前草稿保存到本地存储</p>
-              </div>
-              <button onClick={handleForceSave} className="px-btn-secondary text-[9px]">
-                SAVE NOW
-              </button>
-            </div>
-            <div className="px-divider" />
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-mono text-xs text-tx">清除草稿</p>
-                <p className="font-mono text-[10px] text-tx-mute mt-1">清空编辑器内容和本地缓存</p>
-              </div>
-              <button onClick={handleClearDraft} className="px-btn-danger text-[9px]">
-                <Trash2 size={11} /> CLEAR
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div className="px-card p-6 mb-6">
-          <div className="px-label mb-4">VERSION</div>
-          <div className="flex items-center gap-3">
-            <span className="font-mono font-bold text-lg text-tx">{APP_VERSION}</span>
-            <span className="px-tag">STABLE</span>
-          </div>
-        </div>
-
-        <div className="px-card p-6">
-          <div className="px-label mb-5">CHANGELOG</div>
-          <div className="space-y-6">
-            {CHANGELOG.map((log) => (
-              <div key={log.version}>
-                <div className="flex items-center gap-3 mb-3">
-                  <span className="font-mono font-bold text-xs text-tx">V{log.version}</span>
-                  <span className="font-mono text-[10px] text-tx-faint">{log.date}</span>
+        <section className="grid gap-6 xl:grid-cols-[1fr_360px]">
+          <div className="px-card px-paper p-6">
+            <div className="px-label mb-5">草稿管理</div>
+            <div className="space-y-4">
+              <div className="rounded-[24px] border border-[rgba(49,56,45,0.1)] bg-[rgba(255,255,255,0.72)] p-5">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <div className="text-[14px] text-[var(--ink)]">自动保存</div>
+                    <p className="mt-2 text-[13px] leading-6 text-[var(--ink-soft)]">编辑器内容会持续写入本地，避免误关页面导致内容丢失。</p>
+                  </div>
+                  <span className="px-tag"><Check size={10} className="text-[var(--accent-deep)]" /> 已开启</span>
                 </div>
-                <ul className="space-y-1.5 pl-4">
-                  {log.items.map((item, i) => (
-                    <li key={i} className="font-mono text-[11px] text-tx-dim flex items-start gap-2">
-                      <span className="text-tx-faint mt-px">·</span>
-                      <span>{item}</span>
-                    </li>
-                  ))}
-                </ul>
               </div>
-            ))}
+
+              <div className="rounded-[24px] border border-[rgba(49,56,45,0.1)] bg-[rgba(255,255,255,0.72)] p-5">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <div className="text-[14px] text-[var(--ink)]">手动保存</div>
+                    <p className="mt-2 text-[13px] leading-6 text-[var(--ink-soft)]">在切换任务前立即把当前草稿写入本地存储。</p>
+                  </div>
+                  <button onClick={handleForceSave} className="px-btn-secondary">立即保存</button>
+                </div>
+              </div>
+
+              <div className="rounded-[24px] border border-[rgba(49,56,45,0.1)] bg-[rgba(255,255,255,0.72)] p-5">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <div className="text-[14px] text-[var(--ink)]">清除草稿</div>
+                    <p className="mt-2 text-[13px] leading-6 text-[var(--ink-soft)]">删除编辑器中的文本和本地缓存，适合完全开始一篇新稿件时使用。</p>
+                  </div>
+                  <button onClick={handleClearDraft} className="px-btn-danger">
+                    <Trash2 size={12} />
+                    清除
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
+
+          <div className="grid gap-6">
+            <div className="px-card px-paper p-6">
+              <div className="px-label mb-4">版本信息</div>
+              <div className="font-['Cormorant_Garamond'] text-[42px] leading-none tracking-[-0.05em] text-[var(--ink)]">
+                {APP_VERSION}
+              </div>
+              <div className="mt-3 text-[13px] leading-6 text-[var(--ink-soft)]">当前是稳定版本，可继续用于真实发布演示。</div>
+            </div>
+
+            <div className="px-card px-paper p-6">
+              <div className="px-label mb-4">更新记录</div>
+              <div className="space-y-5">
+                {CHANGELOG.map((log) => (
+                  <div key={log.version} className="rounded-[22px] border border-[rgba(49,56,45,0.1)] bg-[rgba(255,255,255,0.72)] p-4">
+                    <div className="mb-3 flex items-center justify-between gap-4">
+                      <span className="font-['IBM_Plex_Mono'] text-[10px] tracking-[0.16em] text-[var(--ink)]">V{log.version}</span>
+                      <span className="text-[12px] text-[var(--ink-faint)]">{log.date}</span>
+                    </div>
+                    <div className="space-y-2 text-[13px] leading-6 text-[var(--ink-soft)]">
+                      {log.items.map((item, index) => (
+                        <div key={index}>{item}</div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
 
         {toast && (
           <div className="fixed bottom-6 right-6 px-fade-in">
-            <div className={`px-card px-4 py-3 flex items-center gap-2 font-mono text-[11px] ${
-              toast.type === 'success' ? 'text-emerald-600 border-emerald-200' : 'text-dot-red border-dot-red/30'
+            <div className={`px-card px-4 py-3 flex items-center gap-2 text-[12px] ${
+              toast.type === 'success' ? 'text-[var(--accent-deep)] border-[var(--accent)]/25' : 'text-red-700 border-red-300/40'
             }`}>
               {toast.type === 'success' ? <Check size={12} /> : <AlertCircle size={12} />}
               {toast.msg}

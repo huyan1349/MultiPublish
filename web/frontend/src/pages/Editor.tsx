@@ -20,23 +20,23 @@ function ExtensionIndicator() {
 
   if (extStatus.checking) {
     return (
-      <span className="px-tag border-amber-300/40 bg-amber-100/60 text-amber-700">
-        <span className="px-dot bg-amber-500 px-blink" /> Checking extension
+      <span className="px-tag border-[var(--accent)]/25 bg-[var(--accent)]/8 text-[var(--accent-deep)]">
+        <span className="px-dot bg-[var(--accent)] px-blink" /> 检查扩展中
       </span>
     );
   }
 
   if (extStatus.available) {
     return (
-      <span className="px-tag border-emerald-300/40 bg-emerald-100/60 text-emerald-700">
-        <span className="px-dot bg-emerald-500" /> Extension live{extStatus.version ? ` v${extStatus.version}` : ''}
+      <span className="px-tag border-[var(--accent)]/25 bg-[var(--accent)]/10 text-[var(--accent-deep)]">
+        <span className="px-dot bg-[var(--accent)]" /> 扩展已连接{extStatus.version ? ` v${extStatus.version}` : ''}
       </span>
     );
   }
 
   return (
     <span className="px-tag border-red-300/40 bg-red-100/70 text-red-700">
-      <span className="px-dot bg-red-500" /> Extension offline
+      <span className="px-dot bg-red-500" /> 扩展未连接
     </span>
   );
 }
@@ -71,7 +71,7 @@ export default function Editor() {
     try {
       const titles = await generateTitle(draft.htmlContent);
       if (titles.length > 0) setDraft({ title: titles[0] });
-      showToast('success', '标题已生成', `共 ${titles.length} 个候选`);
+      showToast('success', '标题已生成', `生成了 ${titles.length} 个候选标题`);
     } catch (err) {
       showToast('error', '标题生成失败', err instanceof Error ? err.message : '');
     } finally {
@@ -97,7 +97,7 @@ export default function Editor() {
   const handleBeautifyComplete = useCallback((platform: PlatformType) => (result: BeautifiedContent) => {
     setBeautifiedOutput(platform, result);
     const state = platformStates.get(platform);
-    showToast('success', `${state?.platformName || platform} 美化完成`, '点击 APPLY 应用到发布内容');
+    showToast('success', `${state?.platformName || platform} 已美化`, '可以在卡片里应用到当前平台版本');
   }, [platformStates, setBeautifiedOutput]);
 
   const handleBeautifyError = useCallback((platform: PlatformType) => (errorMsg: string) => {
@@ -110,7 +110,7 @@ export default function Editor() {
     if (!beautified) return;
     applyBeautifiedContent(platform, beautified.title, beautified.htmlBody, beautified.tags);
     const state = platformStates.get(platform);
-    showToast('success', `${state?.platformName || platform} 已应用`, '美化内容已写入平台输出');
+    showToast('success', `${state?.platformName || platform} 已应用`, '美化内容已经写入当前平台输出');
   }, [beautifiedOutputs, applyBeautifiedContent, platformStates]);
 
   const handleSaveToBackend = async () => {
@@ -150,7 +150,7 @@ export default function Editor() {
 
     const health = await checkExtensionHealth();
     if (!health.connected) {
-      showToast('error', '扩展未连接', '请确保已安装并启用 MultiPublish 扩展，然后刷新页面重试。');
+      showToast('error', '扩展未连接', '请先安装并启用 MultiPublish 扩展，然后再执行真实发布。');
       return;
     }
 
@@ -190,54 +190,52 @@ export default function Editor() {
   return (
     <div className="h-full overflow-y-auto scrollbar-thin">
       <ToastContainer />
-      <div className="mx-auto flex max-w-[1480px] flex-col gap-6">
-        <section className="px-card px-paper p-6 md:p-7">
-          <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
-            <div className="space-y-4">
+      <div className="mx-auto flex max-w-[1520px] flex-col gap-6">
+        <section className="px-card px-paper p-5 md:p-6">
+          <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
+            <div className="space-y-3">
               <button onClick={() => navigate('/')} className="px-btn-ghost -ml-3 w-fit">
                 <ArrowLeft size={14} />
-                Back to overview
+                返回工作台
               </button>
-              <div className="space-y-3">
-                <div className="px-label">Writing desk</div>
-                <h1 className="font-['Cormorant_Garamond'] text-[58px] leading-[0.9] tracking-[-0.07em] text-[var(--ink)]">
-                  Shape the original draft,
-                  <br />
-                  then tune each destination.
-                </h1>
-                <p className="max-w-[680px] text-[14px] leading-7 text-[var(--ink-soft)]">
-                  The composition area stays generous and calm. Platform constraints, AI polish, and extension status sit beside the manuscript instead of fighting for attention.
-                </p>
+              <div className="flex flex-wrap gap-2">
+                <span className="px-tag"><span className="px-dot bg-[var(--accent)]" /> 草稿进行中</span>
+                <span className="px-tag">最近修改刚刚</span>
+              </div>
+              <div className="font-['Cormorant_Garamond'] text-[46px] leading-[0.92] tracking-[-0.07em] text-[var(--ink)]">
+                编辑台
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-wrap items-center justify-start gap-3 xl:justify-end">
               <ExtensionIndicator />
-              <button onClick={loadDemo} className="px-btn-secondary">Load demo</button>
+              <button onClick={loadDemo} className="px-btn-secondary">载入示例</button>
               <button onClick={handleAiTitle} disabled={!!aiLoading} className="px-btn-ghost">
                 {aiLoading === 'title' ? <RefreshCw size={13} className="animate-spin" /> : <Wand2 size={13} />}
-                AI title
+                标题建议
               </button>
               <button onClick={handleAiTags} disabled={!!aiLoading} className="px-btn-ghost">
                 {aiLoading === 'tags' ? <RefreshCw size={13} className="animate-spin" /> : <Sparkles size={13} />}
-                AI tags
+                标签建议
               </button>
               <button onClick={handleSaveToBackend} disabled={saving} className="px-btn-primary">
                 <Save size={13} />
-                {saving ? 'Saving' : 'Save preview'}
+                {saving ? '保存中' : '保存预览'}
               </button>
             </div>
           </div>
         </section>
 
-        <section className="grid gap-6 xl:grid-cols-[290px_minmax(0,1fr)_360px]">
-          <aside className="px-card px-soft-panel p-5 md:p-6">
-            <div className="px-label mb-4">Draft metadata</div>
-            <div className="space-y-4">
+        <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+          <div className="px-card px-paper overflow-hidden">
+            <div className="border-b border-[rgba(49,56,45,0.1)] px-6 py-5 md:px-8">
               <div>
-                <div className="mb-2 font-['IBM_Plex_Mono'] text-[10px] uppercase tracking-[0.18em] text-[var(--ink-faint)]">
-                  Title
-                </div>
+                <div className="px-label mb-3">正文编辑区</div>
+                <p className="font-['Cormorant_Garamond'] text-[34px] leading-none tracking-[-0.05em] text-[var(--ink)]">
+                  当前主稿
+                </p>
+              </div>
+              <div className="mt-4 grid gap-3 md:grid-cols-3">
                 <input
                   type="text"
                   value={draft.title}
@@ -245,97 +243,59 @@ export default function Editor() {
                     setDraft({ title: event.target.value });
                     setError('');
                   }}
-                  placeholder="Give this piece a headline"
+                  placeholder="输入标题"
                   className="px-input"
                 />
-              </div>
-
-              <div>
-                <div className="mb-2 font-['IBM_Plex_Mono'] text-[10px] uppercase tracking-[0.18em] text-[var(--ink-faint)]">
-                  Tags
-                </div>
                 <input
                   type="text"
                   value={draft.tags}
                   onChange={(event) => setDraft({ tags: event.target.value })}
-                  placeholder="Design, workflow, creator tools"
+                  placeholder="输入标签，用逗号分隔"
                   className="px-input"
                 />
-              </div>
-
-              <div>
-                <div className="mb-2 font-['IBM_Plex_Mono'] text-[10px] uppercase tracking-[0.18em] text-[var(--ink-faint)]">
-                  Cover URL
-                </div>
                 <input
                   type="text"
                   value={draft.coverImage}
                   onChange={(event) => setDraft({ coverImage: event.target.value })}
-                  placeholder="Optional cover asset"
+                  placeholder="封面图地址，可选"
                   className="px-input"
                 />
               </div>
             </div>
-
-            <div className="my-6 px-divider" />
-
-            <div className="space-y-4">
-              <div className="px-label">Notes</div>
-              <p className="text-[13px] leading-7 text-[var(--ink-soft)]">
-                Save generates server-side platform previews. Publish sends those outputs through the real extension bridge.
-              </p>
-
-              <div className="rounded-[22px] border border-[rgba(120,104,89,0.12)] bg-[rgba(255,252,247,0.72)] p-4">
-                <div className="font-['IBM_Plex_Mono'] text-[10px] uppercase tracking-[0.18em] text-[var(--ink-faint)]">
-                  Active targets
-                </div>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {allPlatforms.map((platform) => {
-                    const state = platformStates.get(platform);
-                    return (
-                      <span key={platform} className={`px-tag ${selectedPlatforms.has(platform) ? '' : 'opacity-45'}`}>
-                        {state?.platformName || platform}
-                      </span>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          </aside>
-
-          <div className="px-card px-paper overflow-hidden">
-            <div className="border-b border-[rgba(120,104,89,0.12)] px-6 py-5 md:px-8">
-              <div className="px-label mb-3">Manuscript</div>
-              <p className="font-['Cormorant_Garamond'] text-[34px] leading-none tracking-[-0.05em] text-[var(--ink)]">
-                The original voice lives here.
-              </p>
-            </div>
             <div className="px-4 pb-4 pt-2 md:px-6 md:pb-6">
               <TiptapEditor
                 content={draft.htmlContent}
-                placeholder="Start with a strong opening, then let the platform adaptations follow."
+                placeholder="在这里开始写作，系统会同步计算各个平台的字数、标签和适配结果。"
                 onChange={handleEditorChange}
               />
             </div>
           </div>
 
-          <div className="px-card px-soft-panel flex min-h-[780px] flex-col p-5 md:p-6">
-            <div className="mb-4 flex items-end justify-between gap-4">
-              <div>
-                <div className="px-label mb-3">Platform outputs</div>
-                <p className="font-['Cormorant_Garamond'] text-[34px] leading-none tracking-[-0.05em] text-[var(--ink)]">
-                  Tune each channel.
-                </p>
-              </div>
+          <div className="px-card px-soft-panel flex min-h-[780px] flex-col p-5">
+            <div className="mb-4">
+              <div className="px-label mb-3">发布控制台</div>
+              <p className="font-['Cormorant_Garamond'] text-[32px] leading-none tracking-[-0.05em] text-[var(--ink)]">
+                平台输出
+              </p>
             </div>
 
-            <div className="mb-4 rounded-[22px] border border-[rgba(120,104,89,0.12)] bg-[rgba(255,252,247,0.62)] px-4 py-4">
-              <div className="font-['IBM_Plex_Mono'] text-[10px] uppercase tracking-[0.18em] text-[var(--ink-faint)]">
-                Publish guidance
+            <div className="mb-4 rounded-[24px] border border-[rgba(49,56,45,0.1)] bg-[rgba(255,255,255,0.78)] p-4">
+              <div className="px-label mb-3">目标平台</div>
+              <div className="flex flex-wrap gap-2">
+                {allPlatforms.map((platform) => {
+                  const state = platformStates.get(platform);
+                  return (
+                    <button
+                      key={platform}
+                      type="button"
+                      onClick={() => togglePlatform(platform)}
+                      className={`px-tag ${selectedPlatforms.has(platform) ? 'border-[var(--accent)]/30 bg-[var(--accent)]/10 text-[var(--accent-deep)]' : 'opacity-55'}`}
+                    >
+                      {state?.platformName || platform}
+                    </button>
+                  );
+                })}
               </div>
-              <p className="mt-3 text-[13px] leading-7 text-[var(--ink-soft)]">
-                Select the channels you want active, inspect validation notes, then publish from the footer when the extension is online.
-              </p>
             </div>
 
             <div className="flex-1 space-y-3 overflow-y-auto pr-1 scrollbar-thin">
@@ -376,13 +336,13 @@ export default function Editor() {
               <div className="mt-4 rounded-[22px] border border-red-300/40 bg-red-100/60 px-4 py-3 text-[12px] text-red-700">
                 <div className="flex items-center gap-2 font-['IBM_Plex_Mono'] text-[10px] uppercase tracking-[0.16em]">
                   <AlertCircle size={12} />
-                  Validation
+                  校验提示
                 </div>
                 <p className="mt-2 leading-6">{error}</p>
               </div>
             )}
 
-            <div className="mt-4 border-t border-[rgba(120,104,89,0.12)] pt-4">
+            <div className="mt-4 border-t border-[rgba(49,56,45,0.12)] pt-4">
               <PublishButton
                 publishing={publishing}
                 selectedCount={Array.from(selectedPlatforms).length}
