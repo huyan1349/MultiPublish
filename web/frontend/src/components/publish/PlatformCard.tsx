@@ -4,11 +4,11 @@ import { beautifyContentForPlatform } from '../../services/deepseek';
 import type { BeautifiedContent } from '../../stores/contentStore';
 import type { PlatformType } from '../../adapters/types';
 
-const platformMeta: Record<string, { color: string; soft: string; deep: string; label: string }> = {
-  wechat:      { color: 'var(--platform-wechat)', soft: 'var(--platform-wechat-soft)', deep: 'var(--platform-wechat-deep)', label: 'WC' },
-  zhihu:       { color: 'var(--platform-zhihu)', soft: 'var(--platform-zhihu-soft)', deep: 'var(--platform-zhihu-deep)', label: 'ZH' },
-  bilibili:    { color: 'var(--platform-bilibili)', soft: 'var(--platform-bilibili-soft)', deep: 'var(--platform-bilibili-deep)', label: 'BL' },
-  xiaohongshu: { color: 'var(--platform-xiaohongshu)', soft: 'var(--platform-xiaohongshu-soft)', deep: 'var(--platform-xiaohongshu-deep)', label: 'XH' },
+const platformMeta: Record<string, { color: string; soft: string; deep: string; label: string; hex: string; hexDeep: string }> = {
+  wechat:      { color: 'var(--platform-wechat)', soft: 'var(--platform-wechat-soft)', deep: 'var(--platform-wechat-deep)', label: 'WC', hex: '#07C160', hexDeep: '#059a4c' },
+  zhihu:       { color: 'var(--platform-zhihu)', soft: 'var(--platform-zhihu-soft)', deep: 'var(--platform-zhihu-deep)', label: 'ZH', hex: '#0066FF', hexDeep: '#0052cc' },
+  bilibili:    { color: 'var(--platform-bilibili)', soft: 'var(--platform-bilibili-soft)', deep: 'var(--platform-bilibili-deep)', label: 'BL', hex: '#FB7299', hexDeep: '#e0557a' },
+  xiaohongshu: { color: 'var(--platform-xiaohongshu)', soft: 'var(--platform-xiaohongshu-soft)', deep: 'var(--platform-xiaohongshu-deep)', label: 'XH', hex: '#FF2442', hexDeep: '#d91c37' },
 };
 
 const levelIcon: Record<string, typeof XCircle> = { error: XCircle, warning: AlertTriangle, info: Info };
@@ -116,7 +116,7 @@ export default function PlatformCard({
           {beautifiedContent && (
             <span
               className="ml-auto rounded-full px-3 py-1 font-['IBM_Plex_Mono'] text-[8px] uppercase tracking-[0.18em]"
-              style={{ backgroundColor: meta.color + '14', color: meta.color, border: `1px solid ${meta.color}22` }}
+              style={{ backgroundColor: meta.hex + '14', color: meta.color, border: `1px solid ${meta.hex}22` }}
             >
               已美化
             </span>
@@ -131,9 +131,9 @@ export default function PlatformCard({
             className="w-full flex items-center justify-center gap-2.5 px-5 py-3.5 rounded-[16px] text-white font-medium text-[14px] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg disabled:opacity-60 disabled:hover:translate-y-0 disabled:hover:shadow-none"
             style={{
               background: beautifying
-                ? `linear-gradient(135deg, ${meta.color}99, ${meta.color}cc)`
-                : `linear-gradient(135deg, ${meta.color}, ${meta.color}dd)`,
-              boxShadow: beautifying ? 'none' : `0 8px 24px ${meta.color}30`,
+                ? `linear-gradient(135deg, ${meta.hex}99, ${meta.hex}cc)`
+                : `linear-gradient(135deg, ${meta.color}, ${meta.hex}dd)`,
+              boxShadow: beautifying ? 'none' : `0 8px 24px ${meta.hex}30`,
             }}
           >
             {beautifying ? (
@@ -234,7 +234,7 @@ export default function PlatformCard({
                   <button
                     onClick={handleApply}
                     className="flex items-center gap-1 rounded-full px-3 py-1.5 font-['IBM_Plex_Mono'] text-[8px] uppercase tracking-[0.18em] text-white transition-opacity hover:opacity-90"
-                    style={{ backgroundColor: meta.color, boxShadow: `0 12px 24px ${meta.color}2a` }}
+                    style={{ backgroundColor: meta.color, boxShadow: `0 12px 24px ${meta.hex}2a` }}
                   >
                     <Check size={9} /> 应用到当前平台
                   </button>
@@ -249,7 +249,7 @@ export default function PlatformCard({
                 {beautifiedContent.tags.length > 0 && (
                   <div className="flex flex-wrap gap-1.5 mt-3">
                     {beautifiedContent.tags.map((t, i) => (
-                      <span key={i} className="px-2.5 py-0.5 rounded-full text-[10px] font-medium" style={{ backgroundColor: meta.color + '14', color: meta.color }}>#{t}</span>
+                      <span key={i} className="px-2.5 py-0.5 rounded-full text-[10px] font-medium" style={{ backgroundColor: meta.hex + '14', color: meta.color }}>#{t}</span>
                     ))}
                   </div>
                 )}
@@ -262,13 +262,13 @@ export default function PlatformCard({
                 className="w-full rounded-[18px] overflow-hidden border bg-white shadow-[0_2px_12px_rgba(0,0,0,0.03)]"
                 style={{
                   maxWidth: platform === 'wechat' || platform === 'xiaohongshu' ? 420 : '100%',
-                  borderColor: `${meta.color}18`,
+                  borderColor: `${meta.hex}18`,
                 }}
               >
                 {/* Mock platform header */}
                 <div
                   className="flex items-center gap-2 px-4 py-2.5 border-b"
-                  style={{ borderColor: `${meta.color}10`, backgroundColor: `${meta.color}05` }}
+                  style={{ borderColor: `${meta.hex}10`, backgroundColor: `${meta.hex}05` }}
                 >
                   <div
                     className="w-5 h-5 rounded-[6px] flex items-center justify-center text-white text-[8px] font-bold"
@@ -292,12 +292,12 @@ export default function PlatformCard({
                     dangerouslySetInnerHTML={{ __html: previewBody }}
                   />
                   {previewTags.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 mt-4 pt-3" style={{ borderTop: `1px solid ${meta.color}12` }}>
+                    <div className="flex flex-wrap gap-1.5 mt-4 pt-3" style={{ borderTop: `1px solid ${meta.hex}12` }}>
                       {previewTags.map((t, i) => (
                         <span
                           key={i}
                           className="px-2.5 py-0.5 rounded-full text-[10px] font-medium"
-                          style={{ backgroundColor: `${meta.color}0e`, color: meta.color }}
+                          style={{ backgroundColor: `${meta.hex}0e`, color: meta.color }}
                         >
                           #{t}
                         </span>
