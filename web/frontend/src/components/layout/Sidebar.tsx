@@ -5,6 +5,7 @@ import BrandMark from '../brand/BrandMark';
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: '总览' },
   { to: '/editor', icon: PenLine, label: '编辑台' },
+  { to: '/contents', icon: FileText, label: '稿件' },
   { to: '/inspiration', icon: Sparkles, label: '灵感' },
   { to: '/records', icon: FileText, label: '记录' },
 ];

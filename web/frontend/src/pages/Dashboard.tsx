@@ -179,8 +179,8 @@ export default function Dashboard() {
           <div className="px-card px-paper p-6">
             <div className="mb-4 flex items-center justify-between">
               <div className="px-label">最近编辑</div>
-              <button onClick={() => navigate('/records')} className="px-btn-secondary">
-                查看记录
+              <button onClick={() => navigate('/contents')} className="px-btn-secondary">
+                管理稿件
               </button>
             </div>
             {loading ? (
@@ -261,7 +261,7 @@ export default function Dashboard() {
               {platformNotes.map((platform) => (
                 <div key={platform.key} className="rounded-[20px] border border-[rgba(49,56,45,0.1)] bg-[rgba(255,255,255,0.74)] px-4 py-4">
                   <div className="flex items-center gap-3">
-                    <div className="px-dot" style={{ backgroundColor: platform.color }} />
+                    <div className="px-dot" style={{ backgroundColor: PLATFORM_COLOR[platform.key] }} />
                     <span className="font-['IBM_Plex_Mono'] text-[10px] uppercase tracking-[0.16em] text-[var(--ink)]">
                       {platform.name}
                     </span>

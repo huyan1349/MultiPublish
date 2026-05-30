@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AlertCircle, ArrowLeft, ArrowRight, RefreshCw, Save, Sparkles, Wand2 } from 'lucide-react';
 import { useContentStore } from '../stores/contentStore';
 import type { BeautifiedContent } from '../stores/contentStore';
@@ -52,6 +52,9 @@ type EditorStep = 'draft' | 'platform';
 
 export default function Editor() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const editId = searchParams.get('edit');
+  const isEditing = !!editId;
   const [step, setStep] = useState<EditorStep>('draft');
   const {
     draft,
@@ -147,15 +150,26 @@ export default function Editor() {
     setSaving(true);
     try {
       const tags = draft.tags.split(/[,，]/).map((t) => t.trim()).filter(Boolean);
-      const content = await api.createContent({
-        title: draft.title,
-        rawMarkdown: draft.htmlContent,
-        tags,
-        coverImage: draft.coverImage || undefined,
-      });
-      setCurrentContentId(content.id);
-      await api.adaptContent(content.id, Array.from(selectedPlatforms));
-      navigate(`/contents/${content.id}/preview`);
+      if (isEditing && currentContentId) {
+        await api.updateContent(currentContentId, {
+          title: draft.title,
+          rawMarkdown: draft.htmlContent,
+          tags,
+          coverImage: draft.coverImage || undefined,
+        });
+        await api.adaptContent(currentContentId, Array.from(selectedPlatforms));
+        navigate(`/contents/${currentContentId}/preview`);
+      } else {
+        const content = await api.createContent({
+          title: draft.title,
+          rawMarkdown: draft.htmlContent,
+          tags,
+          coverImage: draft.coverImage || undefined,
+        });
+        setCurrentContentId(content.id);
+        await api.adaptContent(content.id, Array.from(selectedPlatforms));
+        navigate(`/contents/${content.id}/preview`);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : '保存失败');
     } finally {
@@ -256,7 +270,7 @@ export default function Editor() {
                 </span>
               </div>
               <div className="font-['Cormorant_Garamond'] text-[46px] leading-[0.92] tracking-[-0.07em] text-[var(--ink)]">
-                {step === 'draft' ? '编辑台 · 主稿' : '编辑台 · 平台输出'}
+                {step === 'draft' ? (isEditing ? '编辑台 · 修改稿件' : '编辑台 · 主稿') : '编辑台 · 平台输出'}
               </div>
             </div>
 
@@ -264,7 +278,7 @@ export default function Editor() {
               <ExtensionIndicator />
               {step === 'draft' && (
                 <>
-                  <button onClick={loadDemo} className="px-btn-secondary">载入示例</button>
+                  {!isEditing && <button onClick={loadDemo} className="px-btn-secondary">载入示例</button>}
                   <button onClick={handleAiTitle} disabled={!!aiLoading} className="px-btn-ghost">
                     {aiLoading === 'title' ? <RefreshCw size={13} className="animate-spin" /> : <Wand2 size={13} />}
                     标题建议
@@ -282,7 +296,7 @@ export default function Editor() {
                 <>
                   <button onClick={handleSaveToBackend} disabled={saving} className="px-btn-secondary">
                     <Save size={13} />
-                    {saving ? '保存中' : '保存预览'}
+                    {saving ? '保存中' : isEditing ? '保存修改' : '保存预览'}
                   </button>
                 </>
               )}

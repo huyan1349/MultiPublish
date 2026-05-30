@@ -9,6 +9,7 @@ import ToastContainer, { showToast } from '../components/publish/Toast';
 import { publishToPlatform, checkExtensionHealth } from '../utils/extensionBridge';
 import { useExtensionStatus } from '../hooks/useExtensionStatus';
 import { generateInspiration, beautifyContentForPlatform } from '../services/deepseek';
+import { api } from '../api/client';
 import type { PlatformType } from '../adapters/types';
 import type { BeautifiedContent } from '../stores/contentStore';
 
@@ -35,6 +36,8 @@ export default function QuickStart() {
   const {
     draft,
     setDraft,
+    currentContentId,
+    setCurrentContentId,
     selectedPlatforms,
     platformStates,
     togglePlatform,
@@ -151,6 +154,25 @@ export default function QuickStart() {
     setError('');
     resetPublishStates();
 
+    // save content to backend first
+    let contentId = currentContentId;
+    if (!contentId) {
+      try {
+        const tags = draft.tags.split(/[,，]/).map((t) => t.trim()).filter(Boolean);
+        const content = await api.createContent({
+          title: draft.title || '未命名稿件',
+          rawMarkdown: draft.htmlContent,
+          tags,
+          coverImage: draft.coverImage || undefined,
+        });
+        setCurrentContentId(content.id);
+        contentId = content.id;
+        await api.adaptContent(content.id, selected);
+      } catch {
+        // proceed with local publish even if backend save fails
+      }
+    }
+
     for (const platform of selected) {
       const state = platformStates.get(platform);
       if (!state) continue;
@@ -162,6 +184,18 @@ export default function QuickStart() {
           content: state.output,
           autoLayout: true,
         });
+
+        if (contentId) {
+          api.createPublishRecord({
+            contentId,
+            platform,
+            platformName: state.platformName,
+            status: result.status,
+            message: result.message,
+            mockUrl: result.mockUrl,
+          }).catch(() => {});
+        }
+
         if (result.status === 'success') {
           setPlatformPublishStatus(platform, 'success', result.message);
           showToast('success', `${state.platformName} 发布成功`, result.message);
@@ -173,6 +207,16 @@ export default function QuickStart() {
         const message = err instanceof Error ? err.message : '未知错误';
         setPlatformPublishStatus(platform, 'failed', message);
         showToast('error', `${state.platformName} 发布失败`, message);
+
+        if (contentId) {
+          api.createPublishRecord({
+            contentId,
+            platform,
+            platformName: state.platformName,
+            status: 'failed',
+            message,
+          }).catch(() => {});
+        }
       }
     }
   };
