@@ -130,6 +130,9 @@ export default function Editor() {
   const [selectedFormat, setSelectedFormat] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [generatedContents, setGeneratedContents] = useState<Record<string, { title: string; htmlBody: string; tags: string[] }>>({});
+  const [streamingTitle, setStreamingTitle] = useState('');
+  const [streamingHtml, setStreamingHtml] = useState('');
+  const [streamingDone, setStreamingDone] = useState(false);
 
   // Beautify-all state
   const [beautifyingPlatforms, setBeautifyingPlatforms] = useState<Set<PlatformType>>(new Set());
@@ -269,10 +272,26 @@ export default function Editor() {
     setStep('content');
   };
 
+  // Split HTML into reveal blocks for stagger animation
+  function splitHtmlBlocks(html: string): string[] {
+    const regex = /<(h[1-6]|p|blockquote|li)\b[^>]*>[\s\S]*?<\/\1>/g;
+    const blocks: string[] = [];
+    let match;
+    while ((match = regex.exec(html)) !== null) {
+      blocks.push(match[0]);
+    }
+    if (blocks.length === 0) return [html];
+    return blocks;
+  }
+
   // Generate content from outline for selected platform + format
   const handleGenerateContent = async () => {
     if (!selectedFormat || generating) return;
     setGenerating(true);
+    setStreamingTitle('');
+    setStreamingHtml('');
+    setStreamingDone(false);
+
     try {
       const result = await generateContentFromOutline({
         platform: activePlatform,
@@ -281,14 +300,38 @@ export default function Editor() {
         formatName: CONTENT_FORMATS[activePlatform].find((f) => f.id === selectedFormat)?.label || selectedFormat,
         outline,
       });
+
+      // Cache the result
       setGeneratedContents((prev) => ({ ...prev, [activePlatform]: result }));
-      // Also update draft with generated content
+
+      // Animate: reveal title first
+      setStreamingTitle(result.title);
+      setDraft({ title: result.title, tags: result.tags.join(', ') });
+
+      // Split body into blocks for staggered blur-reveal
+      const blocks = splitHtmlBlocks(result.htmlBody);
+      let accumulated = '';
+
+      for (let i = 0; i < blocks.length; i++) {
+        accumulated += blocks[i];
+        await new Promise((r) => setTimeout(r, 120 + Math.random() * 80));
+        setStreamingHtml(accumulated);
+      }
+
+      // Finalize: set full content in draft + editor
       setDraft({ title: result.title, htmlContent: result.htmlBody, tags: result.tags.join(', ') });
+      setStreamingDone(true);
+      await new Promise((r) => setTimeout(r, 400));
       setEditorKey((k) => k + 1);
+      setStreamingHtml('');
+      setStreamingDone(false);
       showToast('success', `${PLATFORM_NAMES[activePlatform]} 内容已生成`, `格式：${CONTENT_FORMATS[activePlatform].find((f) => f.id === selectedFormat)?.label}`);
     } catch (err) {
       showToast('error', '生成失败', err instanceof Error ? err.message : '请重试');
-    } finally { setGenerating(false); }
+      setStreamingHtml('');
+    } finally {
+      setGenerating(false);
+    }
   };
 
   // Go content → platform
@@ -386,6 +429,43 @@ export default function Editor() {
 
   return (
     <div className="">
+      <style>{`
+        @keyframes pulse-glow {
+          0%, 100% { box-shadow: var(--glow-shadow); transform: translateY(0); }
+          50% { box-shadow: var(--glow-shadow-strong); transform: translateY(-2px); }
+        }
+        @keyframes blur-reveal {
+          from { filter: blur(12px); opacity: 0; transform: translateY(0.5em); }
+          to { filter: blur(0); opacity: 1; transform: translateY(0); }
+        }
+        @keyframes shimmer {
+          0% { background-position: -200% 0; }
+          100% { background-position: 200% 0; }
+        }
+        @keyframes cursor-blink {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0; }
+        }
+        .animate-blur-reveal {
+          animation: blur-reveal 0.55s cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+        }
+        .animate-pulse-glow {
+          animation: pulse-glow 2s ease-in-out infinite;
+        }
+        .shimmer-bar {
+          background: linear-gradient(90deg, var(--shimmer-from) 0%, var(--shimmer-via) 40%, var(--shimmer-to) 60%, var(--shimmer-from) 100%);
+          background-size: 200% 100%;
+          animation: shimmer 2s ease-in-out infinite;
+          border-radius: 8px;
+        }
+        .ai-cursor::after {
+          content: '|';
+          animation: cursor-blink 0.8s ease-in-out infinite;
+          color: var(--accent);
+          font-weight: 300;
+          margin-left: 2px;
+        }
+      `}</style>
       <ToastContainer />
       <div className="mx-auto flex max-w-[1520px] flex-col gap-6">
 
@@ -607,18 +687,34 @@ export default function Editor() {
                   <button
                     onClick={handleGenerateContent}
                     disabled={!selectedFormat || generating}
-                    className="flex items-center gap-2 px-6 py-3 rounded-[14px] text-white text-[13px] font-medium transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg disabled:opacity-40 disabled:hover:translate-y-0 disabled:hover:shadow-none"
+                    className={`flex items-center gap-2 px-6 py-3 rounded-[14px] text-white text-[13px] font-medium transition-all duration-200 hover:shadow-lg disabled:hover:shadow-none
+                      ${selectedFormat && !generating ? 'animate-pulse-glow' : ''}
+                      ${!selectedFormat ? 'opacity-40' : ''}
+                      ${generating ? 'opacity-70' : 'hover:-translate-y-0.5'}`}
                     style={{
                       background: selectedFormat
                         ? `linear-gradient(135deg, ${PLATFORM_BRAND[activePlatform]?.color}, ${PLATFORM_BRAND[activePlatform]?.color}dd)`
                         : 'var(--ink-faint)',
-                      boxShadow: selectedFormat ? `0 8px 24px ${PLATFORM_BRAND[activePlatform]?.color}30` : 'none',
+                      ['--glow-shadow' as string]: selectedFormat ? `0 8px 24px ${PLATFORM_BRAND[activePlatform]?.color}40` : 'none',
+                      ['--glow-shadow-strong' as string]: selectedFormat ? `0 8px 36px ${PLATFORM_BRAND[activePlatform]?.color}60, 0 0 60px ${PLATFORM_BRAND[activePlatform]?.color}20` : 'none',
                     }}
                   >
-                    {generating ? <RefreshCw size={14} className="animate-spin" /> : <Sparkles size={14} />}
-                    {generating ? 'AI 正在生成…' : selectedFormat
-                      ? `AI 生成 ${PLATFORM_NAMES[activePlatform]} ${CONTENT_FORMATS[activePlatform].find((f) => f.id === selectedFormat)?.label}`
-                      : '先选择一种格式'}
+                    {generating ? (
+                      <>
+                        <RefreshCw size={14} className="animate-spin" />
+                        AI 正在创作…
+                      </>
+                    ) : selectedFormat ? (
+                      <>
+                        <Sparkles size={14} />
+                        AI 生成 {PLATFORM_NAMES[activePlatform]} {CONTENT_FORMATS[activePlatform].find((f) => f.id === selectedFormat)?.label}
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles size={14} />
+                        先选择一种格式
+                      </>
+                    )}
                   </button>
                   <button onClick={handleAiTitle} disabled={!!aiLoading} className="px-btn-ghost text-[11px]">
                     <Wand2 size={12} /> 标题建议
@@ -647,19 +743,85 @@ export default function Editor() {
                   />
                 </div>
 
-                {/* Editor */}
+                {/* Editor / Streaming area */}
                 <div className={`px-4 pb-4 pt-2 md:px-6 md:pb-6 ${isAiModified ? 'ai-modified-editor' : ''}`}>
-                  {isAiModified && (
+                  {isAiModified && !generating && (
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 border border-amber-200/60 text-amber-700 font-['IBM_Plex_Mono'] text-[9px] uppercase tracking-[0.14em] mb-2">
                       <Sparkles size={10} /> AI 修改
                     </span>
                   )}
-                  <TiptapEditor
-                    key={editorKey}
-                    content={draft.htmlContent}
-                    placeholder="AI 生成的内容将显示在这里，你可以直接编辑修改..."
-                    onChange={handleEditorChange}
-                  />
+
+                  {/* Shimmer skeleton — waiting for API */}
+                  {generating && !streamingHtml && (
+                    <div className="space-y-4 py-4">
+                      <div className="flex items-center gap-2 mb-6">
+                        <RefreshCw size={13} className="animate-spin" style={{ color: PLATFORM_BRAND[activePlatform]?.color }} />
+                        <span className="text-[13px] font-medium" style={{ color: PLATFORM_BRAND[activePlatform]?.color }}>
+                          AI 正在创作 {PLATFORM_NAMES[activePlatform]} {CONTENT_FORMATS[activePlatform].find((f) => f.id === selectedFormat)?.label}…
+                        </span>
+                        <span className="ai-cursor text-[15px]" />
+                      </div>
+                      <div className="shimmer-bar h-5 w-3/4" style={{ '--shimmer-from': `${PLATFORM_BRAND[activePlatform]?.soft}`, '--shimmer-via': `${PLATFORM_BRAND[activePlatform]?.color}20`, '--shimmer-to': `${PLATFORM_BRAND[activePlatform]?.soft}` } as React.CSSProperties} />
+                      <div className="shimmer-bar h-5 w-full" style={{ '--shimmer-from': `${PLATFORM_BRAND[activePlatform]?.soft}`, '--shimmer-via': `${PLATFORM_BRAND[activePlatform]?.color}20`, '--shimmer-to': `${PLATFORM_BRAND[activePlatform]?.soft}` } as React.CSSProperties} />
+                      <div className="shimmer-bar h-5 w-2/3" style={{ '--shimmer-from': `${PLATFORM_BRAND[activePlatform]?.soft}`, '--shimmer-via': `${PLATFORM_BRAND[activePlatform]?.color}20`, '--shimmer-to': `${PLATFORM_BRAND[activePlatform]?.soft}` } as React.CSSProperties} />
+                      <div className="shimmer-bar h-5 w-5/6" style={{ '--shimmer-from': `${PLATFORM_BRAND[activePlatform]?.soft}`, '--shimmer-via': `${PLATFORM_BRAND[activePlatform]?.color}20`, '--shimmer-to': `${PLATFORM_BRAND[activePlatform]?.soft}` } as React.CSSProperties} />
+                      <div className="shimmer-bar h-5 w-1/2" style={{ '--shimmer-from': `${PLATFORM_BRAND[activePlatform]?.soft}`, '--shimmer-via': `${PLATFORM_BRAND[activePlatform]?.color}20`, '--shimmer-to': `${PLATFORM_BRAND[activePlatform]?.soft}` } as React.CSSProperties} />
+                      <div className="shimmer-bar h-5 w-3/4 mt-8" style={{ '--shimmer-from': `${PLATFORM_BRAND[activePlatform]?.soft}`, '--shimmer-via': `${PLATFORM_BRAND[activePlatform]?.color}20`, '--shimmer-to': `${PLATFORM_BRAND[activePlatform]?.soft}` } as React.CSSProperties} />
+                      <div className="shimmer-bar h-5 w-full" style={{ '--shimmer-from': `${PLATFORM_BRAND[activePlatform]?.soft}`, '--shimmer-via': `${PLATFORM_BRAND[activePlatform]?.color}20`, '--shimmer-to': `${PLATFORM_BRAND[activePlatform]?.soft}` } as React.CSSProperties} />
+                    </div>
+                  )}
+
+                  {/* Streaming blur-reveal content */}
+                  {streamingHtml && !streamingDone && (
+                    <div className="relative">
+                      <div className="flex items-center gap-2 mb-4 pb-3" style={{ borderBottom: `1px solid ${PLATFORM_BRAND[activePlatform]?.color}18` }}>
+                        <Sparkles size={12} style={{ color: PLATFORM_BRAND[activePlatform]?.color }} />
+                        <span className="text-[12px] font-medium" style={{ color: PLATFORM_BRAND[activePlatform]?.color }}>
+                          AI 正在写入…
+                        </span>
+                        <span className="ai-cursor text-[15px]" />
+                      </div>
+                      <div className="space-y-0">
+                        {streamingHtml && (() => {
+                          const blocks = splitHtmlBlocks(streamingHtml);
+                          return blocks.map((block, i) => {
+                            const isLast = i === blocks.length - 1;
+                            return (
+                              <div
+                                key={i}
+                                className={isLast ? 'animate-blur-reveal' : ''}
+                                style={{ opacity: isLast ? 0.85 : 1 }}
+                                dangerouslySetInnerHTML={{ __html: block }}
+                              />
+                            );
+                          });
+                        })()}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Done — fade to editor */}
+                  {streamingDone && (
+                    <div
+                      className="rounded-[18px] border py-5 px-5 text-center"
+                      style={{ borderColor: `${PLATFORM_BRAND[activePlatform]?.color}20`, backgroundColor: `${PLATFORM_BRAND[activePlatform]?.soft}` }}
+                    >
+                      <Sparkles size={18} className="mx-auto mb-2" style={{ color: PLATFORM_BRAND[activePlatform]?.color }} />
+                      <span className="text-[13px] font-medium" style={{ color: PLATFORM_BRAND[activePlatform]?.deep }}>
+                        生成完成，正在加载编辑器…
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Normal editor — not generating */}
+                  {!generating && !streamingHtml && !streamingDone && (
+                    <TiptapEditor
+                      key={editorKey}
+                      content={draft.htmlContent}
+                      placeholder="AI 生成的内容将显示在这里，你可以直接编辑修改..."
+                      onChange={handleEditorChange}
+                    />
+                  )}
                 </div>
               </div>
 
