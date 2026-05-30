@@ -137,7 +137,7 @@ export default function AiAssistantPanel({
                 </div>
                 <div>
                   <div className="font-['Cormorant_Garamond'] text-[22px] leading-none tracking-[-0.03em] text-[var(--ink)]">
-                    AI 写作助手
+                    multipush writer
                   </div>
                 </div>
               </div>
