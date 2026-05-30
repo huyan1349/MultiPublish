@@ -48,17 +48,55 @@ const LOGIN_INDICATORS = [
       return;
     }
 
-    // ── 上传封面图 ──
+    let coverImages: { id: string; dataUrl: string; filename: string; mimeType: string }[] = [];
+    let bodyImages: { id: string; dataUrl: string; filename: string; mimeType: string }[] = [];
     try {
       const resp = await chrome.runtime.sendMessage({ type: 'GET_IMAGES', payload: { platform: PLATFORM } });
       const allImages = (resp?.images || []) as { id: string; dataUrl: string; filename: string; mimeType: string }[];
       console.log('[XHS-IMG] images:', allImages.length);
-      for (const img of allImages) {
-        const ok = await _xhsUploadCover(img);
-        console.log('[XHS-IMG]', img.id, ok ? 'OK' : 'FAIL');
-        if (ok) await sleep(2000);
+      coverImages = allImages.filter(img => img.id === 'cover');
+      bodyImages = allImages.filter(img => img.id !== 'cover');
+    } catch (e) { console.log('[XHS-IMG] GET_IMAGES err:', e); }
+
+    if (bodyImages.length > 0) {
+      const bodyEl = findBodyEditor();
+      if (bodyEl) {
+        bodyEl.focus();
+        bodyEl.click();
+        await sleep(300);
+        for (const img of bodyImages) {
+          console.log('[XHS-IMG-BODY] uploading:', img.id);
+          const ok = await _xhsUploadBodyImage(img);
+          console.log('[XHS-IMG-BODY]', img.id, ok ? 'OK' : 'FAIL');
+          if (ok) await sleep(2000);
+        }
       }
-    } catch (e) { console.log('[XHS-IMG] err:', e); }
+    }
+
+    for (const img of coverImages) {
+      const ok = await _xhsUploadCover(img);
+      console.log('[XHS-IMG-COVER]', img.id, ok ? 'OK' : 'FAIL');
+      if (ok) await sleep(2000);
+    }
+
+    {
+      const bodyEl = findBodyEditor();
+      if (bodyEl) {
+        const bodyText = compactText(bodyEl.innerText || bodyEl.textContent || '');
+        if (bodyText.length < 10) {
+          console.log('[XHS] body lost after cover upload, refilling...');
+          showContentBridgeToast('⚠️ 正文被覆盖，正在重新填充...', 'info');
+          bodyEl.focus();
+          bodyEl.click();
+          await sleep(500);
+          const refillOk = await fillContentEditable(bodyEl, plainText.substring(0, 5000));
+          console.log('[XHS] body refill after cover upload:', refillOk);
+          if (refillOk && tags.length > 0) {
+            await appendTagsToBody(bodyEl, tags);
+          }
+        }
+      }
+    }
 
     if (!autoLayout) {
       showContentBridgeToast('✅ 内容已填充完成，请手动操作', 'success');
@@ -74,13 +112,53 @@ const LOGIN_INDICATORS = [
       return;
     }
 
-    // 一键排版后编辑器被清空，重新填正文
-    await sleep(2000);
+    await sleep(3000);
+
     const bodyEl2 = await waitForElement(findBodyEditor, FILL_TIMEOUT);
     if (bodyEl2) {
-      const refillOk = await fillContentEditable(bodyEl2, plainText.substring(0, 5000));
-      console.log('[XHS] refill:', refillOk);
+      const currentText = compactText(bodyEl2.innerText || bodyEl2.textContent || '');
+      if (currentText.length < 10) {
+        bodyEl2.focus();
+        bodyEl2.click();
+        await sleep(500);
+
+        const sel = window.getSelection();
+        if (sel) {
+          const range = document.createRange();
+          range.selectNodeContents(bodyEl2);
+          range.collapse(true);
+          sel.removeAllRanges();
+          sel.addRange(range);
+        }
+        await sleep(200);
+
+        let refillOk = await fillContentEditable(bodyEl2, plainText.substring(0, 5000));
+        console.log('[XHS] refill attempt 1:', refillOk);
+
+        if (!refillOk) {
+          await sleep(1000);
+          bodyEl2.focus();
+          bodyEl2.click();
+          await sleep(500);
+          refillOk = await fillContentEditable(bodyEl2, plainText.substring(0, 5000));
+          console.log('[XHS] refill attempt 2:', refillOk);
+        }
+
+        if (!refillOk) {
+          await report(false, '一键排版后正文重填失败，请手动输入正文');
+          return;
+        }
+      }
       if (tags.length > 0) await appendTagsToBody(bodyEl2, tags);
+    }
+
+    const bodyCheck = findBodyEditor();
+    if (bodyCheck) {
+      const bodyText = compactText(bodyCheck.innerText || bodyCheck.textContent || '');
+      if (bodyText.length < 5) {
+        await report(false, '正文内容为空，无法继续发布');
+        return;
+      }
     }
 
     const nextOk = await clickNextStep();
@@ -129,10 +207,6 @@ async function checkLogin(): Promise<boolean> {
   return true;
 }
 
-/* ═══════════════════════════════════════════
-   导航流程：发布笔记 → 写长文 → 新的创作
-   ═══════════════════════════════════════════ */
-
 async function navigateToLongArticleEditor(): Promise<boolean> {
   if (await isLongArticleEditorReady()) return true;
 
@@ -178,10 +252,6 @@ async function isLongArticleEditorReady(): Promise<boolean> {
 
   return false;
 }
-
-/* ═══════════════════════════════════════════
-   长文编辑器填充
-   ═══════════════════════════════════════════ */
 
 async function tryFillLongArticle(
   title: string,
@@ -266,10 +336,6 @@ async function appendTagsToBody(editor: HTMLElement, tags: string[]): Promise<vo
   await sleep(300);
   showContentBridgeToast('✅ 话题标签已追加', 'success');
 }
-
-/* ═══════════════════════════════════════════
-   自动排版发布流程
-   ═══════════════════════════════════════════ */
 
 async function clickAutoLayout(): Promise<boolean> {
   const btn = await findElementByText('一键排版', NAV_TIMEOUT);
@@ -542,10 +608,6 @@ function hasPublishSuccessSignal(): boolean {
   return /发布成功|笔记已发布|已发布|提交成功|审核中/.test(text);
 }
 
-/* ═══════════════════════════════════════════
-   填充策略
-   ═══════════════════════════════════════════ */
-
 async function fillInput(el: HTMLElement, value: string): Promise<boolean> {
   if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
     return fillNativeInput(el, value);
@@ -597,18 +659,18 @@ async function fillNativeInput(
 
 async function fillContentEditable(editor: HTMLElement, value: string): Promise<boolean> {
   editor.focus();
+  editor.click();
   await sleep(300);
 
-  const isEmpty = !editor.textContent || compactText(editor.textContent).length === 0;
-  if (!isEmpty) {
-    const sel = window.getSelection();
-    if (sel) {
-      const range = document.createRange();
-      range.selectNodeContents(editor);
-      sel.removeAllRanges();
-      sel.addRange(range);
-    }
+  const sel = window.getSelection();
+  if (sel) {
+    const range = document.createRange();
+    range.selectNodeContents(editor);
+    range.collapse(false);
+    sel.removeAllRanges();
+    sel.addRange(range);
   }
+  await sleep(100);
 
   document.execCommand('insertText', false, value);
   await sleep(600);
@@ -639,10 +701,6 @@ function editorContains(editor: HTMLElement, expected: string): boolean {
   const t = compactText(expected).slice(0, 12);
   return !t || compactText(editor.innerText || editor.textContent || '').includes(t);
 }
-
-/* ═══════════════════════════════════════════
-   文本查找与点击
-   ═══════════════════════════════════════════ */
 
 async function clickByText(text: string, timeout: number): Promise<boolean> {
   const el = await findElementByText(text, timeout);
@@ -684,15 +742,11 @@ function findButtonByText(labels: string[], root: ParentNode = document): HTMLEl
   return candidates[0]?.el || null;
 }
 
-/* ═══════════════════════════════════════════
-   DOM Helpers
-   ═══════════════════════════════════════════ */
-
 function clickElement(el: HTMLElement) {
   el.scrollIntoView({ block: 'center', inline: 'center' });
   el.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
   el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
-  el.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true }));
+ el.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true }));
   el.click();
 }
 
@@ -736,12 +790,10 @@ function waitForElement<T extends HTMLElement>(finder: () => T | null, timeout: 
   });
 }
 
-/* ── 图片上传 ── */
-
 function _xhsDataUrlToBlob(dataUrl: string): Blob {
   const parts = dataUrl.split(',');
   const mime = (parts[0].match(/data:(.*?);/) || [])[1] || 'image/png';
-  let payload = parts.slice(1).join(','); // handle commas in base64
+  let payload = parts.slice(1).join(',');
   const isBase64 = parts[0].includes('base64');
   if (isBase64) {
     try { payload = atob(payload); } catch {
@@ -771,25 +823,185 @@ async function _xhsUploadCover(img: { dataUrl: string; filename: string; mimeTyp
   const blob = _xhsDataUrlToBlob(img.dataUrl);
   const file = new File([blob], img.filename || 'img.png', { type: img.mimeType || 'image/png' });
 
-  // 找已有的 file input
-  const inputs = document.querySelectorAll<HTMLInputElement>('input[type="file"]');
+  const editorContainer = document.querySelector('.editor-container, .tiptap-container, .ProseMirror');
+
+  const inputs = Array.from(document.querySelectorAll<HTMLInputElement>('input[type="file"]'));
   console.log('[XHS-IMG] file inputs:', inputs.length);
-  for (let i = 0; i < inputs.length; i++) {
-    _xhsSetInputFiles(inputs[i], file);
+
+  const coverInputs = inputs.filter(inp => {
+    if (editorContainer && editorContainer.contains(inp)) {
+      console.log('[XHS-IMG] skip body editor file input:', inp);
+      return false;
+    }
+    return true;
+  });
+
+  if (coverInputs.length === 0 && inputs.length > 0) {
+    console.log('[XHS-IMG] all inputs inside editor, trying first non-ProseMirror input');
+    const nonProseInputs = inputs.filter(inp => !inp.closest('.ProseMirror'));
+    if (nonProseInputs.length > 0) coverInputs.push(...nonProseInputs);
+  }
+
+  console.log('[XHS-IMG] cover-target inputs:', coverInputs.length);
+  for (const inp of coverInputs) {
+    _xhsSetInputFiles(inp, file);
     await sleep(2000);
   }
 
-  // Shadow DOM
   const customs = Array.from(document.querySelectorAll('*')).filter(el => el.tagName.includes('-'));
   for (const el of customs) {
     const shadowInputs = _xhsShadowQueryAll(el, 'input[type="file"]');
     for (const inp of shadowInputs) {
+      if (editorContainer && editorContainer.contains(inp)) {
+        console.log('[XHS-IMG] skip shadow body editor file input');
+        continue;
+      }
       _xhsSetInputFiles(inp as HTMLInputElement, file);
       await sleep(2000);
     }
   }
 
-  return inputs.length > 0;
+  return coverInputs.length > 0;
+}
+
+async function _xhsUploadBodyImage(img: { dataUrl: string; filename: string; mimeType: string }): Promise<boolean> {
+  const blob = _xhsDataUrlToBlob(img.dataUrl);
+  const file = new File([blob], img.filename || 'img.png', { type: img.mimeType || 'image/png' });
+
+  const bodyEl = findBodyEditor();
+  if (!bodyEl) { console.log('[XHS-IMG-BODY] no editor'); return false; }
+
+  bodyEl.focus();
+  bodyEl.click();
+  await sleep(300);
+
+  const before = bodyEl.querySelectorAll('img').length;
+
+  const editorContainer = bodyEl.closest('.editor-container, .tiptap-container, [class*="editor"]') || bodyEl.parentElement;
+  if (editorContainer) {
+    const editorInputs = editorContainer.querySelectorAll<HTMLInputElement>('input[type="file"]');
+    console.log('[XHS-IMG-BODY] S1: editor file inputs:', editorInputs.length);
+    for (const inp of editorInputs) {
+      _xhsSetInputFiles(inp, file);
+      const ok = await _xhsWaitForImageInEditor(bodyEl, before, 4000);
+      if (ok) { console.log('[XHS-IMG-BODY] S1 success'); return true; }
+    }
+
+    const allElements = editorContainer.querySelectorAll('*');
+    for (const el of allElements) {
+      const sr = (el as any).shadowRoot;
+      if (sr) {
+        const shadowInputs = sr.querySelectorAll<HTMLInputElement>('input[type="file"]');
+        for (const inp of shadowInputs) {
+          _xhsSetInputFiles(inp, file);
+          const ok = await _xhsWaitForImageInEditor(bodyEl, before, 4000);
+          if (ok) { console.log('[XHS-IMG-BODY] S1 shadow success'); return true; }
+        }
+      }
+    }
+  }
+
+  const allInputs = Array.from(document.querySelectorAll<HTMLInputElement>('input[type="file"]'));
+  const imageInputs = allInputs.filter(i => (i.getAttribute('accept') || '').toLowerCase().includes('image'));
+  console.log('[XHS-IMG-BODY] S2: image inputs:', imageInputs.length);
+  for (const inp of imageInputs) {
+    bodyEl.focus();
+    await sleep(200);
+    _xhsSetInputFiles(inp, file);
+    const ok = await _xhsWaitForImageInEditor(bodyEl, before, 4000);
+    if (ok) { console.log('[XHS-IMG-BODY] S2 success'); return true; }
+  }
+
+  console.log('[XHS-IMG-BODY] S3: paste approach');
+  try {
+    bodyEl.focus();
+    await sleep(200);
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    bodyEl.dispatchEvent(new ClipboardEvent('paste', {
+      bubbles: true, cancelable: true, clipboardData: dt,
+    }));
+    const ok = await _xhsWaitForImageInEditor(bodyEl, before, 5000);
+    if (ok) { console.log('[XHS-IMG-BODY] S3 success'); return true; }
+  } catch (e) { console.log('[XHS-IMG-BODY] S3 error:', e); }
+
+  console.log('[XHS-IMG-BODY] S4: toolbar approach');
+  const capturedInput = await _xhsClickToolbarCaptureInput();
+  if (capturedInput) {
+    bodyEl.focus();
+    await sleep(200);
+    _xhsSetInputFiles(capturedInput, file);
+    const ok = await _xhsWaitForImageInEditor(bodyEl, before, 8000);
+    if (ok) { console.log('[XHS-IMG-BODY] S4 success'); return true; }
+  }
+
+  console.log('[XHS-IMG-BODY] all strategies failed');
+  return false;
+}
+
+async function _xhsClickToolbarCaptureInput(): Promise<HTMLInputElement | null> {
+  let capturedInput: HTMLInputElement | null = null;
+
+  const observer = new MutationObserver((mutations) => {
+    for (const m of mutations) {
+      for (const node of m.addedNodes) {
+        if (node instanceof HTMLInputElement && node.type === 'file') {
+          capturedInput = node;
+          observer.disconnect();
+          return;
+        }
+      }
+    }
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
+
+  const origClick = HTMLInputElement.prototype.click;
+  HTMLInputElement.prototype.click = function (this: HTMLInputElement) {
+    if (this.type === 'file') { capturedInput = this; return; }
+    return origClick.call(this);
+  };
+
+  const toolbarBtns = Array.from(document.querySelectorAll<HTMLElement>(
+    '[class*="toolbar"] button, [class*="Toolbar"] button, [class*="toolbar"] [role="button"]'
+  )).filter(btn => {
+    const t = (btn.getAttribute('title') || btn.textContent || '').toLowerCase();
+    return t.includes('图片') || t.includes('image') || t.includes('img');
+  });
+  for (const btn of toolbarBtns) {
+    forceClickElement(btn);
+    await sleep(800);
+    if (capturedInput) break;
+  }
+
+  if (!capturedInput) {
+    const pmToolbar = document.querySelector('.ProseMirror-toolbar, .tiptap-toolbar, [class*="toolbar"]');
+    if (pmToolbar) {
+      const btns = pmToolbar.querySelectorAll<HTMLElement>('button, [role="button"]');
+      for (const btn of btns) {
+        const title = (btn.getAttribute('title') || btn.textContent || '').toLowerCase();
+        if (title.includes('图片') || title.includes('image') || title.includes('img')) {
+          forceClickElement(btn);
+          await sleep(800);
+          if (capturedInput) break;
+        }
+      }
+    }
+  }
+
+  HTMLInputElement.prototype.click = origClick;
+  observer.disconnect();
+  return capturedInput;
+}
+
+function _xhsWaitForImageInEditor(ed: HTMLElement, beforeCount: number, timeout: number): Promise<boolean> {
+  return new Promise(resolve => {
+    if (ed.querySelectorAll('img').length > beforeCount) { resolve(true); return; }
+    const obs = new MutationObserver(() => {
+      if (ed.querySelectorAll('img').length > beforeCount) { obs.disconnect(); resolve(true); }
+    });
+    obs.observe(ed, { childList: true, subtree: true });
+    setTimeout(() => { obs.disconnect(); resolve(ed.querySelectorAll('img').length > beforeCount); }, timeout);
+  });
 }
 
 function _xhsShadowQueryAll(root: Element, selector: string): HTMLElement[] {
