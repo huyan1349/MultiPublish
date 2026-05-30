@@ -99,9 +99,10 @@ export default function Contents() {
             </div>
           ) : (
             <div className="space-y-3">
-              {contents.map((item) => (
+              {contents.map((item, i) => (
                 <div
                   key={item.id}
+                  style={{ animation: `px-list-item-in 480ms cubic-bezier(0.22,0.61,0.36,1) both ${i * 60 + 40}ms` }}
                   className="group rounded-[24px] border border-[rgba(49,56,45,0.1)] bg-[rgba(255,255,255,0.72)] p-5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_6px_20px_rgba(41,48,39,0.06)]"
                 >
                   <div className="flex items-start justify-between gap-4">
