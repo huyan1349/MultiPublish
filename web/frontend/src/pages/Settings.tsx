@@ -1,10 +1,12 @@
-import { useState } from 'react';
-import { Trash2, Check, AlertCircle } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Trash2, Check, AlertCircle, Zap, ExternalLink } from 'lucide-react';
 import { useContentStore } from '../stores/contentStore';
+import { setExtensionId, getExtensionId, isExtensionInstalled } from '../utils/extensionBridge';
 
-const APP_VERSION = '2.1';
+const APP_VERSION = '2.2';
 
 const CHANGELOG = [
+  { version: '2.2', date: '2026-05-30', items: ['公众号一键自动发布（扩展通信）', '设置页扩展ID配置', '四平台统一真实发布流程'] },
   { version: '2.1', date: '2026-05-30', items: ['草稿自动保存', '灵感页逐步揭示结果', '发布记录与预览联动', '编辑式圆角视觉系统'] },
   { version: '2.0', date: '2026-05-28', items: ['四平台适配器', 'Tiptap 富文本编辑器', 'AI 标题与标签建议'] },
 ];
@@ -12,10 +14,24 @@ const CHANGELOG = [
 export default function Settings() {
   const { resetDraft, saveToStorage } = useContentStore();
   const [toast, setToast] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
+  const [extIdInput, setExtIdInput] = useState(getExtensionId());
+  const [extConnected, setExtConnected] = useState(isExtensionInstalled());
+
+  useEffect(() => {
+    setExtConnected(isExtensionInstalled());
+  }, [extIdInput]);
 
   const showToast = (type: 'success' | 'error', msg: string) => {
     setToast({ type, msg });
     setTimeout(() => setToast(null), 2000);
+  };
+
+  const handleSaveExtId = () => {
+    const trimmed = extIdInput.trim();
+    setExtensionId(trimmed);
+    setExtIdInput(trimmed);
+    setExtConnected(isExtensionInstalled());
+    showToast('success', trimmed ? '扩展 ID 已保存' : '扩展 ID 已清除');
   };
 
   const handleClearDraft = () => {
@@ -42,39 +58,80 @@ export default function Settings() {
         </section>
 
         <section className="grid gap-6 xl:grid-cols-[1fr_360px]">
-          <div className="px-card px-paper p-6">
-            <div className="px-label mb-5">草稿管理</div>
-            <div className="space-y-4">
-              <div className="rounded-[24px] border border-[rgba(49,56,45,0.1)] bg-[rgba(255,255,255,0.72)] p-5">
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <div className="text-[14px] text-[var(--ink)]">自动保存</div>
-                    <p className="mt-2 text-[13px] leading-6 text-[var(--ink-soft)]">编辑器内容会持续写入本地，避免误关页面导致内容丢失。</p>
+          <div className="space-y-6">
+            <div className="px-card px-paper p-6">
+              <div className="px-label mb-5">扩展连接</div>
+              <div className="space-y-4">
+                <div className="rounded-[24px] border border-[rgba(49,56,45,0.1)] bg-[rgba(255,255,255,0.72)] p-5">
+                  <div className="flex items-center justify-between gap-4 mb-4">
+                    <div>
+                      <div className="text-[14px] text-[var(--ink)] flex items-center gap-2">
+                        <Zap size={14} />
+                        Chrome 扩展状态
+                      </div>
+                      <p className="mt-2 text-[13px] leading-6 text-[var(--ink-soft)]">
+                        配置扩展 ID 后，Web 页面可通过扩展实现一键真实发布到各平台。
+                      </p>
+                    </div>
+                    {extConnected ? (
+                      <span className="px-tag"><Check size={10} className="text-green-600" /> 已连接</span>
+                    ) : (
+                      <span className="px-tag"><AlertCircle size={10} className="text-amber-500" /> 未连接</span>
+                    )}
                   </div>
-                  <span className="px-tag"><Check size={10} className="text-[var(--accent-deep)]" /> 已开启</span>
+                  <div className="flex gap-2">
+                    <input
+                      value={extIdInput}
+                      onChange={(e) => setExtIdInput(e.target.value)}
+                      placeholder="输入 Chrome 扩展 ID（如 abcdefghijklmnopqrstuvwxyz）"
+                      className="flex-1 px-3 py-2 rounded-xl border border-[rgba(49,56,45,0.12)] bg-white text-[13px] text-[var(--ink)] placeholder:text-[var(--ink-faint)] focus:outline-none focus:border-[var(--accent)]/40"
+                    />
+                    <button onClick={handleSaveExtId} className="px-btn-primary text-[13px] whitespace-nowrap">
+                      保存
+                    </button>
+                  </div>
+                  <div className="mt-3 flex items-center gap-2 text-[12px] text-[var(--ink-faint)]">
+                    <ExternalLink size={10} />
+                    <span>获取方式：Chrome → chrome://extensions → 开发者模式 → 复制 MultiPublish 扩展 ID</span>
+                  </div>
                 </div>
               </div>
+            </div>
 
-              <div className="rounded-[24px] border border-[rgba(49,56,45,0.1)] bg-[rgba(255,255,255,0.72)] p-5">
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <div className="text-[14px] text-[var(--ink)]">手动保存</div>
-                    <p className="mt-2 text-[13px] leading-6 text-[var(--ink-soft)]">在切换任务前立即把当前草稿写入本地存储。</p>
+            <div className="px-card px-paper p-6">
+              <div className="px-label mb-5">草稿管理</div>
+              <div className="space-y-4">
+                <div className="rounded-[24px] border border-[rgba(49,56,45,0.1)] bg-[rgba(255,255,255,0.72)] p-5">
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <div className="text-[14px] text-[var(--ink)]">自动保存</div>
+                      <p className="mt-2 text-[13px] leading-6 text-[var(--ink-soft)]">编辑器内容会持续写入本地，避免误关页面导致内容丢失。</p>
+                    </div>
+                    <span className="px-tag"><Check size={10} className="text-[var(--accent-deep)]" /> 已开启</span>
                   </div>
-                  <button onClick={handleForceSave} className="px-btn-secondary">立即保存</button>
                 </div>
-              </div>
 
-              <div className="rounded-[24px] border border-[rgba(49,56,45,0.1)] bg-[rgba(255,255,255,0.72)] p-5">
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <div className="text-[14px] text-[var(--ink)]">清除草稿</div>
-                    <p className="mt-2 text-[13px] leading-6 text-[var(--ink-soft)]">删除编辑器中的文本和本地缓存，适合完全开始一篇新稿件时使用。</p>
+                <div className="rounded-[24px] border border-[rgba(49,56,45,0.1)] bg-[rgba(255,255,255,0.72)] p-5">
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <div className="text-[14px] text-[var(--ink)]">手动保存</div>
+                      <p className="mt-2 text-[13px] leading-6 text-[var(--ink-soft)]">在切换任务前立即把当前草稿写入本地存储。</p>
+                    </div>
+                    <button onClick={handleForceSave} className="px-btn-secondary">立即保存</button>
                   </div>
-                  <button onClick={handleClearDraft} className="px-btn-danger">
-                    <Trash2 size={12} />
-                    清除
-                  </button>
+                </div>
+
+                <div className="rounded-[24px] border border-[rgba(49,56,45,0.1)] bg-[rgba(255,255,255,0.72)] p-5">
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <div className="text-[14px] text-[var(--ink)]">清除草稿</div>
+                      <p className="mt-2 text-[13px] leading-6 text-[var(--ink-soft)]">删除编辑器中的文本和本地缓存，适合完全开始一篇新稿件时使用。</p>
+                    </div>
+                    <button onClick={handleClearDraft} className="px-btn-danger">
+                      <Trash2 size={12} />
+                      清除
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
