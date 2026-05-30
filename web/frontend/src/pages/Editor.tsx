@@ -690,12 +690,11 @@ export default function Editor() {
                     disabled={!selectedFormat || generating}
                     className={`flex items-center gap-2 px-6 py-3 rounded-[14px] text-white text-[13px] font-medium transition-all duration-200 hover:shadow-lg disabled:hover:shadow-none
                       ${selectedFormat && !generating ? 'animate-pulse-glow' : ''}
-                      ${!selectedFormat ? 'opacity-40' : ''}
                       ${generating ? 'opacity-70' : 'hover:-translate-y-0.5'}`}
                     style={{
                       background: selectedFormat
                         ? `linear-gradient(135deg, ${PLATFORM_BRAND[activePlatform]?.color}, ${PLATFORM_BRAND[activePlatform]?.color}dd)`
-                        : 'var(--ink-faint)',
+                        : '#1a1a1a',
                       ['--glow-shadow' as string]: selectedFormat ? `0 8px 24px ${PLATFORM_BRAND[activePlatform]?.color}40` : 'none',
                       ['--glow-shadow-strong' as string]: selectedFormat ? `0 8px 36px ${PLATFORM_BRAND[activePlatform]?.color}60, 0 0 60px ${PLATFORM_BRAND[activePlatform]?.color}20` : 'none',
                     }}
