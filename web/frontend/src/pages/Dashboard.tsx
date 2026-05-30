@@ -64,7 +64,7 @@ export default function Dashboard() {
   }, [contents]);
 
   return (
-    <div className="h-full overflow-y-auto scrollbar-thin">
+    <div className="">
       <div className="mx-auto flex max-w-[1480px] flex-col gap-6">
 
         <section className="relative px-card px-paper overflow-hidden p-8 md:p-10">
