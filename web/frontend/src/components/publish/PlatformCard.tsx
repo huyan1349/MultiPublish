@@ -212,12 +212,12 @@ export default function PlatformCard({
             transition: 'max-height 0.3s ease, opacity 0.2s ease',
           }}
         >
-          <div ref={expandRef} className="border-t border-[rgba(49,56,45,0.12)] bg-[rgba(244,249,243,0.76)] px-5 py-4">
+          <div ref={expandRef} className="border-t border-[rgba(49,56,45,0.12)] bg-[rgba(244,249,243,0.76)] px-5 py-5">
             {beautifiedContent && (
-              <div className="mb-4 rounded-[22px] border border-[rgba(49,56,45,0.12)] bg-[rgba(255,255,255,0.82)] p-4">
-                <div className="flex items-center justify-between mb-2">
+              <div className="mb-5 rounded-[22px] border border-[rgba(49,56,45,0.12)] bg-[rgba(255,255,255,0.82)] p-4">
+                <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-1.5">
-                    <Sparkles size={9} style={{ color: meta.color }} />
+                    <Sparkles size={10} style={{ color: meta.color }} />
                     <span className="font-['IBM_Plex_Mono'] text-[9px] font-bold uppercase tracking-[0.18em]" style={{ color: meta.color }}>AI 美化结果</span>
                   </div>
                   <button
@@ -225,32 +225,74 @@ export default function PlatformCard({
                     className="flex items-center gap-1 rounded-full px-3 py-2 font-['IBM_Plex_Mono'] text-[8px] uppercase tracking-[0.18em] text-white transition-opacity hover:opacity-90"
                     style={{ backgroundColor: meta.color, boxShadow: `0 12px 24px ${meta.color}2a` }}
                   >
-                    <Check size={9} /> 应用
+                    <Check size={9} /> 应用到当前平台
                   </button>
                 </div>
                 {beautifiedContent.title && (
-                  <p className="mb-2 font-['Cormorant_Garamond'] text-[28px] leading-none tracking-[-0.04em] text-[var(--ink)]">{beautifiedContent.title}</p>
+                  <h3 className="mb-2 font-['Cormorant_Garamond'] text-[24px] leading-[1.1] tracking-[-0.03em] text-[var(--ink)]">{beautifiedContent.title}</h3>
                 )}
-                <pre className="line-clamp-6 whitespace-pre-wrap font-['IBM_Plex_Mono'] text-[10px] leading-7 text-[var(--ink-soft)]">{beautifiedContent.htmlBody}</pre>
+                <div className="text-[13px] leading-7 text-[var(--ink-soft)] line-clamp-6" dangerouslySetInnerHTML={{ __html: beautifiedContent.htmlBody }} />
                 {beautifiedContent.tags.length > 0 && (
-                  <div className="flex flex-wrap gap-1 mt-2">
+                  <div className="flex flex-wrap gap-1.5 mt-3">
                     {beautifiedContent.tags.map((t, i) => (
-                      <span key={i} className="px-tag" style={{ backgroundColor: meta.color + '12', color: meta.color }}>{t}</span>
+                      <span key={i} className="px-2.5 py-0.5 rounded-full text-[10px] font-medium" style={{ backgroundColor: meta.color + '14', color: meta.color }}>#{t}</span>
                     ))}
                   </div>
                 )}
               </div>
             )}
 
-            <span className="font-['IBM_Plex_Mono'] text-[9px] uppercase tracking-[0.18em] text-[var(--ink-faint)]">原始输出</span>
-            <pre className="mt-2 line-clamp-4 whitespace-pre-wrap font-['IBM_Plex_Mono'] text-[10px] leading-7 text-[var(--ink-soft)]">{previewBody}</pre>
-            {previewTags.length > 0 && (
-              <div className="flex flex-wrap gap-1 mt-2">
-                {previewTags.map((t, i) => (
-                  <span key={i} className="px-tag">{t}</span>
-                ))}
+            {/* Platform Mock Preview */}
+            <div className="flex justify-center">
+              <div
+                className="w-full rounded-[18px] overflow-hidden border bg-white shadow-[0_2px_12px_rgba(0,0,0,0.03)]"
+                style={{
+                  maxWidth: platform === 'wechat' || platform === 'xiaohongshu' ? 420 : '100%',
+                  borderColor: `${meta.color}18`,
+                }}
+              >
+                {/* Mock platform header */}
+                <div
+                  className="flex items-center gap-2 px-4 py-2.5 border-b"
+                  style={{ borderColor: `${meta.color}10`, backgroundColor: `${meta.color}05` }}
+                >
+                  <div
+                    className="w-5 h-5 rounded-[6px] flex items-center justify-center text-white text-[8px] font-bold"
+                    style={{ backgroundColor: meta.color }}
+                  >
+                    {meta.label[0]}
+                  </div>
+                  <span className="text-[10px] font-semibold tracking-wide" style={{ color: meta.color }}>
+                    {platformName} 发布效果
+                  </span>
+                </div>
+
+                {/* Mock content */}
+                <div className="p-5">
+                  <h2 className="font-['Cormorant_Garamond'] text-[22px] leading-[1.15] tracking-[-0.03em] text-gray-900 mb-3">
+                    {draftTitle}
+                  </h2>
+                  <div
+                    className="text-[13px] leading-7 text-gray-800"
+                    style={{ wordBreak: 'break-word' }}
+                    dangerouslySetInnerHTML={{ __html: previewBody }}
+                  />
+                  {previewTags.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mt-4 pt-3" style={{ borderTop: `1px solid ${meta.color}12` }}>
+                      {previewTags.map((t, i) => (
+                        <span
+                          key={i}
+                          className="px-2.5 py-0.5 rounded-full text-[10px] font-medium"
+                          style={{ backgroundColor: `${meta.color}0e`, color: meta.color }}
+                        >
+                          #{t}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
-            )}
+            </div>
           </div>
         </div>
       )}

@@ -247,7 +247,7 @@ export default function Editor() {
   const publishing = Array.from(platformStates.values()).some((state) => state.status === 'publishing');
 
   return (
-    <div className="h-full overflow-y-auto scrollbar-thin">
+    <div className="">
       <ToastContainer />
       <div className="mx-auto flex max-w-[1520px] flex-col gap-6">
 
@@ -358,111 +358,106 @@ export default function Editor() {
         )}
 
         {step === 'platform' && (
-          <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
-            <div className="px-card px-paper overflow-hidden">
-              <div className="border-b border-[rgba(49,56,45,0.1)] px-6 py-5 md:px-8">
+          <div className="flex flex-col gap-6">
+            {/* Platform selection + actions bar */}
+            <section className="px-card px-paper p-5 md:p-6">
+              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <div>
-                  <div className="px-label mb-3">主稿预览</div>
-                  <p className="font-['Cormorant_Garamond'] text-[34px] leading-none tracking-[-0.05em] text-[var(--ink)]">
+                  <div className="px-label mb-2">目标平台</div>
+                  <div className="flex flex-wrap gap-2">
+                    {allPlatforms.map((platform) => {
+                      const state = platformStates.get(platform);
+                      return (
+                        <button
+                          key={platform}
+                          type="button"
+                          onClick={() => togglePlatform(platform)}
+                          className={`px-tag text-[13px] px-3.5 py-2 rounded-[12px] transition-all ${selectedPlatforms.has(platform) ? '' : 'opacity-45'}`}
+                          style={selectedPlatforms.has(platform) ? { borderColor: PLATFORM_BRAND[platform]?.soft, backgroundColor: PLATFORM_BRAND[platform]?.soft, color: PLATFORM_BRAND[platform]?.deep } : undefined}
+                        >
+                          {state?.platformName || platform}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button onClick={handleSaveToBackend} disabled={saving} className="px-btn-secondary">
+                    <Save size={13} />
+                    {saving ? '保存中' : isEditing ? '保存修改' : '保存预览'}
+                  </button>
+                  <PublishButton
+                    publishing={publishing}
+                    selectedCount={Array.from(selectedPlatforms).length}
+                    platformStatuses={new Map(Array.from(selectedPlatforms).map((platform) => [platform, platformStates.get(platform)?.status || 'idle']))}
+                    onPublish={handlePublish}
+                  />
+                </div>
+              </div>
+            </section>
+
+            {/* Main draft summary */}
+            <section className="px-card px-paper overflow-hidden p-5 md:p-6">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <div className="px-label mb-1">主稿预览</div>
+                  <p className="font-['Cormorant_Garamond'] text-[28px] leading-none tracking-[-0.04em] text-[var(--ink)]">
                     {draft.title || '未命名稿件'}
                   </p>
                 </div>
-                <div className="mt-3 flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-1.5">
                   {draft.tags.split(/[,，]/).map((t, i) => t.trim() && (
                     <span key={i} className="px-tag">{t.trim()}</span>
                   ))}
                 </div>
               </div>
-              <div className="px-6 py-5 md:px-8">
-                <div
-                  className="prose prose-sm max-w-none text-[var(--ink-soft)]"
-                  dangerouslySetInnerHTML={{ __html: draft.htmlContent }}
-                />
-              </div>
-            </div>
+              <div className="text-[13px] leading-7 text-[var(--ink-soft)] line-clamp-3" dangerouslySetInnerHTML={{ __html: draft.htmlContent }} />
+            </section>
 
-            <div className="px-card px-soft-panel flex min-h-[780px] flex-col p-5">
-              <div className="mb-4">
-                <div className="px-label mb-3">发布控制台</div>
-                <p className="font-['Cormorant_Garamond'] text-[32px] leading-none tracking-[-0.05em] text-[var(--ink)]">
-                  平台输出
-                </p>
-              </div>
+            {/* Full-width platform cards */}
+            {allPlatforms.map((platform) => {
+              const state = platformStates.get(platform);
+              if (!state) return null;
+              return (
+                <section key={platform} className="px-card px-paper">
+                  <PlatformCard
+                    platform={platform}
+                    platformName={state.platformName}
+                    selected={selectedPlatforms.has(platform)}
+                    onToggle={() => togglePlatform(platform)}
+                    status={state.status}
+                    statusMessage={state.message}
+                    titleCount={state.meta.titleCharCount}
+                    titleMax={state.meta.maxTitleLength}
+                    bodyCount={state.meta.bodyCharCount}
+                    bodyMax={state.meta.maxBodyLength}
+                    tagCount={state.meta.tagCount}
+                    tagMax={state.meta.maxTags}
+                    messages={state.validation.messages}
+                    previewBody={state.output.body}
+                    previewTags={state.output.tags}
+                    draftTitle={draft.title}
+                    draftHtmlContent={draft.htmlContent}
+                    beautifiedContent={beautifiedOutputs.get(platform)}
+                    onBeautifyStart={() => handleBeautifyStart(platform)}
+                    onBeautifyComplete={handleBeautifyComplete(platform)}
+                    onBeautifyError={handleBeautifyError(platform)}
+                    onApplyBeautified={handleApplyBeautified(platform)}
+                  />
+                </section>
+              );
+            })}
 
-              <div className="mb-4 rounded-[24px] border border-[rgba(49,56,45,0.1)] bg-[rgba(255,255,255,0.78)] p-4">
-                <div className="px-label mb-3">目标平台</div>
-                <div className="flex flex-wrap gap-2">
-                  {allPlatforms.map((platform) => {
-                    const state = platformStates.get(platform);
-                    return (
-                      <button
-                        key={platform}
-                        type="button"
-                        onClick={() => togglePlatform(platform)}
-                        className={`px-tag ${selectedPlatforms.has(platform) ? '' : 'opacity-55'}`}
-                        style={selectedPlatforms.has(platform) ? { borderColor: PLATFORM_BRAND[platform]?.soft, backgroundColor: PLATFORM_BRAND[platform]?.soft, color: PLATFORM_BRAND[platform]?.deep } : undefined}
-                      >
-                        {state?.platformName || platform}
-                      </button>
-                    );
-                  })}
+            {error && (
+              <div className="rounded-[22px] border border-red-300/40 bg-red-100/60 px-4 py-3 text-[12px] text-red-700">
+                <div className="flex items-center gap-2 font-['IBM_Plex_Mono'] text-[10px] uppercase tracking-[0.16em]">
+                  <AlertCircle size={12} />
+                  校验提示
                 </div>
+                <p className="mt-2 leading-6">{error}</p>
               </div>
-
-              <div className="flex-1 space-y-3 overflow-y-auto pr-1 scrollbar-thin">
-                {allPlatforms.map((platform) => {
-                  const state = platformStates.get(platform);
-                  if (!state) return null;
-                  return (
-                    <PlatformCard
-                      key={platform}
-                      platform={platform}
-                      platformName={state.platformName}
-                      selected={selectedPlatforms.has(platform)}
-                      onToggle={() => togglePlatform(platform)}
-                      status={state.status}
-                      statusMessage={state.message}
-                      titleCount={state.meta.titleCharCount}
-                      titleMax={state.meta.maxTitleLength}
-                      bodyCount={state.meta.bodyCharCount}
-                      bodyMax={state.meta.maxBodyLength}
-                      tagCount={state.meta.tagCount}
-                      tagMax={state.meta.maxTags}
-                      messages={state.validation.messages}
-                      previewBody={state.output.body}
-                      previewTags={state.output.tags}
-                      draftTitle={draft.title}
-                      draftHtmlContent={draft.htmlContent}
-                      beautifiedContent={beautifiedOutputs.get(platform)}
-                      onBeautifyStart={() => handleBeautifyStart(platform)}
-                      onBeautifyComplete={handleBeautifyComplete(platform)}
-                      onBeautifyError={handleBeautifyError(platform)}
-                      onApplyBeautified={handleApplyBeautified(platform)}
-                    />
-                  );
-                })}
-              </div>
-
-              {error && (
-                <div className="mt-4 rounded-[22px] border border-red-300/40 bg-red-100/60 px-4 py-3 text-[12px] text-red-700">
-                  <div className="flex items-center gap-2 font-['IBM_Plex_Mono'] text-[10px] uppercase tracking-[0.16em]">
-                    <AlertCircle size={12} />
-                    校验提示
-                  </div>
-                  <p className="mt-2 leading-6">{error}</p>
-                </div>
-              )}
-
-              <div className="mt-4 border-t border-[rgba(49,56,45,0.12)] pt-4">
-                <PublishButton
-                  publishing={publishing}
-                  selectedCount={Array.from(selectedPlatforms).length}
-                  platformStatuses={new Map(Array.from(selectedPlatforms).map((platform) => [platform, platformStates.get(platform)?.status || 'idle']))}
-                  onPublish={handlePublish}
-                />
-              </div>
-            </div>
-          </section>
+            )}
+          </div>
         )}
       </div>
     </div>
