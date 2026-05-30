@@ -319,6 +319,114 @@ export async function generateTitle(body: string): Promise<string[]> {
   }
 }
 
+export interface OptimizeResult {
+  title: string;
+  htmlBody: string;
+  explanation: string;
+}
+
+export async function optimizeContent(
+  title: string,
+  htmlContent: string,
+  instruction?: string,
+): Promise<OptimizeResult> {
+  const instructionText = instruction
+    ? `\n用户特别要求：${instruction}`
+    : '';
+
+  const raw = await chat([
+    {
+      role: 'system',
+      content: `你是一位专业的内容编辑和写作教练。请优化用户提供的文章，要求：
+1. 保持原文的核心观点和结构，优化表达和节奏
+2. 改进标题，使其更有吸引力
+3. 优化段落结构和逻辑递进
+4. 提升语言的专业度和可读性
+5. 保持HTML标签格式输出
+6. 在explanation字段中简要说明做了哪些优化（50-100字）
+
+请严格按以下JSON格式返回：
+{"title":"优化后的标题","htmlBody":"优化后的HTML正文","explanation":"优化说明：改进了标题的吸引力，调整了段落结构使逻辑更清晰，优化了部分表达的节奏感。"}${instructionText}`,
+    },
+    {
+      role: 'user',
+      content: `原标题：${title}\n\n正文（HTML）：${htmlContent.slice(0, 6000)}\n\n请优化这篇文章，返回JSON。`,
+    },
+  ], 0.6);
+
+  return parseJsonResponse<OptimizeResult>(raw, {
+    title,
+    htmlBody: htmlContent,
+    explanation: '优化完成',
+  });
+}
+
+export async function optimizeSelection(
+  selectedText: string,
+  context: string,
+  instruction?: string,
+): Promise<{ optimizedText: string; explanation: string }> {
+  const instructionText = instruction
+    ? `\n用户特别要求：${instruction}`
+    : '';
+
+  const raw = await chat([
+    {
+      role: 'system',
+      content: `你是一位专业的内容编辑。用户选中了文章中的一段文字，请针对这段文字进行优化。
+要求：
+1. 根据上下文语境优化选中文案
+2. 可以调整表达、增强感染力、优化节奏
+3. 保持原文风格和调性，不要改变核心意思
+4. 优化后的文字长度应与原文相近
+5. 保持HTML标签（如果有的话）
+6. 在explanation中简要说明优化了什么（20-50字）
+
+返回JSON格式：{"optimizedText":"优化后的文字","explanation":"优化说明"}${instructionText}`,
+    },
+    {
+      role: 'user',
+      content: `上下文（整篇文章）：\n${context.slice(0, 3000)}\n\n选中的文字：\n${selectedText}\n\n请优化选中的这段文字。`,
+    },
+  ], 0.6);
+
+  try {
+    const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    const parsed = JSON.parse(cleaned);
+    return { optimizedText: parsed.optimizedText || selectedText, explanation: parsed.explanation || '优化完成' };
+  } catch {
+    return { optimizedText: selectedText, explanation: raw.slice(0, 100) };
+  }
+}
+
+export async function chatAboutArticle(
+  messages: Array<{ role: string; content: string }>,
+  articleTitle: string,
+  articleContent: string,
+): Promise<string> {
+  const systemMsg: ChatMessage = {
+    role: 'system',
+    content: `你是一位资深内容编辑顾问，正在和作者讨论如何优化一篇文章。
+
+当前文章信息：
+- 标题：${articleTitle}
+- 正文：${articleContent.slice(0, 4000)}
+
+你可以：
+1. 分析文章的风格、结构、优缺点
+2. 提出具体的优化建议
+3. 帮作者设计更有吸引力的标题
+4. 建议不同平台（公众号、知乎、B站、小红书）的改写策略
+5. 回答作者关于写作的任何问题
+
+回答要具体、有实操性，不要空泛的建议。每次回复聚焦1-3个要点。`,
+  };
+
+  const allMessages: ChatMessage[] = [systemMsg, ...messages as ChatMessage[]];
+
+  return chat(allMessages, 0.7);
+}
+
 export async function suggestTags(title: string, body: string): Promise<string[]> {
   const raw = await chat([
     {
