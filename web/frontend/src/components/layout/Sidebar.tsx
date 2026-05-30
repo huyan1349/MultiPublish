@@ -1,5 +1,6 @@
 import { NavLink } from 'react-router-dom';
 import { PenLine, LayoutDashboard, FileText, Sparkles, Settings, CircleUserRound } from 'lucide-react';
+import BrandMark from '../brand/BrandMark';
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: '总览' },
@@ -12,8 +13,8 @@ export default function Sidebar() {
   return (
     <aside className="hidden md:flex w-[74px] shrink-0 flex-col items-center border-r border-[rgba(49,56,45,0.12)] bg-[rgba(255,255,255,0.92)] py-5">
       <div className="flex min-h-screen w-full flex-col items-center px-3 py-1">
-        <div className="mb-7 flex h-12 w-12 items-center justify-center rounded-full bg-[var(--ink)] text-white shadow-[0_12px_24px_rgba(23,23,20,0.12)]">
-          <div className="font-['Cormorant_Garamond'] text-[26px] leading-none tracking-[-0.06em]">M</div>
+        <div className="mb-7">
+          <BrandMark size={48} rounded={18} />
         </div>
 
         <nav className="flex flex-1 flex-col items-center gap-3">

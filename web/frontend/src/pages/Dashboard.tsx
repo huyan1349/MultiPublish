@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight, CalendarDays, FileText, PenLine, Sparkles } from 'lucide-react';
 import { api } from '../api/client';
+import BrandMark from '../components/brand/BrandMark';
 
 interface ContentItem {
   id: string;
@@ -75,6 +76,17 @@ export default function Dashboard() {
             <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
               <div className="max-w-[560px]">
                 <div className="px-label mb-4">内容中枢</div>
+                <div className="mb-5 flex items-center gap-4">
+                  <BrandMark size={64} rounded={24} />
+                  <div>
+                    <div className="font-['IBM_Plex_Mono'] text-[10px] uppercase tracking-[0.18em] text-[var(--ink-faint)]">
+                      MultiPublish
+                    </div>
+                    <div className="mt-2 text-[13px] text-[var(--ink-soft)]">
+                      一次写作，多端真实分发
+                    </div>
+                  </div>
+                </div>
                 <h1 className="font-['Cormorant_Garamond'] text-[58px] leading-[0.92] tracking-[-0.07em] text-[var(--ink)]">
                   一个真正用于写作、
                   <br />
