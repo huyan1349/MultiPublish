@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   AlertCircle, ArrowLeft, Camera, CheckCircle, ChevronRight,
-  Download, Edit3, FileText, Github, LayoutDashboard, Loader2,
+  ClipboardCopy, Download, Edit3, FileText, Github, LayoutDashboard, Loader2,
   PenLine, RefreshCw, Rocket, Save, Send, Settings, Sparkles, X, XCircle,
 } from 'lucide-react';
 import { useContentStore } from './sidepanel/stores/contentStore';
@@ -320,17 +320,23 @@ export default function Sidepanel() {
               )}
 
               {/* Auto Layout Toggle */}
-              {(active.platform === 'xiaohongshu' || active.platform === 'wechat') && (
+              {active.platform === 'xiaohongshu' && (
                 <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 12, color: 'var(--text-secondary)', padding: '4px 0' }}>
                   <input
                     type="checkbox"
                     checked={autoLayout}
                     onChange={(e) => setAutoLayout(e.target.checked)}
-                    style={{ accentColor: active.platform === 'xiaohongshu' ? '#FF5A5F' : '#07C160', width: 14, height: 14 }}
+                    style={{ accentColor: '#FF5A5F', width: 14, height: 14 }}
                   />
-                  <Sparkles size={12} style={{ color: active.platform === 'xiaohongshu' ? '#FF5A5F' : '#07C160' }} />
-                  {active.platform === 'xiaohongshu' ? '一键排版后自动发布（排版→下一步→发布）' : '填充后自动发布（群发→确认）'}
+                  <Sparkles size={12} style={{ color: '#FF5A5F' }} />
+                  一键排版后自动发布（排版→下一步→发布）
                 </label>
+              )}
+              {active.platform === 'wechat' && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--text-secondary)', padding: '4px 0' }}>
+                  <ClipboardCopy size={12} style={{ color: '#07C160' }} />
+                  点击发布后内容将复制到剪贴板，在公众号编辑器中 Ctrl+V 粘贴即可
+                </div>
               )}
 
               {/* Action Buttons */}
