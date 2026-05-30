@@ -11,11 +11,8 @@ export const config: PlasmoCSConfig = {
   run_at: 'document_idle',
 }
 
-chrome.runtime.sendMessage({ type: 'PING' }, (response) => {
-  if (chrome.runtime.lastError) return
-  const extId = chrome.runtime.id
-  if (extId) {
-    window.localStorage.setItem('cb_extension_id', extId)
-    window.dispatchEvent(new CustomEvent('multipublish:extension-id', { detail: extId }))
-  }
-})
+const extId = chrome.runtime.id
+if (extId) {
+  window.localStorage.setItem('cb_extension_id', extId)
+  window.dispatchEvent(new CustomEvent('multipublish:extension-id', { detail: extId }))
+}
