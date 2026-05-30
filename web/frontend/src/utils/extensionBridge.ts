@@ -1,4 +1,11 @@
-const EXTENSION_ID = localStorage.getItem('cb_extension_id') || '';
+let _extensionId = localStorage.getItem('cb_extension_id') || '';
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('multipublish:extension-id', ((e: CustomEvent) => {
+    _extensionId = e.detail;
+    localStorage.setItem('cb_extension_id', _extensionId);
+  }) as EventListener);
+}
 
 export interface ExtensionPublishPayload {
   platform: 'wechat' | 'zhihu' | 'bilibili' | 'xiaohongshu';
@@ -35,61 +42,22 @@ function getChrome(): ChromeNs | null {
 }
 
 export function isExtensionInstalled(): boolean {
-  return !!EXTENSION_ID || !!getChrome()?.runtime;
+  return !!_extensionId || !!getChrome()?.runtime;
 }
 
 export async function publishViaExtension(
   payload: ExtensionPublishPayload,
 ): Promise<ExtensionPublishResult> {
-  if (payload.platform === 'wechat') {
-    return publishWechatViaClipboard(payload);
-  }
-
-  return publishOtherViaExtension(payload);
+  return publishViaExtensionMessage(payload);
 }
 
-async function publishWechatViaClipboard(
-  payload: ExtensionPublishPayload,
-): Promise<ExtensionPublishResult> {
-  try {
-    const html = payload.content.body || '';
-    const blob = new Blob([html], { type: 'text/html' });
-    const textBlob = new Blob([html.replace(/<[^>]*>/g, '')], { type: 'text/plain' });
-    await navigator.clipboard.write([
-      new ClipboardItem({ 'text/html': blob, 'text/plain': textBlob }),
-    ]);
-
-    const cr = getChrome();
-    if (cr?.runtime?.sendMessage && EXTENSION_ID) {
-      cr.runtime.sendMessage(
-        EXTENSION_ID,
-        { type: 'COPY_AND_OPEN_WECHAT', payload: { title: payload.content.title, body: payload.content.body } },
-        () => { /* fire and forget */ },
-      );
-    }
-
-    return {
-      platform: 'wechat',
-      platformName: '微信公众号',
-      success: true,
-      message: '内容已复制到剪贴板，请在公众号编辑器中按 Ctrl+V 粘贴',
-    };
-  } catch (err) {
-    return {
-      platform: 'wechat',
-      platformName: '微信公众号',
-      success: false,
-      message: err instanceof Error ? err.message : '剪贴板复制失败',
-    };
-  }
-}
-
-async function publishOtherViaExtension(
+async function publishViaExtensionMessage(
   payload: ExtensionPublishPayload,
 ): Promise<ExtensionPublishResult> {
   return new Promise((resolve, reject) => {
-    if (!EXTENSION_ID) {
-      reject(new Error('未配置扩展 ID，请在设置中填写 Chrome 扩展 ID'));
+    const extId = _extensionId || localStorage.getItem('cb_extension_id') || '';
+    if (!extId) {
+      reject(new Error('未检测到扩展，请确认 MultiPublish 扩展已安装并启用'));
       return;
     }
 
@@ -101,7 +69,7 @@ async function publishOtherViaExtension(
 
     try {
       cr.runtime.sendMessage(
-        EXTENSION_ID,
+        extId,
         { type: 'PUBLISH_TO_PLATFORM', ...payload },
         (response: ExtensionPublishResult) => {
           if (cr.runtime?.lastError) {
@@ -118,9 +86,10 @@ async function publishOtherViaExtension(
 }
 
 export function setExtensionId(id: string) {
+  _extensionId = id;
   localStorage.setItem('cb_extension_id', id);
 }
 
 export function getExtensionId(): string {
-  return EXTENSION_ID;
+  return _extensionId || localStorage.getItem('cb_extension_id') || '';
 }

@@ -1,10 +1,24 @@
-import type { PublishPayload, PublishResult } from './shared/types';
+import type { PlatformType, PublishPayload, PublishResult } from './shared/types';
 
 const PLATFORM_URLS: Record<string, string> = {
-  wechat: 'https://mp.weixin.qq.com/cgi-bin/appmsg?t=media/appmsg_edit_v2&action=edit&isNew=1&type=77',
+  wechat: 'https://mp.weixin.qq.com/',
   zhihu: 'https://zhuanlan.zhihu.com/write',
   bilibili: 'https://member.bilibili.com/platform/upload/text/edit',
   xiaohongshu: 'https://creator.xiaohongshu.com/publish/publish',
+};
+
+const PLATFORM_DOMAINS: Record<string, string> = {
+  wechat: 'mp.weixin.qq.com',
+  zhihu: 'zhuanlan.zhihu.com',
+  bilibili: 'member.bilibili.com',
+  xiaohongshu: 'creator.xiaohongshu.com',
+};
+
+const PLATFORM_NAMES: Record<string, string> = {
+  wechat: '微信公众号',
+  zhihu: '知乎',
+  bilibili: 'B站',
+  xiaohongshu: '小红书',
 };
 
 void chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
@@ -22,16 +36,20 @@ function handleMessage(message: { type: string; payload?: unknown }, sendRespons
     sendResponse({ status: 'ok', version: chrome.runtime.getManifest().version });
     return false;
   }
-  if (message.type === 'PUBLISH_TO_PLATFORM') {
-    handlePublish(message.payload as PublishPayload)
-      .then(sendResponse)
-      .catch((err) => sendResponse({ status: 'failed', message: err.message }));
+  if (message.type === 'READ_WX_META') {
+    readWxMetaFromTab()
+      .then((meta) => sendResponse({ meta }))
+      .catch(() => sendResponse({ meta: null }));
     return true;
   }
-  if (message.type === 'COPY_AND_OPEN_WECHAT') {
-    handleWechatClipboardOpen(message.payload as { title: string; body: string })
+  if (message.type === 'PUBLISH_TO_PLATFORM') {
+    const msg = message as { type: string; payload?: PublishPayload; platform?: PlatformType; platformName?: string; content?: unknown; autoLayout?: boolean };
+    const p: PublishPayload = msg.payload
+      ? msg.payload
+      : { platform: msg.platform!, platformName: msg.platformName || PLATFORM_NAMES[msg.platform!] || msg.platform!, content: msg.content as PublishPayload['content'], autoLayout: msg.autoLayout };
+    handlePublish(p)
       .then(sendResponse)
-      .catch((err) => sendResponse({ success: false, message: err.message }));
+      .catch((err) => sendResponse({ status: 'failed', message: err.message }));
     return true;
   }
   return false;
@@ -45,85 +63,39 @@ chrome.runtime.onMessageExternal.addListener((message, _sender, sendResponse) =>
   return handleMessage(message, sendResponse);
 });
 
-async function handleWechatClipboardOpen(payload: { title: string; body: string }): Promise<{ success: boolean; message: string }> {
-  try {
-    await chrome.storage.local.set({
-      contentbridge_fill: {
-        platform: 'wechat',
-        content: { title: payload.title, body: payload.body },
-        timestamp: Date.now(),
-      },
-    });
-
-    const existing = await findExistingPlatformTab('mp.weixin.qq.com');
-    if (existing) {
-      const url = PLATFORM_URLS.wechat;
-      await chrome.tabs.update(existing.id!, { url, active: true });
-      await chrome.tabs.reload(existing.id!);
-    } else {
-      await chrome.tabs.create({ url: PLATFORM_URLS.wechat, active: true });
-    }
-
-    return { success: true, message: '已复制到剪贴板并打开公众号编辑器，请粘贴内容' };
-  } catch (err) {
-    return { success: false, message: err instanceof Error ? err.message : '打开公众号页面失败' };
-  }
-}
-
 async function handlePublish(payload: PublishPayload): Promise<PublishResult> {
   const { platform, platformName, content } = payload;
   const url = PLATFORM_URLS[platform];
   if (!url) throw new Error(`Unknown platform: ${platform}`);
-
-  if (platform === 'wechat') {
-    return handleWechatPublish(payload);
-  }
 
   try {
     await chrome.storage.local.set({
       contentbridge_fill: { platform, content, autoLayout: payload.autoLayout, timestamp: Date.now() },
     });
 
-    const tab = await chrome.tabs.create({ url, active: false });
-    if (!tab.id) throw new Error('Failed to create tab');
+    const domain = PLATFORM_DOMAINS[platform];
+    const existing = await findExistingPlatformTab(domain);
 
-    const result = await waitForFillResult(tab.id, platform, platformName);
-    await chrome.tabs.update(tab.id, { active: true });
+    if (existing) {
+      await chrome.tabs.update(existing.id!, { active: true });
+      if (platform === 'wechat') {
+        await chrome.scripting.executeScript({
+          target: { tabId: existing.id! },
+          func: () => window.location.reload(),
+        });
+      } else {
+        await chrome.tabs.update(existing.id!, { url, active: true });
+      }
+    } else {
+      await chrome.tabs.create({ url, active: true });
+    }
+
+    const result = await waitForFillResult(platform, platformName);
     return result;
   } catch (err) {
     const msg = err instanceof Error ? err.message : '发布失败';
     return { platform, platformName, status: 'failed', message: msg };
   }
-}
-
-async function handleWechatPublish(payload: PublishPayload): Promise<PublishResult> {
-  const { platform, platformName, content } = payload;
-  const body = content.body || '';
-  const title = content.title || '';
-
-  await chrome.storage.local.set({
-    contentbridge_fill: {
-      platform: 'wechat',
-      content: { title, body },
-      timestamp: Date.now(),
-    },
-  });
-
-  const existing = await findExistingPlatformTab('mp.weixin.qq.com');
-  if (existing) {
-    await chrome.tabs.update(existing.id!, { url: PLATFORM_URLS.wechat, active: true });
-    await chrome.tabs.reload(existing.id!);
-  } else {
-    await chrome.tabs.create({ url: PLATFORM_URLS.wechat, active: true });
-  }
-
-  return {
-    platform,
-    platformName,
-    status: 'success',
-    message: '内容已复制到剪贴板，请在公众号编辑器中按 Ctrl+V 粘贴',
-    mockUrl: PLATFORM_URLS.wechat,
-  };
 }
 
 async function findExistingPlatformTab(domain: string): Promise<chrome.tabs.Tab | null> {
@@ -132,7 +104,48 @@ async function findExistingPlatformTab(domain: string): Promise<chrome.tabs.Tab 
   return null;
 }
 
-function waitForFillResult(tabId: number, platform: string, platformName: string): Promise<PublishResult> {
+async function readWxMetaFromTab(): Promise<{
+  uid: string;
+  nickName: string;
+  token: string;
+  ticket: string;
+  svrTime: string;
+} | null> {
+  const tabs = await chrome.tabs.query({ url: 'https://mp.weixin.qq.com/*' });
+  if (tabs.length === 0) return null;
+
+  const tabId = tabs[0].id;
+  if (!tabId) return null;
+
+  try {
+    const results = await chrome.scripting.executeScript({
+      target: { tabId },
+      world: 'MAIN',
+      func: () => {
+        try {
+          const wx = (window as any).wx;
+          if (wx && wx.commonData && wx.commonData.data && wx.commonData.data.t) {
+            const d = wx.commonData.data;
+            return {
+              uid: d.user_name || '',
+              nickName: d.nick_name || '',
+              token: d.t,
+              ticket: d.ticket || '',
+              svrTime: d.time || '',
+            };
+          }
+        } catch {}
+        return null;
+      },
+    });
+
+    return results?.[0]?.result ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function waitForFillResult(platform: PlatformType, platformName: string): Promise<PublishResult> {
   return new Promise((resolve) => {
     const timeout = setTimeout(() => {
       chrome.storage.onChanged.removeListener(listener);

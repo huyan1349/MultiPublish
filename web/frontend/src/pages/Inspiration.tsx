@@ -359,7 +359,7 @@ export default function Inspiration() {
   const hasInput = topic.trim().length > 0;
 
   return (
-    <div className="relative h-full overflow-y-auto scrollbar-thin">
+    <div className="relative">
       {/* background orbs */}
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
         <div className="px-orb h-[420px] w-[420px] animate-[px-orb-1_16s_ease-in-out_infinite]" style={{ left: '-8%', top: '10%', background: 'radial-gradient(circle, rgba(91,108,240,0.18), transparent 70%)' }} />

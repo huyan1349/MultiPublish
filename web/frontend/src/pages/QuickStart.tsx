@@ -228,7 +228,7 @@ export default function QuickStart() {
   const steps: QuickStep[] = ['inspire', 'outline', 'edit', 'platform'];
 
   return (
-    <div className="h-full overflow-y-auto scrollbar-thin">
+    <div className="">
       <ToastContainer />
       <div className="mx-auto flex max-w-[1520px] flex-col gap-6">
 
@@ -391,133 +391,98 @@ export default function QuickStart() {
         )}
 
         {step === 'platform' && (
-          <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
-            <div className="px-card px-paper overflow-hidden">
-              <div className="border-b border-[rgba(49,56,45,0.1)] px-6 py-5 md:px-8">
+          <div className="flex flex-col gap-6">
+            {/* Platform selection + actions bar */}
+            <section className="px-card px-paper p-5 md:p-6">
+              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <div>
-                  <div className="px-label mb-3">主稿预览</div>
-                  <p className="font-['Cormorant_Garamond'] text-[34px] leading-none tracking-[-0.05em] text-[var(--ink)]">
+                  <div className="px-label mb-2">目标平台</div>
+                  <div className="flex flex-wrap gap-2">
+                    {allPlatforms.map((platform) => {
+                      const state = platformStates.get(platform);
+                      return (
+                        <button
+                          key={platform}
+                          type="button"
+                          onClick={() => togglePlatform(platform)}
+                          className={`px-tag text-[13px] px-3.5 py-2 rounded-[12px] transition-all ${selectedPlatforms.has(platform) ? 'border-[var(--accent)]/30 bg-[var(--accent)]/10 text-[var(--accent-deep)]' : 'opacity-45'}`}
+                        >
+                          {state?.platformName || platform}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button onClick={() => setStep('edit')} className="px-btn-ghost">
+                    <ArrowLeft size={14} /> 返回编辑
+                  </button>
+                  <PublishButton
+                    publishing={publishing}
+                    selectedCount={Array.from(selectedPlatforms).length}
+                    platformStatuses={new Map(Array.from(selectedPlatforms).map((p) => [p, platformStates.get(p)?.status || 'idle']))}
+                    onPublish={handlePublish}
+                  />
+                </div>
+              </div>
+            </section>
+
+            {/* Main draft summary */}
+            <section className="px-card px-paper overflow-hidden p-5 md:p-6">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <div className="px-label mb-1">主稿预览</div>
+                  <p className="font-['Cormorant_Garamond'] text-[28px] leading-none tracking-[-0.04em] text-[var(--ink)]">
                     {draft.title || '未命名稿件'}
                   </p>
                 </div>
-                <div className="mt-3 flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-1.5">
                   {draft.tags.split(/[,，]/).map((t, i) => t.trim() && (
                     <span key={i} className="px-tag">{t.trim()}</span>
                   ))}
                 </div>
               </div>
-              <div className="px-6 py-5 md:px-8">
-                <div className="prose prose-sm max-w-none text-[var(--ink-soft)]" dangerouslySetInnerHTML={{ __html: draft.htmlContent }} />
-              </div>
-              <div className="border-t border-[rgba(49,56,45,0.1)] px-6 py-4 md:px-8">
-                <button onClick={() => setStep('edit')} className="px-btn-ghost">
-                  <ArrowLeft size={14} /> 返回编辑
-                </button>
-              </div>
-            </div>
+              <div className="text-[13px] leading-7 text-[var(--ink-soft)] line-clamp-3" dangerouslySetInnerHTML={{ __html: draft.htmlContent }} />
+            </section>
 
-            <div className="px-card px-soft-panel flex min-h-[780px] flex-col p-5">
-              <div className="mb-4">
-                <div className="px-label mb-3">平台适配与发布</div>
-                <p className="font-['Cormorant_Garamond'] text-[32px] leading-none tracking-[-0.05em] text-[var(--ink)]">
-                  选择平台 · 润色 · 发布
-                </p>
-              </div>
+            {/* Full-width platform cards */}
+            {allPlatforms.map((platform) => {
+              const state = platformStates.get(platform);
+              if (!state) return null;
+              return (
+                <section key={platform} className="px-card px-paper">
+                  <PlatformCard
+                    platform={platform}
+                    platformName={state.platformName}
+                    selected={selectedPlatforms.has(platform)}
+                    onToggle={() => togglePlatform(platform)}
+                    status={state.status}
+                    statusMessage={state.message}
+                    titleCount={state.meta.titleCharCount}
+                    titleMax={state.meta.maxTitleLength}
+                    bodyCount={state.meta.bodyCharCount}
+                    bodyMax={state.meta.maxBodyLength}
+                    tagCount={state.meta.tagCount}
+                    tagMax={state.meta.maxTags}
+                    messages={state.validation.messages}
+                    previewBody={state.output.body}
+                    previewTags={state.output.tags}
+                    draftTitle={draft.title}
+                    draftHtmlContent={draft.htmlContent}
+                    beautifiedContent={beautifiedOutputs.get(platform)}
+                    onBeautifyStart={() => setBeautifyingPlatform(platform)}
+                    onBeautifyComplete={(result) => setBeautifiedOutput(platform, result)}
+                    onBeautifyError={(err) => showToast('error', '润色失败', err)}
+                    onApplyBeautified={() => handleApplyBeautified(platform)}
+                  />
+                </section>
+              );
+            })}
 
-              <div className="mb-4 rounded-[24px] border border-[rgba(49,56,45,0.1)] bg-[rgba(255,255,255,0.78)] p-4">
-                <div className="px-label mb-3">目标平台</div>
-                <div className="flex flex-wrap gap-2">
-                  {allPlatforms.map((platform) => {
-                    const state = platformStates.get(platform);
-                    return (
-                      <button
-                        key={platform}
-                        type="button"
-                        onClick={() => togglePlatform(platform)}
-                        className={`px-tag ${selectedPlatforms.has(platform) ? 'border-[var(--accent)]/30 bg-[var(--accent)]/10 text-[var(--accent-deep)]' : 'opacity-55'}`}
-                      >
-                        {state?.platformName || platform}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="flex-1 space-y-3 overflow-y-auto pr-1 scrollbar-thin">
-                {allPlatforms.map((platform) => {
-                  const state = platformStates.get(platform);
-                  if (!state) return null;
-                  const beautified = beautifiedOutputs.get(platform);
-                  const isBeautifying = beautifyingPlatform === platform;
-                  return (
-                    <div key={platform} className={`overflow-hidden rounded-[28px] border transition-all duration-200 ${selectedPlatforms.has(platform) ? 'border-[rgba(49,56,45,0.16)] bg-[rgba(255,255,255,0.82)] shadow-[0_18px_32px_rgba(41,48,39,0.08)]' : 'border-[rgba(49,56,45,0.1)] bg-[rgba(244,249,243,0.72)] opacity-60'}`}>
-                      <div className="p-5">
-                        <div className="mb-3 flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <span className="font-['IBM_Plex_Mono'] text-[10px] uppercase tracking-[0.18em] text-[var(--ink)]">{state.platformName}</span>
-                            {beautified && (
-                              <span className="rounded-full border border-green-300/40 bg-green-100/60 px-2 py-0.5 font-['IBM_Plex_Mono'] text-[8px] uppercase tracking-[0.16em] text-green-700">
-                                <Check size={8} className="inline" /> 已润色
-                              </span>
-                            )}
-                          </div>
-                          <button
-                            onClick={() => handleBeautify(platform)}
-                            disabled={isBeautifying}
-                            className="px-btn-ghost h-8 min-h-0 px-3"
-                          >
-                            {isBeautifying ? <RefreshCw size={11} className="animate-spin" /> : <Wand2 size={11} />}
-                            {isBeautifying ? '润色中' : '自动润色'}
-                          </button>
-                        </div>
-
-                        {beautified && (
-                          <div className="mb-3 rounded-[20px] border border-[rgba(49,56,45,0.12)] bg-[rgba(255,255,255,0.82)] p-4">
-                            <div className="flex items-center justify-between mb-2">
-                              <p className="font-['Cormorant_Garamond'] text-[24px] leading-none tracking-[-0.04em] text-[var(--ink)]">{beautified.title}</p>
-                              <button onClick={() => {
-                                const next = new Set(expandedBeautify);
-                                next.has(platform) ? next.delete(platform) : next.add(platform);
-                                setExpandedBeautify(next);
-                              }} className="flex h-7 w-7 items-center justify-center rounded-full border border-transparent text-[var(--ink-faint)] hover:border-[rgba(49,56,45,0.14)] hover:bg-[rgba(255,255,255,0.6)]">
-                                {expandedBeautify.has(platform) ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-                              </button>
-                            </div>
-                            <pre className={`whitespace-pre-wrap font-['IBM_Plex_Mono'] text-[10px] leading-6 text-[var(--ink-soft)] ${expandedBeautify.has(platform) ? '' : 'line-clamp-4'}`}>{beautified.htmlBody}</pre>
-                            <div className="mt-2 flex flex-wrap gap-1">
-                              {beautified.tags.map((t, i) => <span key={i} className="px-tag">{t}</span>)}
-                            </div>
-                            <button onClick={() => handleApplyBeautified(platform)} className="px-btn-primary mt-3 w-full">
-                              <Check size={12} /> 应用润色结果
-                            </button>
-                          </div>
-                        )}
-
-                        <div className="text-[12px] leading-6 text-[var(--ink-soft)]">
-                          {state.message || '点击「自动润色」适配平台风格，确认后发布'}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {error && (
-                <div className="mt-4 rounded-[22px] border border-red-300/40 bg-red-100/60 px-4 py-3 text-[12px] text-red-700">
-                  {error}
-                </div>
-              )}
-
-              <div className="mt-4 border-t border-[rgba(49,56,45,0.12)] pt-4">
-                <PublishButton
-                  publishing={publishing}
-                  selectedCount={Array.from(selectedPlatforms).length}
-                  platformStatuses={new Map(Array.from(selectedPlatforms).map((p) => [p, platformStates.get(p)?.status || 'idle']))}
-                  onPublish={handlePublish}
-                />
-              </div>
-            </div>
-          </section>
+            {error && (
+              <div className="rounded-[22px] border border-red-300/40 bg-red-100/60 px-4 py-3 text-[12px] text-red-700">{error}</div>
+            )}
+          </div>
         )}
       </div>
     </div>

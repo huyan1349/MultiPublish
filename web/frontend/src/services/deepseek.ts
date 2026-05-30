@@ -83,7 +83,8 @@ const PLATFORM_SYSTEM_PROMPTS: Record<PlatformStyle, string> = {
 4. 适当使用小标题<h3>分段，增强可读性
 5. 结尾添加引导关注的句子，如"关注我，获取更多深度内容"
 6. 保持HTML标签格式输出，不要丢失原有的标签结构
-7. 标签：3-5个与内容相关的热门标签`,
+7. 标签：3-5个与内容相关的热门标签
+8. 重要：如果输入内容是大纲/要点/列表形式（简短条目、项目符号、编号列表），必须将每个要点展开为完整的段落，补充细节、案例或论述，使其成为一篇内容充实、可独立发布的完整文章`,
 
   zhihu: `你是一位知乎高赞答主。请将用户的内容改写为知乎专栏风格，要求：
 1. 标题：理性、专业、可带有数据或观点倾向，20字以内
@@ -92,7 +93,8 @@ const PLATFORM_SYSTEM_PROMPTS: Record<PlatformStyle, string> = {
 4. 使用<h3>小标题组织论点，每个论点配以论据
 5. 适当使用<blockquote>引用重要观点
 6. 保持HTML标签格式输出
-7. 标签：3-5个专业领域标签`,
+7. 标签：3-5个专业领域标签
+8. 重要：如果输入内容是大纲/要点/列表形式（简短条目、项目符号、编号列表），必须将每个要点展开为完整的段落，补充论据、数据或案例分析，使其成为一篇内容充实、可独立发布的完整文章`,
 
   bilibili: `你是一位B站UP主。请将用户的内容改写为B站动态/专栏风格，要求：
 1. 标题：轻松活泼、带梗、可使用"！"增强语气，20字以内
@@ -101,7 +103,8 @@ const PLATFORM_SYSTEM_PROMPTS: Record<PlatformStyle, string> = {
 4. 用短段落、换行增强节奏感
 5. 可以使用"家人们"、"这波"、"绝了"等B站常用表达
 6. 保持HTML标签格式输出
-7. 标签：3-5个B站热门标签`,
+7. 标签：3-5个B站热门标签
+8. 重要：如果输入内容是大纲/要点/列表形式（简短条目、项目符号、编号列表），必须将每个要点展开为完整的段落，补充细节、趣事或个人体验，使其成为一篇内容充实、可独立发布的完整文章`,
 
   xiaohongshu: `你是一位小红书博主。请将用户的内容改写为小红书笔记风格，要求：
 1. 标题：种草感、吸睛、短小精悍，15字以内，可使用emoji开头
@@ -110,7 +113,8 @@ const PLATFORM_SYSTEM_PROMPTS: Record<PlatformStyle, string> = {
 4. 使用数字列表"1️⃣2️⃣3️⃣"或"①②③"组织内容
 5. 结尾添加话题引导，如"姐妹们觉得怎么样？评论区告诉我～"
 6. 保持HTML标签格式输出
-7. 标签：5-8个小红书热门话题标签（不带#号）`,
+7. 标签：5-8个小红书热门话题标签（不带#号）
+8. 重要：如果输入内容是大纲/要点/列表形式（简短条目、项目符号、编号列表），必须将每个要点展开为完整的段落，补充细节、体验分享或种草理由，使其成为一篇内容充实、可独立发布的完整笔记`,
 };
 
 export async function beautifyContentForPlatform(input: BeautifyContentInput): Promise<BeautifyContentResult> {
@@ -313,6 +317,114 @@ export async function generateTitle(body: string): Promise<string[]> {
   } catch {
     return [body.slice(0, 30) + '…'];
   }
+}
+
+export interface OptimizeResult {
+  title: string;
+  htmlBody: string;
+  explanation: string;
+}
+
+export async function optimizeContent(
+  title: string,
+  htmlContent: string,
+  instruction?: string,
+): Promise<OptimizeResult> {
+  const instructionText = instruction
+    ? `\n用户特别要求：${instruction}`
+    : '';
+
+  const raw = await chat([
+    {
+      role: 'system',
+      content: `你是一位专业的内容编辑和写作教练。请优化用户提供的文章，要求：
+1. 保持原文的核心观点和结构，优化表达和节奏
+2. 改进标题，使其更有吸引力
+3. 优化段落结构和逻辑递进
+4. 提升语言的专业度和可读性
+5. 保持HTML标签格式输出
+6. 在explanation字段中简要说明做了哪些优化（50-100字）
+
+请严格按以下JSON格式返回：
+{"title":"优化后的标题","htmlBody":"优化后的HTML正文","explanation":"优化说明：改进了标题的吸引力，调整了段落结构使逻辑更清晰，优化了部分表达的节奏感。"}${instructionText}`,
+    },
+    {
+      role: 'user',
+      content: `原标题：${title}\n\n正文（HTML）：${htmlContent.slice(0, 6000)}\n\n请优化这篇文章，返回JSON。`,
+    },
+  ], 0.6);
+
+  return parseJsonResponse<OptimizeResult>(raw, {
+    title,
+    htmlBody: htmlContent,
+    explanation: '优化完成',
+  });
+}
+
+export async function optimizeSelection(
+  selectedText: string,
+  context: string,
+  instruction?: string,
+): Promise<{ optimizedText: string; explanation: string }> {
+  const instructionText = instruction
+    ? `\n用户特别要求：${instruction}`
+    : '';
+
+  const raw = await chat([
+    {
+      role: 'system',
+      content: `你是一位专业的内容编辑。用户选中了文章中的一段文字，请针对这段文字进行优化。
+要求：
+1. 根据上下文语境优化选中文案
+2. 可以调整表达、增强感染力、优化节奏
+3. 保持原文风格和调性，不要改变核心意思
+4. 优化后的文字长度应与原文相近
+5. 保持HTML标签（如果有的话）
+6. 在explanation中简要说明优化了什么（20-50字）
+
+返回JSON格式：{"optimizedText":"优化后的文字","explanation":"优化说明"}${instructionText}`,
+    },
+    {
+      role: 'user',
+      content: `上下文（整篇文章）：\n${context.slice(0, 3000)}\n\n选中的文字：\n${selectedText}\n\n请优化选中的这段文字。`,
+    },
+  ], 0.6);
+
+  try {
+    const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    const parsed = JSON.parse(cleaned);
+    return { optimizedText: parsed.optimizedText || selectedText, explanation: parsed.explanation || '优化完成' };
+  } catch {
+    return { optimizedText: selectedText, explanation: raw.slice(0, 100) };
+  }
+}
+
+export async function chatAboutArticle(
+  messages: Array<{ role: string; content: string }>,
+  articleTitle: string,
+  articleContent: string,
+): Promise<string> {
+  const systemMsg: ChatMessage = {
+    role: 'system',
+    content: `你是一位资深内容编辑顾问，正在和作者讨论如何优化一篇文章。
+
+当前文章信息：
+- 标题：${articleTitle}
+- 正文：${articleContent.slice(0, 4000)}
+
+你可以：
+1. 分析文章的风格、结构、优缺点
+2. 提出具体的优化建议
+3. 帮作者设计更有吸引力的标题
+4. 建议不同平台（公众号、知乎、B站、小红书）的改写策略
+5. 回答作者关于写作的任何问题
+
+回答要具体、有实操性，不要空泛的建议。每次回复聚焦1-3个要点。`,
+  };
+
+  const allMessages: ChatMessage[] = [systemMsg, ...messages as ChatMessage[]];
+
+  return chat(allMessages, 0.7);
 }
 
 export async function suggestTags(title: string, body: string): Promise<string[]> {

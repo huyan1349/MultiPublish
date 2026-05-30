@@ -1,4 +1,4 @@
-import { AlertTriangle, XCircle, Info, ChevronDown, ChevronUp, Wand2, RefreshCw, Check, Sparkles } from 'lucide-react';
+import { AlertTriangle, XCircle, Info, ChevronDown, ChevronUp, RefreshCw, Check, Sparkles } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { beautifyContentForPlatform } from '../../services/deepseek';
 import type { BeautifiedContent } from '../../stores/contentStore';
@@ -123,8 +123,44 @@ export default function PlatformCard({
           )}
         </div>
 
+        {/* AI Beautify - always visible, main action */}
+        <div className="mt-4 space-y-3">
+          <button
+            onClick={handleBeautify}
+            disabled={beautifying}
+            className="w-full flex items-center justify-center gap-2.5 px-5 py-3.5 rounded-[16px] text-white font-medium text-[14px] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg disabled:opacity-60 disabled:hover:translate-y-0 disabled:hover:shadow-none"
+            style={{
+              background: beautifying
+                ? `linear-gradient(135deg, ${meta.color}99, ${meta.color}cc)`
+                : `linear-gradient(135deg, ${meta.color}, ${meta.color}dd)`,
+              boxShadow: beautifying ? 'none' : `0 8px 24px ${meta.color}30`,
+            }}
+          >
+            {beautifying ? (
+              <RefreshCw size={15} className="animate-spin" />
+            ) : (
+              <Sparkles size={15} />
+            )}
+            {beautifying ? 'AI 正在美化…' : `AI 智能美化 · ${platformName}风格`}
+          </button>
+
+          {/* Status + expand row */}
+          <div className="flex items-center justify-between">
+            <div className="text-[12px] leading-6 text-[var(--ink-soft)]">
+              {statusMessage || 'AI 将自动适配平台风格，优化标题、正文和标签'}
+            </div>
+            <button
+              onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
+              className="flex h-9 items-center gap-1 rounded-full border border-[rgba(49,56,45,0.12)] bg-[rgba(255,255,255,0.6)] px-3 text-[11px] text-[var(--ink-soft)] transition-all duration-200 hover:border-[rgba(49,56,45,0.2)] hover:text-[var(--ink)]"
+            >
+              {expanded ? '收起预览' : '展开预览'}
+              {expanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+            </button>
+          </div>
+        </div>
+
         {selected && (
-          <div className="space-y-4">
+          <div className="mt-4 space-y-4">
             <div className="grid gap-3 rounded-[22px] border border-[rgba(49,56,45,0.12)] bg-[rgba(255,255,255,0.72)] p-4">
               <div>
                 <div className="mb-2 flex items-center justify-between font-['IBM_Plex_Mono'] text-[9px] uppercase tracking-[0.16em]">
@@ -157,31 +193,6 @@ export default function PlatformCard({
               </div>
             </div>
 
-            <div className="flex items-center justify-between">
-              <div className="text-[12px] leading-6 text-[var(--ink-soft)]">
-                {statusMessage || '先看预览、再做美化，确认后决定它是否参与这次真实发布。'}
-              </div>
-
-              <div className="ml-3 flex items-center gap-1">
-                <button
-                  onClick={handleBeautify}
-                  disabled={beautifying}
-                  className={`px-btn-ghost h-9 min-h-0 px-3 ${
-                    beautifying ? 'opacity-60' : ''
-                  }`}
-                  title="AI 美化"
-                >
-                  {beautifying ? <RefreshCw size={11} className="animate-spin" /> : <Wand2 size={11} />}
-                </button>
-                <button
-                  onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
-                  className="flex h-9 w-9 items-center justify-center rounded-full border border-transparent text-[var(--ink-faint)] transition-all duration-200 hover:border-[rgba(49,56,45,0.14)] hover:bg-[rgba(255,255,255,0.6)] hover:text-[var(--ink)]"
-                >
-                  {expanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-                </button>
-              </div>
-            </div>
-
             {messages.length > 0 && (
               <div className="rounded-[20px] border border-[rgba(49,56,45,0.12)] bg-[rgba(255,255,255,0.62)] p-4">
                 <div className="mb-2 font-['IBM_Plex_Mono'] text-[9px] uppercase tracking-[0.16em] text-[var(--ink-faint)]">
@@ -203,57 +214,101 @@ export default function PlatformCard({
         )}
       </div>
 
-      {selected && (
-        <div
-          style={{
-            maxHeight: expanded ? expandHeight : 0,
-            opacity: expanded ? 1 : 0,
-            overflow: 'hidden',
-            transition: 'max-height 0.3s ease, opacity 0.2s ease',
-          }}
-        >
-          <div ref={expandRef} className="border-t border-[rgba(49,56,45,0.12)] bg-[rgba(244,249,243,0.76)] px-5 py-4">
+      <div
+        style={{
+          maxHeight: expanded ? expandHeight : 0,
+          opacity: expanded ? 1 : 0,
+          overflow: 'hidden',
+          transition: 'max-height 0.3s ease, opacity 0.2s ease',
+        }}
+      >
+        <div ref={expandRef} className="border-t border-[rgba(49,56,45,0.12)] bg-[rgba(244,249,243,0.76)] px-5 py-5">
             {beautifiedContent && (
-              <div className="mb-4 rounded-[22px] border border-[rgba(49,56,45,0.12)] bg-[rgba(255,255,255,0.82)] p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-1.5">
-                    <Sparkles size={9} style={{ color: meta.color }} />
-                    <span className="font-['IBM_Plex_Mono'] text-[9px] font-bold uppercase tracking-[0.18em]" style={{ color: meta.color }}>AI 美化结果</span>
+              <div className="mb-5 rounded-[22px] border border-amber-200/60 bg-amber-50/40 p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <Sparkles size={11} className="text-amber-600" />
+                    <span className="font-['IBM_Plex_Mono'] text-[9px] font-bold uppercase tracking-[0.18em] text-amber-700">AI 美化结果</span>
+                    <span className="font-['IBM_Plex_Mono'] text-[7px] uppercase tracking-[0.16em] text-amber-500 bg-amber-100 px-1.5 py-0.5 rounded-full">AI 修改</span>
                   </div>
                   <button
                     onClick={handleApply}
-                    className="flex items-center gap-1 rounded-full px-3 py-2 font-['IBM_Plex_Mono'] text-[8px] uppercase tracking-[0.18em] text-white transition-opacity hover:opacity-90"
+                    className="flex items-center gap-1 rounded-full px-3 py-1.5 font-['IBM_Plex_Mono'] text-[8px] uppercase tracking-[0.18em] text-white transition-opacity hover:opacity-90"
                     style={{ backgroundColor: meta.color, boxShadow: `0 12px 24px ${meta.color}2a` }}
                   >
-                    <Check size={9} /> 应用
+                    <Check size={9} /> 应用到当前平台
                   </button>
                 </div>
                 {beautifiedContent.title && (
-                  <p className="mb-2 font-['Cormorant_Garamond'] text-[28px] leading-none tracking-[-0.04em] text-[var(--ink)]">{beautifiedContent.title}</p>
+                  <h3 className="mb-2 font-['Cormorant_Garamond'] text-[24px] leading-[1.1] tracking-[-0.03em] text-amber-800">{beautifiedContent.title}</h3>
                 )}
-                <pre className="line-clamp-6 whitespace-pre-wrap font-['IBM_Plex_Mono'] text-[10px] leading-7 text-[var(--ink-soft)]">{beautifiedContent.htmlBody}</pre>
+                <div
+                  className="text-[13px] leading-7 italic text-amber-900/80 line-clamp-6 [&_strong]:text-amber-950 [&_h3]:not-italic [&_h2]:not-italic [&_h3]:text-[var(--ink)] [&_h2]:text-[var(--ink)]"
+                  dangerouslySetInnerHTML={{ __html: beautifiedContent.htmlBody }}
+                />
                 {beautifiedContent.tags.length > 0 && (
-                  <div className="flex flex-wrap gap-1 mt-2">
+                  <div className="flex flex-wrap gap-1.5 mt-3">
                     {beautifiedContent.tags.map((t, i) => (
-                      <span key={i} className="px-tag" style={{ backgroundColor: meta.color + '12', color: meta.color }}>{t}</span>
+                      <span key={i} className="px-2.5 py-0.5 rounded-full text-[10px] font-medium" style={{ backgroundColor: meta.color + '14', color: meta.color }}>#{t}</span>
                     ))}
                   </div>
                 )}
               </div>
             )}
 
-            <span className="font-['IBM_Plex_Mono'] text-[9px] uppercase tracking-[0.18em] text-[var(--ink-faint)]">原始输出</span>
-            <pre className="mt-2 line-clamp-4 whitespace-pre-wrap font-['IBM_Plex_Mono'] text-[10px] leading-7 text-[var(--ink-soft)]">{previewBody}</pre>
-            {previewTags.length > 0 && (
-              <div className="flex flex-wrap gap-1 mt-2">
-                {previewTags.map((t, i) => (
-                  <span key={i} className="px-tag">{t}</span>
-                ))}
+            {/* Platform Mock Preview */}
+            <div className="flex justify-center">
+              <div
+                className="w-full rounded-[18px] overflow-hidden border bg-white shadow-[0_2px_12px_rgba(0,0,0,0.03)]"
+                style={{
+                  maxWidth: platform === 'wechat' || platform === 'xiaohongshu' ? 420 : '100%',
+                  borderColor: `${meta.color}18`,
+                }}
+              >
+                {/* Mock platform header */}
+                <div
+                  className="flex items-center gap-2 px-4 py-2.5 border-b"
+                  style={{ borderColor: `${meta.color}10`, backgroundColor: `${meta.color}05` }}
+                >
+                  <div
+                    className="w-5 h-5 rounded-[6px] flex items-center justify-center text-white text-[8px] font-bold"
+                    style={{ backgroundColor: meta.color }}
+                  >
+                    {meta.label[0]}
+                  </div>
+                  <span className="text-[10px] font-semibold tracking-wide" style={{ color: meta.color }}>
+                    {platformName} 发布效果
+                  </span>
+                </div>
+
+                {/* Mock content */}
+                <div className="p-5">
+                  <h2 className="font-['Cormorant_Garamond'] text-[22px] leading-[1.15] tracking-[-0.03em] text-gray-900 mb-3">
+                    {draftTitle}
+                  </h2>
+                  <div
+                    className="text-[13px] leading-7 text-gray-800"
+                    style={{ wordBreak: 'break-word' }}
+                    dangerouslySetInnerHTML={{ __html: previewBody }}
+                  />
+                  {previewTags.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mt-4 pt-3" style={{ borderTop: `1px solid ${meta.color}12` }}>
+                      {previewTags.map((t, i) => (
+                        <span
+                          key={i}
+                          className="px-2.5 py-0.5 rounded-full text-[10px] font-medium"
+                          style={{ backgroundColor: `${meta.color}0e`, color: meta.color }}
+                        >
+                          #{t}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
-            )}
+            </div>
           </div>
         </div>
-      )}
     </div>
   );
 }

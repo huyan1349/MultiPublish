@@ -20,7 +20,7 @@ const PLATFORM_COLOR: Record<string, string> = {
 };
 
 const platformNotes = [
-  { key: 'wechat', name: '公众号', note: '长文排版与正式表达' },
+  { key: 'wechat', name: '公众号', note: '自动发布，自动填充+自动群发' },
   { key: 'zhihu', name: '知乎', note: '观点结构与逻辑推进' },
   { key: 'bilibili', name: 'B站', note: '标签与导语节奏' },
   { key: 'xiaohongshu', name: '小红书', note: '标题吸引与短段落表达' },
@@ -64,7 +64,7 @@ export default function Dashboard() {
   }, [contents]);
 
   return (
-    <div className="h-full overflow-y-auto scrollbar-thin">
+    <div className="">
       <div className="mx-auto flex max-w-[1480px] flex-col gap-6">
 
         <section className="relative px-card px-paper overflow-hidden p-8 md:p-10">

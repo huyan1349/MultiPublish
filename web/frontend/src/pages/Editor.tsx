@@ -1,9 +1,10 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { AlertCircle, ArrowLeft, ArrowRight, RefreshCw, Save, Sparkles, Wand2 } from 'lucide-react';
+import { AlertCircle, ArrowLeft, ArrowRight, MessageCircle, RefreshCw, Save, Sparkles, Wand2 } from 'lucide-react';
 import { useContentStore } from '../stores/contentStore';
 import type { BeautifiedContent } from '../stores/contentStore';
 import TiptapEditor from '../components/editor/TiptapEditor';
+import AiAssistantPanel from '../components/editor/AiAssistantPanel';
 import PlatformCard from '../components/publish/PlatformCard';
 import PublishButton from '../components/publish/PublishButton';
 import ToastContainer, { showToast } from '../components/publish/Toast';
@@ -75,10 +76,54 @@ export default function Editor() {
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [aiLoading, setAiLoading] = useState<string | null>(null);
+  const [aiPanelOpen, setAiPanelOpen] = useState(false);
+  const [editorKey, setEditorKey] = useState(0);
+  const [isAiModified, setIsAiModified] = useState(false);
+  const editorRef = useRef<HTMLDivElement>(null);
+
+  const getSelectedText = useCallback((): string => {
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed || !sel.toString().trim()) return '';
+    return sel.toString();
+  }, []);
+
+  const handleApplyOptimization = useCallback((title: string, htmlBody: string) => {
+    setDraft({ title, htmlContent: htmlBody });
+    setEditorKey((k) => k + 1);
+    setIsAiModified(true);
+    showToast('success', 'AI 优化已应用', '标题和正文已更新到编辑器');
+  }, [setDraft]);
+
+  const handleApplySelectionOptimization = useCallback((originalText: string, optimizedText: string) => {
+    const sel = window.getSelection();
+    if (!sel || !sel.rangeCount) return;
+    try {
+      const range = sel.getRangeAt(0);
+      range.deleteContents();
+      const span = document.createElement('span');
+      span.innerHTML = optimizedText;
+      const frag = document.createDocumentFragment();
+      let child: Node | null;
+      while ((child = span.firstChild)) frag.appendChild(child);
+      range.insertNode(frag);
+      range.collapse(false);
+      sel.removeAllRanges();
+      sel.addRange(range);
+      // Trigger content update
+      const editorEl = document.querySelector('.tiptap.ProseMirror') as HTMLElement;
+      if (editorEl) {
+        setDraft({ htmlContent: editorEl.innerHTML });
+      }
+      showToast('success', '选中文字已替换', 'AI 优化后的文字已写入编辑器');
+    } catch {
+      showToast('error', '替换失败', '请确保编辑器中的文字仍被选中');
+    }
+  }, [setDraft]);
 
   const handleEditorChange = useCallback((html: string, _text: string) => {
     setDraft({ htmlContent: html });
     setError('');
+    setIsAiModified(false);
   }, [setDraft]);
 
   const handleAiTitle = async () => {
@@ -247,7 +292,7 @@ export default function Editor() {
   const publishing = Array.from(platformStates.values()).some((state) => state.status === 'publishing');
 
   return (
-    <div className="h-full overflow-y-auto scrollbar-thin">
+    <div className="">
       <ToastContainer />
       <div className="mx-auto flex max-w-[1520px] flex-col gap-6">
 
@@ -284,6 +329,17 @@ export default function Editor() {
                     {aiLoading === 'tags' ? <RefreshCw size={13} className="animate-spin" /> : <Sparkles size={13} />}
                     标签建议
                   </button>
+                  <button
+                    onClick={() => setAiPanelOpen(!aiPanelOpen)}
+                    className={`flex items-center gap-1.5 px-4 py-2 rounded-[12px] text-[13px] font-medium transition-all duration-200 ${
+                      aiPanelOpen
+                        ? 'bg-[var(--accent)]/10 text-[var(--accent-deep)] border border-[var(--accent)]/30'
+                        : 'bg-[var(--accent)] text-white hover:bg-[var(--accent-deep)] shadow-[0_4px_12px_rgba(91,108,240,0.25)]'
+                    }`}
+                  >
+                    <MessageCircle size={13} />
+                    AI 助手
+                  </button>
                   <button onClick={handleGoToPlatform} className="px-btn-primary">
                     下一步 <ArrowRight size={13} />
                   </button>
@@ -302,149 +358,60 @@ export default function Editor() {
         </section>
 
         {step === 'draft' && (
-          <section className="px-card px-paper overflow-hidden">
-            <div className="border-b border-[rgba(49,56,45,0.1)] px-6 py-5 md:px-8">
-              <div>
-                <div className="px-label mb-3">正文编辑区</div>
-                <p className="font-['Cormorant_Garamond'] text-[34px] leading-none tracking-[-0.05em] text-[var(--ink)]">
-                  当前主稿
-                </p>
-              </div>
-              <div className="mt-4 grid gap-3 md:grid-cols-3">
-                <input
-                  type="text"
-                  value={draft.title}
-                  onChange={(event) => {
-                    setDraft({ title: event.target.value });
-                    setError('');
-                  }}
-                  placeholder="输入标题"
-                  className="px-input"
-                />
-                <input
-                  type="text"
-                  value={draft.tags}
-                  onChange={(event) => setDraft({ tags: event.target.value })}
-                  placeholder="输入标签，用逗号分隔"
-                  className="px-input"
-                />
-                <input
-                  type="text"
-                  value={draft.coverImage}
-                  onChange={(event) => setDraft({ coverImage: event.target.value })}
-                  placeholder="封面图地址，可选"
-                  className="px-input"
-                />
-              </div>
-            </div>
-            <div className="px-4 pb-4 pt-2 md:px-6 md:pb-6">
-              <TiptapEditor
-                content={draft.htmlContent}
-                placeholder="在这里开始写作，完成后点击「下一步」进入平台适配阶段。"
-                onChange={handleEditorChange}
-              />
-            </div>
-
-            {error && (
-              <div className="mx-6 mb-6 rounded-[22px] border border-red-300/40 bg-red-100/60 px-4 py-3 text-[12px] text-red-700">
-                <div className="flex items-center gap-2 font-['IBM_Plex_Mono'] text-[10px] uppercase tracking-[0.16em]">
-                  <AlertCircle size={12} />
-                  校验提示
-                </div>
-                <p className="mt-2 leading-6">{error}</p>
-              </div>
-            )}
-          </section>
-        )}
-
-        {step === 'platform' && (
-          <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
-            <div className="px-card px-paper overflow-hidden">
+          <div className="flex gap-0" ref={editorRef}>
+            <section className="px-card px-paper overflow-hidden flex-1 min-w-0">
               <div className="border-b border-[rgba(49,56,45,0.1)] px-6 py-5 md:px-8">
                 <div>
-                  <div className="px-label mb-3">主稿预览</div>
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="px-label">正文编辑区</div>
+                    {isAiModified && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 border border-amber-200/60 text-amber-700 font-['IBM_Plex_Mono'] text-[9px] uppercase tracking-[0.14em]">
+                        <Sparkles size={10} /> AI 修改
+                      </span>
+                    )}
+                  </div>
                   <p className="font-['Cormorant_Garamond'] text-[34px] leading-none tracking-[-0.05em] text-[var(--ink)]">
-                    {draft.title || '未命名稿件'}
+                    当前主稿
                   </p>
                 </div>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {draft.tags.split(/[,，]/).map((t, i) => t.trim() && (
-                    <span key={i} className="px-tag">{t.trim()}</span>
-                  ))}
+                <div className="mt-4 grid gap-3 md:grid-cols-3">
+                  <input
+                    type="text"
+                    value={draft.title}
+                    onChange={(event) => {
+                      setDraft({ title: event.target.value });
+                      setError('');
+                    }}
+                    placeholder="输入标题"
+                    className="px-input"
+                  />
+                  <input
+                    type="text"
+                    value={draft.tags}
+                    onChange={(event) => setDraft({ tags: event.target.value })}
+                    placeholder="输入标签，用逗号分隔"
+                    className="px-input"
+                  />
+                  <input
+                    type="text"
+                    value={draft.coverImage}
+                    onChange={(event) => setDraft({ coverImage: event.target.value })}
+                    placeholder="封面图地址，可选"
+                    className="px-input"
+                  />
                 </div>
               </div>
-              <div className="px-6 py-5 md:px-8">
-                <div
-                  className="prose prose-sm max-w-none text-[var(--ink-soft)]"
-                  dangerouslySetInnerHTML={{ __html: draft.htmlContent }}
+              <div className={`px-4 pb-4 pt-2 md:px-6 md:pb-6 ${isAiModified ? 'ai-modified-editor' : ''}`}>
+                <TiptapEditor
+                  key={editorKey}
+                  content={draft.htmlContent}
+                  placeholder="在这里开始写作，完成后点击「下一步」进入平台适配阶段。"
+                  onChange={handleEditorChange}
                 />
-              </div>
-            </div>
-
-            <div className="px-card px-soft-panel flex min-h-[780px] flex-col p-5">
-              <div className="mb-4">
-                <div className="px-label mb-3">发布控制台</div>
-                <p className="font-['Cormorant_Garamond'] text-[32px] leading-none tracking-[-0.05em] text-[var(--ink)]">
-                  平台输出
-                </p>
-              </div>
-
-              <div className="mb-4 rounded-[24px] border border-[rgba(49,56,45,0.1)] bg-[rgba(255,255,255,0.78)] p-4">
-                <div className="px-label mb-3">目标平台</div>
-                <div className="flex flex-wrap gap-2">
-                  {allPlatforms.map((platform) => {
-                    const state = platformStates.get(platform);
-                    return (
-                      <button
-                        key={platform}
-                        type="button"
-                        onClick={() => togglePlatform(platform)}
-                        className={`px-tag ${selectedPlatforms.has(platform) ? '' : 'opacity-55'}`}
-                        style={selectedPlatforms.has(platform) ? { borderColor: PLATFORM_BRAND[platform]?.soft, backgroundColor: PLATFORM_BRAND[platform]?.soft, color: PLATFORM_BRAND[platform]?.deep } : undefined}
-                      >
-                        {state?.platformName || platform}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="flex-1 space-y-3 overflow-y-auto pr-1 scrollbar-thin">
-                {allPlatforms.map((platform) => {
-                  const state = platformStates.get(platform);
-                  if (!state) return null;
-                  return (
-                    <PlatformCard
-                      key={platform}
-                      platform={platform}
-                      platformName={state.platformName}
-                      selected={selectedPlatforms.has(platform)}
-                      onToggle={() => togglePlatform(platform)}
-                      status={state.status}
-                      statusMessage={state.message}
-                      titleCount={state.meta.titleCharCount}
-                      titleMax={state.meta.maxTitleLength}
-                      bodyCount={state.meta.bodyCharCount}
-                      bodyMax={state.meta.maxBodyLength}
-                      tagCount={state.meta.tagCount}
-                      tagMax={state.meta.maxTags}
-                      messages={state.validation.messages}
-                      previewBody={state.output.body}
-                      previewTags={state.output.tags}
-                      draftTitle={draft.title}
-                      draftHtmlContent={draft.htmlContent}
-                      beautifiedContent={beautifiedOutputs.get(platform)}
-                      onBeautifyStart={() => handleBeautifyStart(platform)}
-                      onBeautifyComplete={handleBeautifyComplete(platform)}
-                      onBeautifyError={handleBeautifyError(platform)}
-                      onApplyBeautified={handleApplyBeautified(platform)}
-                    />
-                  );
-                })}
               </div>
 
               {error && (
-                <div className="mt-4 rounded-[22px] border border-red-300/40 bg-red-100/60 px-4 py-3 text-[12px] text-red-700">
+                <div className="mx-6 mb-6 rounded-[22px] border border-red-300/40 bg-red-100/60 px-4 py-3 text-[12px] text-red-700">
                   <div className="flex items-center gap-2 font-['IBM_Plex_Mono'] text-[10px] uppercase tracking-[0.16em]">
                     <AlertCircle size={12} />
                     校验提示
@@ -452,17 +419,121 @@ export default function Editor() {
                   <p className="mt-2 leading-6">{error}</p>
                 </div>
               )}
+            </section>
 
-              <div className="mt-4 border-t border-[rgba(49,56,45,0.12)] pt-4">
-                <PublishButton
-                  publishing={publishing}
-                  selectedCount={Array.from(selectedPlatforms).length}
-                  platformStatuses={new Map(Array.from(selectedPlatforms).map((platform) => [platform, platformStates.get(platform)?.status || 'idle']))}
-                  onPublish={handlePublish}
-                />
+            <AiAssistantPanel
+              open={aiPanelOpen}
+              onClose={() => setAiPanelOpen(false)}
+              articleTitle={draft.title}
+              articleContent={draft.htmlContent}
+              getSelectedText={getSelectedText}
+              onApplyOptimization={handleApplyOptimization}
+              onApplySelectionOptimization={handleApplySelectionOptimization}
+            />
+          </div>
+        )}
+
+        {step === 'platform' && (
+          <div className="flex flex-col gap-6">
+            {/* Platform selection + actions bar */}
+            <section className="px-card px-paper p-5 md:p-6">
+              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <div className="px-label mb-2">目标平台</div>
+                  <div className="flex flex-wrap gap-2">
+                    {allPlatforms.map((platform) => {
+                      const state = platformStates.get(platform);
+                      return (
+                        <button
+                          key={platform}
+                          type="button"
+                          onClick={() => togglePlatform(platform)}
+                          className={`px-tag text-[13px] px-3.5 py-2 rounded-[12px] transition-all ${selectedPlatforms.has(platform) ? '' : 'opacity-45'}`}
+                          style={selectedPlatforms.has(platform) ? { borderColor: PLATFORM_BRAND[platform]?.soft, backgroundColor: PLATFORM_BRAND[platform]?.soft, color: PLATFORM_BRAND[platform]?.deep } : undefined}
+                        >
+                          {state?.platformName || platform}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button onClick={handleSaveToBackend} disabled={saving} className="px-btn-secondary">
+                    <Save size={13} />
+                    {saving ? '保存中' : isEditing ? '保存修改' : '保存预览'}
+                  </button>
+                  <PublishButton
+                    publishing={publishing}
+                    selectedCount={Array.from(selectedPlatforms).length}
+                    platformStatuses={new Map(Array.from(selectedPlatforms).map((platform) => [platform, platformStates.get(platform)?.status || 'idle']))}
+                    onPublish={handlePublish}
+                  />
+                </div>
               </div>
-            </div>
-          </section>
+            </section>
+
+            {/* Main draft summary */}
+            <section className="px-card px-paper overflow-hidden p-5 md:p-6">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <div className="px-label mb-1">主稿预览</div>
+                  <p className="font-['Cormorant_Garamond'] text-[28px] leading-none tracking-[-0.04em] text-[var(--ink)]">
+                    {draft.title || '未命名稿件'}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {draft.tags.split(/[,，]/).map((t, i) => t.trim() && (
+                    <span key={i} className="px-tag">{t.trim()}</span>
+                  ))}
+                </div>
+              </div>
+              <div className="text-[13px] leading-7 text-[var(--ink-soft)] line-clamp-3" dangerouslySetInnerHTML={{ __html: draft.htmlContent }} />
+            </section>
+
+            {/* Full-width platform cards */}
+            {allPlatforms.map((platform) => {
+              const state = platformStates.get(platform);
+              if (!state) return null;
+              return (
+                <section key={platform} className="px-card px-paper">
+                  <PlatformCard
+                    platform={platform}
+                    platformName={state.platformName}
+                    selected={selectedPlatforms.has(platform)}
+                    onToggle={() => togglePlatform(platform)}
+                    status={state.status}
+                    statusMessage={state.message}
+                    titleCount={state.meta.titleCharCount}
+                    titleMax={state.meta.maxTitleLength}
+                    bodyCount={state.meta.bodyCharCount}
+                    bodyMax={state.meta.maxBodyLength}
+                    tagCount={state.meta.tagCount}
+                    tagMax={state.meta.maxTags}
+                    messages={state.validation.messages}
+                    previewBody={state.output.body}
+                    previewTags={state.output.tags}
+                    draftTitle={draft.title}
+                    draftHtmlContent={draft.htmlContent}
+                    beautifiedContent={beautifiedOutputs.get(platform)}
+                    onBeautifyStart={() => handleBeautifyStart(platform)}
+                    onBeautifyComplete={handleBeautifyComplete(platform)}
+                    onBeautifyError={handleBeautifyError(platform)}
+                    onApplyBeautified={handleApplyBeautified(platform)}
+                  />
+                </section>
+              );
+            })}
+
+            {error && (
+              <div className="rounded-[22px] border border-red-300/40 bg-red-100/60 px-4 py-3 text-[12px] text-red-700">
+                <div className="flex items-center gap-2 font-['IBM_Plex_Mono'] text-[10px] uppercase tracking-[0.16em]">
+                  <AlertCircle size={12} />
+                  校验提示
+                </div>
+                <p className="mt-2 leading-6">{error}</p>
+              </div>
+            )}
+          </div>
         )}
       </div>
     </div>

@@ -44,7 +44,7 @@ export default function Records() {
   useEffect(() => { loadRecords(); }, []);
 
   return (
-    <div className="h-full overflow-y-auto scrollbar-thin">
+    <div className="">
       <div className="mx-auto flex max-w-[1180px] flex-col gap-6">
         <section className="px-card px-paper p-6 md:p-7">
           <div className="px-label mb-4">发布记录</div>
