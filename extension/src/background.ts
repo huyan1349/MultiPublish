@@ -8,6 +8,10 @@ const PLATFORM_URLS: Record<string, string> = {
 };
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message.type === 'HEALTH_CHECK') {
+    sendResponse({ status: 'ok', version: chrome.runtime.getManifest().version });
+    return false;
+  }
   if (message.type === 'PUBLISH_TO_PLATFORM') {
     handlePublish(message.payload as PublishPayload)
       .then(sendResponse)
