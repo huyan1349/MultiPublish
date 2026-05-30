@@ -102,15 +102,15 @@ git clone https://github.com/huyan1349/MultiPublish.git
 cd MultiPublish
 
 # 2. 启动后端（端口 4395）
-cd backend
-npm install
+cd web/backend
+pnpm install
 npx prisma db push
-npm run dev
+pnpm dev
 
 # 3. 新开终端，启动前端（端口 5173）
-cd frontend
-npm install
-npm run dev
+cd web/frontend
+pnpm install
+pnpm dev
 ```
 
 浏览器访问 `http://localhost:5173`
@@ -224,7 +224,7 @@ interface PlatformAdapter {
 
 - **Web 应用**：采用模拟发布。各平台 API 权限审核门槛高（公众号需认证服务号、小红书不开放发布 API 等）
 - **Chrome 扩展**：DOM 注入依赖平台页面结构，平台改版可能导致注入失败，需持续维护 CSS 选择器
-- 小红书发布仅填充文案，图片需手动上传
+- 小红书发布依赖登录态和页面结构，平台改版可能导致注入失败
 
 ## 后续规划
 
