@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route } from 'react-router-dom';
 import Layout from './components/layout/Layout';
 import Dashboard from './pages/Dashboard';
 import Editor from './pages/Editor';
@@ -6,6 +6,7 @@ import Preview from './pages/Preview';
 import Records from './pages/Records';
 import Inspiration from './pages/Inspiration';
 import Settings from './pages/Settings';
+import QuickStart from './pages/QuickStart';
 
 export default function App() {
   return (
@@ -14,7 +15,7 @@ export default function App() {
         <Route path="/" element={<Dashboard />} />
         <Route path="/editor" element={<Editor />} />
         <Route path="/inspiration" element={<Inspiration />} />
-        <Route path="/quickstart" element={<Navigate to="/inspiration" replace />} />
+        <Route path="/quickstart" element={<QuickStart />} />
         <Route path="/contents/:id/preview" element={<Preview />} />
         <Route path="/records" element={<Records />} />
         <Route path="/settings" element={<Settings />} />

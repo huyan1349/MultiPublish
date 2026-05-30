@@ -178,9 +178,7 @@ export const useContentStore = create<ContentState>((set, get) => ({
       output: newOutput,
       meta: adapter.getPreviewMeta(newOutput),
     });
-    const beautifiedNext = new Map(s.beautifiedOutputs);
-    beautifiedNext.delete(p);
-    return { platformStates: next, beautifiedOutputs: beautifiedNext };
+    return { platformStates: next };
   }),
   clearBeautifiedOutput: (p) => set((s) => {
     const next = new Map(s.beautifiedOutputs);
