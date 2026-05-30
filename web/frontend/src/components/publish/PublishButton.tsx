@@ -18,20 +18,20 @@ export default function PublishButton({ publishing: _externalPublishing, selecte
   const hasSuccess = statuses.some((s) => s === 'success');
 
   let Icon = Rocket;
-  let label = 'PUBLISH';
+  let label = '开始发布';
   let variant: 'primary' | 'success' | 'danger' = 'primary';
 
   if (publishing) {
     Icon = Loader2;
-    label = 'PUBLISHING…';
+    label = '正在发布';
   } else if (allDone) {
     if (hasFailed && !hasSuccess) {
       Icon = XCircle;
-      label = 'FAILED';
+      label = '发布失败';
       variant = 'danger';
     } else {
       Icon = CheckCircle2;
-      label = hasFailed ? 'PARTIAL' : 'DONE';
+      label = hasFailed ? '部分完成' : '已完成';
       variant = 'success';
     }
   }

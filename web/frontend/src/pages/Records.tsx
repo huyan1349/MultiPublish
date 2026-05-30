@@ -14,13 +14,16 @@ interface PublishRecord {
 }
 
 const platformColors: Record<string, string> = {
-  wechat: '#07C160', zhihu: '#0066FF', bilibili: '#FB7299', xiaohongshu: '#FF2442',
+  wechat: '#6f846d',
+  zhihu: '#6d8aa6',
+  bilibili: '#50624f',
+  xiaohongshu: '#8ba287',
 };
 
 const statusConfig: Record<string, { label: string; color: string }> = {
-  success: { label: '成功', color: '#07C160' },
-  failed: { label: '失败', color: '#FF3B30' },
-  publishing: { label: '发布中', color: '#0066FF' },
+  success: { label: '成功', color: '#6f846d' },
+  failed: { label: '失败', color: '#b94b4b' },
+  publishing: { label: '发布中', color: '#50624f' },
 };
 
 export default function Records() {
@@ -28,80 +31,63 @@ export default function Records() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.getPublishRecords()
-      .then(setRecords)
-      .catch(() => {})
-      .finally(() => setLoading(false));
+    api.getPublishRecords().then(setRecords).catch(() => {}).finally(() => setLoading(false));
   }, []);
 
   return (
     <div className="h-full overflow-y-auto scrollbar-thin">
-      <div className="max-w-[860px] mx-auto px-12 py-16">
-        <div className="flex items-center gap-3 mb-3 px-fade-in">
-          <div className="px-dot" style={{ backgroundColor: '#FF3B30' }} />
-          <span className="px-label">RECORDS</span>
-        </div>
-        <h1 className="font-mono font-bold text-[28px] text-tx tracking-tight mb-2 px-fade-in">
-          发布记录
-        </h1>
-        <p className="text-[12px] text-tx-dim mb-12 px-fade-in px-stagger-1" style={{ animationFillMode: 'both' }}>追踪所有平台的发布历史</p>
+      <div className="mx-auto flex max-w-[1180px] flex-col gap-6">
+        <section className="px-card px-paper p-6 md:p-7">
+          <div className="px-label mb-4">发布记录</div>
+          <h1 className="font-['Cormorant_Garamond'] text-[46px] leading-[0.92] tracking-[-0.07em] text-[var(--ink)]">发布回执</h1>
+        </section>
 
-        {loading ? (
-          <div className="space-y-2">
-            {[1, 2, 3].map(i => (
-              <div key={i} className="px-card p-5">
-                <div className="h-3 px-shimmer w-1/3 mb-2" />
-                <div className="h-2 px-shimmer w-1/4" />
-              </div>
-            ))}
-          </div>
-        ) : records.length === 0 ? (
-          <div className="px-card border-dashed border-px-border p-16 text-center px-fade-in">
-            <Inbox size={24} className="mx-auto text-tx-faint mb-4 px-float" strokeWidth={1.5} />
-            <p className="font-mono text-[11px] text-tx-mute mb-1">NO RECORDS YET</p>
-            <p className="text-[11px] text-tx-faint">发布文章后，记录会显示在这里</p>
-          </div>
-        ) : (
-          <div className="space-y-1">
-            {records.map((r, idx) => {
-              const st = statusConfig[r.status] || { label: r.status, color: '#999999' };
-              const color = platformColors[r.platform] || '#6b7280';
-              return (
-                <div
-                  key={r.id}
-                  className="px-card p-5 flex items-center gap-4 group px-fade-in"
-                  style={{ animationDelay: `${idx * 0.05}s`, animationFillMode: 'both' }}
-                >
-                  <div className="relative flex-shrink-0">
-                    <div className="px-dot" style={{ backgroundColor: color, width: 8, height: 8 }} />
-                    <div
-                      className="absolute -bottom-0.5 -right-0.5 w-[6px] h-[6px] rounded-full border-2 border-white"
-                      style={{ backgroundColor: st.color }}
-                    />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-0.5">
-                      <span className="font-mono font-bold text-xs text-tx">{r.platformName}</span>
-                      <span className="px-tag" style={{ color: st.color, backgroundColor: `${st.color}12` }}>{st.label}</span>
-                    </div>
-                    {r.message && (
-                      <p className="text-[11px] text-tx-faint truncate">{r.message}</p>
-                    )}
-                  </div>
-                  <div className="text-[11px] text-tx-faint shrink-0 flex items-center gap-2 font-mono">
-                    {new Date(r.publishedAt).toLocaleString('zh-CN')}
-                    {r.mockUrl && (
-                      <a href={r.mockUrl} target="_blank" rel="noopener noreferrer"
-                        className="text-tx-dim hover:text-tx transition-colors">
-                        <ExternalLink size={13} />
-                      </a>
-                    )}
-                  </div>
+        <section className="px-card px-paper p-6">
+          {loading ? (
+            <div className="space-y-3">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="rounded-[24px] border border-[rgba(49,56,45,0.1)] p-5">
+                  <div className="mb-3 h-3 w-1/3 px-shimmer" />
+                  <div className="h-2 w-1/4 px-shimmer" />
                 </div>
-              );
-            })}
-          </div>
-        )}
+              ))}
+            </div>
+          ) : records.length === 0 ? (
+            <div className="rounded-[28px] border border-dashed border-[rgba(49,56,45,0.18)] px-8 py-20 text-center">
+              <Inbox size={20} className="mx-auto mb-4 text-[var(--accent-deep)]" />
+              <p className="text-[14px] leading-7 text-[var(--ink-soft)]">还没有发布记录，等你发出第一篇内容后，这里会自动出现。</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {records.map((record) => {
+                const status = statusConfig[record.status] || { label: record.status, color: '#7f877c' };
+                const color = platformColors[record.platform] || '#6b7280';
+                return (
+                  <div key={record.id} className="rounded-[24px] border border-[rgba(49,56,45,0.1)] bg-[rgba(255,255,255,0.72)] p-5">
+                    <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                      <div className="min-w-0">
+                        <div className="mb-3 flex items-center gap-3">
+                          <div className="px-dot" style={{ backgroundColor: color }} />
+                          <span className="font-['IBM_Plex_Mono'] text-[10px] tracking-[0.16em] text-[var(--ink)]">{record.platformName}</span>
+                          <span className="px-tag" style={{ color: status.color, backgroundColor: `${status.color}12` }}>{status.label}</span>
+                        </div>
+                        <p className="text-[13px] leading-6 text-[var(--ink-soft)]">{record.message || '没有额外说明'}</p>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-3 text-[12px] text-[var(--ink-faint)]">
+                        <span>{new Date(record.publishedAt).toLocaleString('zh-CN')}</span>
+                        {record.mockUrl && (
+                          <a href={record.mockUrl} target="_blank" rel="noopener noreferrer" className="text-[var(--ink-soft)] transition-colors hover:text-[var(--ink)]">
+                            <ExternalLink size={14} />
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
       </div>
     </div>
   );
