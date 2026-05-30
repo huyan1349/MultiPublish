@@ -177,42 +177,133 @@ export async function beautifyForPlatform(opts: BeautifyOptions): Promise<{
   }
 }
 
-export async function generateInspiration(topic?: string): Promise<{
+export interface InspirationAngle {
   title: string;
+  angle: string;
+  hook: string;
+  targetAudience: string;
+  keyMessage: string;
   outline: string;
   tags: string[];
-  style: string;
-}> {
-  const topicHint = topic ? `关于「${topic}」这个话题` : '任意热门话题';
+  estimatedReadTime: string;
+  platformSuggestion: string;
+}
+
+export interface InspirationResult {
+  topic: string;
+  angles: InspirationAngle[];
+}
+
+const INSPIRATION_SYSTEM_PROMPT = `你是一位资深内容策划师，为中文自媒体创作者提供专业的内容灵感。
+
+你的任务是根据用户输入的话题（可为空），生成 3 个不同角度的内容灵感。每个角度必须有明确的差异化定位。
+
+## 输出格式
+严格返回以下 JSON，不要包含任何其他文字：
+{
+  "topic": "话题总结（5-10字）",
+  "angles": [
+    {
+      "title": "建议标题（15-25字，有吸引力）",
+      "angle": "角度类型（深度分析/教程攻略/观点评论/故事叙事/清单推荐/趋势解读）",
+      "hook": "开篇钩子，一句话抓住读者注意力（20-40字）",
+      "targetAudience": "目标读者画像（如：职场新人/科技爱好者/宝妈群体）",
+      "keyMessage": "核心观点，一句话概括（15-30字）",
+      "outline": "内容大纲，每行一个要点，3-6个要点。每个要点后跟一句简短说明。用换行符分隔。",
+      "tags": ["标签1", "标签2", "标签3", "标签4"],
+      "estimatedReadTime": "预计阅读时长（如：3分钟/8分钟）",
+      "platformSuggestion": "最适合发布的平台（公众号/知乎/B站/小红书）"
+    }
+  ]
+}
+
+## 质量要求
+- 3 个角度必须有差异化：不要三个都是同类型，至少覆盖 2 种不同的角度类型
+- 标题要具体、有信息量，避免空泛的「关于XXX的思考」
+- hook 要能引发好奇心或共鸣
+- outline 每个要点要有实质内容，不是空洞的小标题
+- 标签要精准、有搜索价值
+- 如果用户指定了平台偏好，优先给出适合该平台的角度
+
+## 示例
+
+用户输入：「AI 工具提升工作效率」
+
+返回参考：
+{
+  "topic": "AI工具提效实战",
+  "angles": [
+    {
+      "title": "我用这5个AI工具，每天省出3小时——真实体验报告",
+      "angle": "清单推荐",
+      "hook": "不是ChatGPT，也不是Midjourney——这5个你可能没听过的AI工具，才是真正的效率杀手。",
+      "targetAudience": "职场白领、自由职业者",
+      "keyMessage": "选对AI工具比多用AI更重要，关键是融入工作流",
+      "outline": "1. 我的工作流痛点：每天被重复性任务吃掉的时间\\n2. 工具一：Notion AI —— 会议纪要自动生成，10分钟变30秒\\n3. 工具二：Gamma —— PPT不再手动画，输入大纲秒出演示文稿\\n4. 工具三：Otter.ai —— 采访录音实时转文字，记者必备\\n5. 工具四：Zapier + ChatGPT —— 自动化邮件分类与回复模板\\n6. 避坑指南：三个常见的AI工具选择误区",
+      "tags": ["AI工具", "效率提升", "职场技能", "数字工具推荐"],
+      "estimatedReadTime": "6分钟",
+      "platformSuggestion": "公众号"
+    },
+    {
+      "title": "别再神话AI了——一个工具党的冷静反思",
+      "angle": "观点评论",
+      "hook": "所有人都在说AI改变世界，但用了半年之后，我发现真相没那么简单。",
+      "targetAudience": "对AI保持观望的普通职场人",
+      "keyMessage": "AI是杠杆不是魔法，效果取决于使用者的判断力",
+      "outline": "1. 热潮之下：朋友圈人均AI专家，实际落地几何？\\n2. 三个翻车案例：AI生成内容带来的尴尬时刻\\n3. 人机协作的正确姿势：什么时候该信AI，什么时候该信自己\\n4. 我的原则：用AI省时间，用人脑做决策\\n5. 未来展望：工具进化很快，但核心能力不变",
+      "tags": ["AI思考", "效率工具", "深度观点", "职场反思"],
+      "estimatedReadTime": "5分钟",
+      "platformSuggestion": "知乎"
+    },
+    {
+      "title": "30天AI挑战：零基础小白如何用AI搭建个人知识库",
+      "angle": "教程攻略",
+      "hook": "不会写代码、不懂机器学习，我用30天时间，从零搭建了一个能自动整理笔记的AI知识库。",
+      "targetAudience": "想用AI但不知从何下手的新手",
+      "keyMessage": "AI入门不需要技术背景，从一个小需求开始就行",
+      "outline": "1. 起点：笔记太多找不到，我需要一个会思考的助手\\n2. 第1-7天：选工具——对比了5款AI笔记应用后的选择\\n3. 第8-14天：建结构——怎么让AI理解你的知识体系\\n4. 第15-21天：自动化——设置规则让AI自动分类和关联\\n5. 第22-30天：优化——用了一个月的真实体验和调整\\n6. 复盘：做对了什么、走了哪些弯路",
+      "tags": ["AI入门", "知识管理", "个人成长", "效率教程"],
+      "estimatedReadTime": "7分钟",
+      "platformSuggestion": "B站"
+    }
+  ]
+}`;
+
+export async function generateInspiration(topic?: string, platform?: PlatformStyle): Promise<InspirationResult> {
+  const platformContext = platform
+    ? `\n用户偏好平台：${platform === 'wechat' ? '公众号' : platform === 'zhihu' ? '知乎' : platform === 'bilibili' ? 'B站' : '小红书'}。请优先给出适合该平台风格的角度。`
+    : '';
 
   const raw = await chat([
-    {
-      role: 'system',
-      content: '你是一个创意内容策划师。为用户生成一个有吸引力的内容灵感。只返回JSON，不要任何其他文字。返回格式：{"title":"建议标题","outline":"内容大纲（3-5个要点，用换行分隔）","tags":["标签1","标签2","标签3"],"style":"推荐风格（如：深度分析/种草推荐/教程攻略/观点评论）"}',
-    },
+    { role: 'system', content: INSPIRATION_SYSTEM_PROMPT },
     {
       role: 'user',
-      content: `请给我${topicHint}的内容灵感。`,
+      content: `请给我${topic ? `关于「${topic}」` : '最近热门'}的内容灵感。${platformContext}\n要求：3个角度至少覆盖2种不同类型，标题要有信息量，大纲要有实质内容。`,
     },
-  ], 0.9);
+  ], 0.8);
 
-  try {
-    const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-    return JSON.parse(cleaned);
-  } catch {
-    return { title: '灵感生成失败', outline: raw, tags: [], style: '自由风格' };
-  }
+  return parseJsonResponse<InspirationResult>(raw, {
+    topic: topic || '热门话题',
+    angles: [],
+  });
 }
 
 export async function generateTitle(body: string): Promise<string[]> {
   const raw = await chat([
     {
       role: 'system',
-      content: '你是一个标题专家。根据正文内容生成5个吸引人的标题。只返回JSON数组，不要任何其他文字。如：["标题1","标题2","标题3","标题4","标题5"]',
+      content: `你是一位专业标题策划师。根据正文内容生成 5 个不同风格的标题，覆盖以下类型：悬念型、数据型、利益型、对比型、故事型。
+
+要求：
+- 每个标题 15-25 字
+- 具体有信息量，避免空泛
+- 不同标题面向不同平台调性（公众号正式、知乎专业、B站活泼、小红书种草）
+- 只返回 JSON 数组，不要任何其他文字
+- 格式：["标题1","标题2","标题3","标题4","标题5"]`,
     },
     {
       role: 'user',
-      content: `正文：${body.slice(0, 500)}`,
+      content: `正文内容：\n${body.slice(0, 1500)}`,
     },
   ], 0.8);
 
@@ -228,11 +319,19 @@ export async function suggestTags(title: string, body: string): Promise<string[]
   const raw = await chat([
     {
       role: 'system',
-      content: '你是一个标签专家。根据标题和正文，推荐5-8个适合的标签。只返回JSON数组，不要任何其他文字。如：["标签1","标签2"]',
+      content: `你是标签策略师。根据标题和正文推荐 5-8 个精准标签。
+
+要求：
+- 兼顾热度标签和长尾标签（3-4个大众标签 + 2-4个细分标签）
+- 标签要有搜索价值，是读者会主动搜索的关键词
+- 不要过于宽泛（如"生活"）或过于冷门
+- 考虑多平台适用性
+- 只返回 JSON 数组，不要任何其他文字
+- 格式：["标签1","标签2","标签3","标签4","标签5"]`,
     },
     {
       role: 'user',
-      content: `标题：${title}\n正文：${body.slice(0, 300)}`,
+      content: `标题：${title}\n正文：${body.slice(0, 800)}`,
     },
   ], 0.5);
 
