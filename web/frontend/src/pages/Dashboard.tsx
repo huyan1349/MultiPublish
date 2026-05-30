@@ -207,11 +207,12 @@ export default function Dashboard() {
               </div>
             ) : (
               <div className="space-y-3">
-                {contents.slice(0, 5).map((item) => (
+                {contents.slice(0, 5).map((item, i) => (
                   <button
                     key={item.id}
                     onClick={() => navigate(`/contents/${item.id}/preview`)}
-                    className="group w-full rounded-[22px] border border-[rgba(49,56,45,0.1)] bg-[rgba(255,255,255,0.72)] p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_6px_20px_rgba(41,48,39,0.06)]"
+                    className="group w-full rounded-[22px] border border-[rgba(49,56,45,0.1)] bg-[rgba(255,255,255,0.72)] p-4 text-left transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_6px_20px_rgba(41,48,39,0.06)]"
+                    style={{ animation: `px-list-item-in 480ms cubic-bezier(0.22,0.61,0.36,1) both ${i * 60 + 40}ms` }}
                   >
                     <div className="flex items-start justify-between gap-4">
                       <div className="min-w-0">

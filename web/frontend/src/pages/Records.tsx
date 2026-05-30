@@ -74,11 +74,15 @@ export default function Records() {
             </div>
           ) : (
             <div className="space-y-3">
-              {records.map((record) => {
+              {records.map((record, i) => {
                 const status = statusConfig[record.status] || { label: record.status, color: '#7f877c' };
                 const color = platformColors[record.platform] || '#6b7280';
                 return (
-                  <div key={record.id} className="rounded-[24px] border border-[rgba(49,56,45,0.1)] bg-[rgba(255,255,255,0.72)] p-5">
+                  <div
+                    key={record.id}
+                    className="rounded-[24px] border border-[rgba(49,56,45,0.1)] bg-[rgba(255,255,255,0.72)] p-5 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_6px_20px_rgba(41,48,39,0.06)]"
+                    style={{ animation: `px-list-item-in 480ms cubic-bezier(0.22,0.61,0.36,1) both ${i * 60 + 40}ms` }}
+                  >
                     <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                       <div className="min-w-0">
                         <div className="mb-3 flex items-center gap-3">

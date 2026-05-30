@@ -34,6 +34,13 @@
   --platform-xiaohongshu-deep: #d91c37;
   --shadow-soft: 0 18px 42px rgba(48, 56, 44, 0.07);
   --shadow-float: 0 24px 60px rgba(40, 46, 38, 0.11);
+
+  /* easing curves */
+  --ease-out-expo: cubic-bezier(0.19, 1, 0.22, 1);
+  --ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-spring: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --ease-smooth: cubic-bezier(0.45, 0, 0.55, 1);
+  --ease-snap: cubic-bezier(0.65, 0, 0.35, 1);
 }
 
 @layer base {
@@ -104,12 +111,14 @@
     border-radius: 28px;
     box-shadow: var(--shadow-soft);
     backdrop-filter: blur(14px);
-    transition: border-color 160ms ease, transform 160ms ease, box-shadow 160ms ease;
+    transition: border-color 300ms var(--ease-out-expo), transform 300ms var(--ease-out-expo), box-shadow 300ms var(--ease-out-expo);
+    will-change: transform;
   }
 
   .px-card:hover {
     border-color: var(--line-strong);
     box-shadow: var(--shadow-float);
+    transform: scale(1.008);
   }
 
   .px-paper {
@@ -131,12 +140,13 @@
     border: 1px solid transparent;
     cursor: pointer;
     user-select: none;
-    transition: transform 140ms ease, box-shadow 160ms ease, background-color 160ms ease, color 160ms ease, border-color 160ms ease;
+    transition: transform 220ms var(--ease-out-expo), box-shadow 220ms var(--ease-out-expo), background-color 220ms var(--ease-out-expo), color 220ms var(--ease-out-expo), border-color 220ms var(--ease-out-expo), opacity 220ms var(--ease-out-expo);
     font-family: 'IBM Plex Mono', monospace;
     font-size: 10px;
     letter-spacing: 0.18em;
     text-transform: uppercase;
     line-height: 1;
+    will-change: transform;
   }
 
   .px-btn:disabled {
@@ -146,7 +156,12 @@
   }
 
   .px-btn:active:not(:disabled) {
-    transform: translateY(1px);
+    transform: scale(0.96) translateY(1px);
+    transition-duration: 80ms;
+  }
+
+  .px-btn:hover:not(:disabled) {
+    transform: translateY(-1px);
   }
 
   .px-btn-primary {
@@ -205,7 +220,7 @@
     border: 1px solid var(--line);
     border-radius: 18px;
     outline: none;
-    transition: border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
+    transition: border-color 280ms var(--ease-out-expo), background-color 280ms var(--ease-out-expo), box-shadow 280ms var(--ease-out-expo), transform 280ms var(--ease-out-expo);
   }
 
   .px-input::placeholder {
@@ -214,8 +229,9 @@
 
   .px-input:focus {
     border-color: rgba(111, 132, 109, 0.42);
-    background: rgba(255, 255, 255, 0.88);
-    box-shadow: 0 0 0 4px rgba(111, 132, 109, 0.08);
+    background: rgba(255, 255, 255, 0.92);
+    box-shadow: 0 0 0 4px rgba(111, 132, 109, 0.08), 0 4px 20px rgba(41, 48, 39, 0.04);
+    transform: scale(1.005);
   }
 
   .px-label {
@@ -250,6 +266,12 @@
     font-size: 10px;
     letter-spacing: 0.08em;
     text-transform: uppercase;
+    transition: transform 180ms var(--ease-out-expo), border-color 180ms var(--ease-out-expo), background-color 180ms var(--ease-out-expo);
+  }
+
+  .px-tag:hover {
+    transform: translateY(-1px);
+    border-color: rgba(49, 56, 45, 0.22);
   }
 
   .px-dot {
@@ -316,13 +338,14 @@
     border-radius: 18px;
     color: var(--ink-soft);
     border: 1px solid transparent;
-    transition: background-color 160ms ease, color 160ms ease, border-color 160ms ease, transform 160ms ease;
+    transition: background-color 260ms var(--ease-out-expo), color 260ms var(--ease-out-expo), border-color 260ms var(--ease-out-expo), transform 260ms var(--ease-out-expo), box-shadow 260ms var(--ease-out-expo);
   }
 
   .px-sidebar-link:hover {
     background: rgba(255, 255, 255, 0.45);
     color: var(--ink);
     border-color: rgba(49, 56, 45, 0.12);
+    transform: translateX(2px);
   }
 
   .px-sidebar-link.active {
@@ -330,6 +353,7 @@
     color: var(--ink);
     border-color: rgba(49, 56, 45, 0.18);
     box-shadow: var(--shadow-soft);
+    transform: translateX(0);
   }
 
   .px-metric {
@@ -416,34 +440,34 @@
   }
 
   .px-fade-in {
-    animation: px-fade-up 540ms ease both;
+    animation: px-fade-up 520ms var(--ease-out-expo) both;
   }
 
   .px-slide-in {
-    animation: px-slide-in 420ms ease both;
+    animation: px-slide-in 400ms var(--ease-out-expo) both;
   }
 
   .px-scale-in {
-    animation: px-scale-in 260ms ease both;
+    animation: px-scale-in 280ms var(--ease-out-back) both;
   }
 
   .px-pulse-dot {
-    animation: px-pulse-dot 2.4s ease-in-out infinite;
+    animation: px-pulse-dot 2.8s var(--ease-smooth) infinite;
   }
 
   .px-blink {
-    animation: px-blink 1s step-end infinite;
+    animation: px-blink 1s var(--ease-smooth) infinite;
   }
 
   .px-float {
-    animation: px-float 4.8s ease-in-out infinite;
+    animation: px-float 5.5s var(--ease-smooth) infinite;
   }
 
   .px-shimmer {
-    background: linear-gradient(90deg, rgba(228, 236, 226, 0.5) 25%, rgba(255, 255, 255, 0.92) 50%, rgba(228, 236, 226, 0.5) 75%);
+    background: linear-gradient(90deg, rgba(228, 236, 226, 0.4) 25%, rgba(255, 255, 255, 0.88) 50%, rgba(228, 236, 226, 0.4) 75%);
     background-size: 200% 100%;
     border-radius: 999px;
-    animation: px-shimmer 1.8s linear infinite;
+    animation: px-shimmer 2.4s var(--ease-smooth) infinite;
   }
 }
 
@@ -561,33 +585,34 @@
 }
 
 @keyframes px-fade-up {
-  from { opacity: 0; transform: translateY(14px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; transform: translateY(18px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 @keyframes px-slide-in {
-  from { opacity: 0; transform: translateX(-8px); }
+  from { opacity: 0; transform: translateX(-10px); }
   to { opacity: 1; transform: translateX(0); }
 }
 
 @keyframes px-scale-in {
-  from { opacity: 0; transform: scale(0.96); }
+  from { opacity: 0; transform: scale(0.94); }
   to { opacity: 1; transform: scale(1); }
 }
 
 @keyframes px-blink {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0; }
+  50% { opacity: 0.2; }
 }
 
 @keyframes px-float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-6px); }
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  33% { transform: translateY(-8px) rotate(0.5deg); }
+  66% { transform: translateY(-2px) rotate(-0.3deg); }
 }
 
 @keyframes px-pulse-dot {
-  0%, 100% { transform: scale(1); opacity: 0.8; }
-  50% { transform: scale(1.35); opacity: 1; }
+  0%, 100% { transform: scale(1); opacity: 0.7; }
+  50% { transform: scale(1.5); opacity: 1; }
 }
 
 @keyframes px-shimmer {
@@ -595,66 +620,91 @@
   100% { background-position: -200% 0; }
 }
 
+/* page enter */
+@keyframes px-page-enter {
+  from { opacity: 0; transform: translateY(12px) scale(0.99); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* card list stagger */
+@keyframes px-list-item-in {
+  from { opacity: 0; transform: translateY(20px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* button press ripple feel */
+@keyframes px-press-in {
+  from { transform: scale(1); }
+  to { transform: scale(0.96); }
+}
+
+/* skeleton pulse */
+@keyframes px-skeleton {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.8; }
+}
+
 /* ——— Inspiration page animations ——— */
 
 @keyframes px-orb-1 {
-  0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.12; }
-  25% { transform: translate(40px, -30px) scale(1.08); opacity: 0.16; }
-  50% { transform: translate(-20px, -60px) scale(0.94); opacity: 0.1; }
-  75% { transform: translate(-50px, -10px) scale(1.04); opacity: 0.14; }
+  0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.1; }
+  20% { transform: translate(50px, -25px) scale(1.06); opacity: 0.15; }
+  40% { transform: translate(-15px, -55px) scale(0.95); opacity: 0.09; }
+  60% { transform: translate(-45px, -8px) scale(1.03); opacity: 0.13; }
+  80% { transform: translate(20px, 15px) scale(0.98); opacity: 0.11; }
 }
 
 @keyframes px-orb-2 {
-  0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.1; }
-  33% { transform: translate(-50px, -40px) scale(1.1); opacity: 0.15; }
-  66% { transform: translate(30px, 20px) scale(0.92); opacity: 0.08; }
+  0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.08; }
+  30% { transform: translate(-45px, -35px) scale(1.08); opacity: 0.14; }
+  60% { transform: translate(35px, 15px) scale(0.93); opacity: 0.07; }
 }
 
 @keyframes px-orb-3 {
-  0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.08; }
-  50% { transform: translate(60px, 30px) scale(1.12); opacity: 0.13; }
+  0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.06; }
+  50% { transform: translate(55px, 25px) scale(1.1); opacity: 0.12; }
 }
 
 @keyframes px-glow-pulse {
   0%, 100% { box-shadow: 0 0 0 0 rgba(91, 108, 240, 0); }
-  50% { box-shadow: 0 0 24px 2px rgba(91, 108, 240, 0.12); }
+  50% { box-shadow: 0 0 30px 3px rgba(91, 108, 240, 0.1); }
 }
 
 @keyframes px-border-glow {
-  0%, 100% { border-color: rgba(91, 108, 240, 0.15); }
-  50% { border-color: rgba(91, 108, 240, 0.35); }
+  0%, 100% { border-color: rgba(91, 108, 240, 0.12); }
+  50% { border-color: rgba(91, 108, 240, 0.3); }
 }
 
 @keyframes px-text-shimmer {
-  0%, 100% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
+  0% { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
 }
 
 @keyframes px-bubble-1 {
-  0%, 100% { transform: translateY(0) translateX(0); }
-  25% { transform: translateY(-12px) translateX(6px); }
-  50% { transform: translateY(-4px) translateX(-4px); }
-  75% { transform: translateY(-16px) translateX(-8px); }
+  0%, 100% { transform: translateY(0) translateX(0) scale(1); }
+  25% { transform: translateY(-14px) translateX(8px) scale(1.04); }
+  50% { transform: translateY(-3px) translateX(-5px) scale(0.98); }
+  75% { transform: translateY(-18px) translateX(-6px) scale(1.02); }
 }
 
 @keyframes px-bubble-2 {
-  0%, 100% { transform: translateY(0) translateX(0); }
-  33% { transform: translateY(-18px) translateX(-10px); }
-  66% { transform: translateY(-6px) translateX(8px); }
+  0%, 100% { transform: translateY(0) translateX(0) scale(1); }
+  33% { transform: translateY(-20px) translateX(-8px) scale(1.03); }
+  66% { transform: translateY(-5px) translateX(10px) scale(0.97); }
 }
 
 @keyframes px-bubble-3 {
-  0%, 100% { transform: translateY(0) translateX(0); }
-  50% { transform: translateY(-20px) translateX(4px); }
+  0%, 100% { transform: translateY(0) translateX(0) scale(1); }
+  50% { transform: translateY(-22px) translateX(3px) scale(1.05); }
 }
 
 @keyframes px-stagger-in {
-  from { opacity: 0; transform: translateY(32px) scale(0.96); }
+  from { opacity: 0; transform: translateY(36px) scale(0.95); }
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 @keyframes px-thinking-dot {
-  0%, 80%, 100% { transform: scale(0.4); opacity: 0.3; }
+  0%, 80%, 100% { transform: scale(0.3); opacity: 0.25; }
   40% { transform: scale(1); opacity: 1; }
 }
 
@@ -663,29 +713,50 @@
   to { transform: rotate(360deg); }
 }
 
+/* new utility animations */
+@keyframes px-card-hover-lift {
+  from { transform: translateY(0); box-shadow: var(--shadow-soft); }
+  to { transform: translateY(-3px); box-shadow: var(--shadow-float); }
+}
+
 .px-orb {
   position: absolute;
   border-radius: 50%;
   filter: blur(80px);
   pointer-events: none;
+  will-change: transform, opacity;
 }
 
-.px-stagger-1 { animation: px-stagger-in 520ms ease both 80ms; }
-.px-stagger-2 { animation: px-stagger-in 520ms ease both 180ms; }
-.px-stagger-3 { animation: px-stagger-in 520ms ease both 280ms; }
+.px-stagger-1 { animation: px-stagger-in 560ms var(--ease-out-expo) both 60ms; }
+.px-stagger-2 { animation: px-stagger-in 560ms var(--ease-out-expo) both 140ms; }
+.px-stagger-3 { animation: px-stagger-in 560ms var(--ease-out-expo) both 220ms; }
+
+.px-list-item-1 { animation: px-list-item-in 480ms var(--ease-out-expo) both 40ms; }
+.px-list-item-2 { animation: px-list-item-in 480ms var(--ease-out-expo) both 100ms; }
+.px-list-item-3 { animation: px-list-item-in 480ms var(--ease-out-expo) both 160ms; }
+.px-list-item-4 { animation: px-list-item-in 480ms var(--ease-out-expo) both 220ms; }
+.px-list-item-5 { animation: px-list-item-in 480ms var(--ease-out-expo) both 280ms; }
+
+.px-page-enter {
+  animation: px-page-enter 420ms var(--ease-out-expo) both;
+}
 
 .px-thinking-dot {
   width: 6px; height: 6px;
   border-radius: 50%;
   background: var(--accent);
-  animation: px-thinking-dot 1.4s ease-in-out infinite both;
+  animation: px-thinking-dot 1.4s var(--ease-spring) infinite both;
 }
 
 .px-text-shimmer {
-  background: linear-gradient(90deg, var(--ink) 0%, var(--accent-deep) 50%, var(--ink) 100%);
+  background: linear-gradient(90deg, var(--ink) 0%, var(--accent-deep) 40%, var(--ink) 100%);
   background-size: 200% auto;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  animation: px-text-shimmer 3s ease infinite;
+  animation: px-text-shimmer 4s var(--ease-smooth) infinite;
+}
+
+.px-skeleton-pulse {
+  animation: px-skeleton 2.2s var(--ease-smooth) infinite;
 }
