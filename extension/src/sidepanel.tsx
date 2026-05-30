@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   AlertCircle, ArrowLeft, Camera, CheckCircle, ChevronRight,
   ClipboardCopy, Download, Edit3, FileText, Github, LayoutDashboard, Loader2,
@@ -7,9 +7,9 @@ import {
 import { useContentStore } from './sidepanel/stores/contentStore';
 import { parseMarkdownToBlocks } from './sidepanel/adapters/parserService';
 import { getAdapter } from './sidepanel/adapters/AdapterFactory';
-import TiptapEditor from './sidepanel/components/TiptapEditor';
+import TiptapEditor, { getResolvedDataUrl, waitForDataUrls } from './sidepanel/components/TiptapEditor';
 import { createZipBlob, downloadBlob, type ZipFile } from './sidepanel/utils/exportZip';
-import type { PlatformOutputDraft, PlatformType, PublishResult, StandardContent, ValidationMessage } from './shared/types';
+import type { ImagePayload, PlatformOutputDraft, PlatformType, PublishResult, StandardContent, ValidationMessage } from './shared/types';
 import './sidepanel/styles/index.css';
 
 type Page = 'dashboard' | 'editor' | 'preview' | 'records' | 'settings';
@@ -42,6 +42,35 @@ function timestampSlug() { return new Date().toISOString().replace(/[:.]/g, '-')
 function escapeHtml(v: string) {
   return v.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
+/** 清掉正文中 data:image + blob: 图片引用，让 textarea 可编辑 */
+function stripDataUrlImages(text: string): string {
+  return text
+    .replace(/!\[[^\]]*\]\(data:image\/[^)]+\)/gi, '[图片]')
+    .replace(/!\[[^\]]*\]\(blob:[^)]+\)/gi, '[图片]')
+    .replace(/<img[^>]*src\s*=\s*["'](?:data:image|blob):[^"']*["'][^>]*\/?>/gi, '[图片]');
+}
+
+/** 从编辑器 HTML 直接提取 <img> 标签，在预览中展示 */
+function renderPreviewImages(rawHtml: string): ReactNode {
+  const srcs = extractImageSrcs(rawHtml);
+  if (srcs.length === 0) return null;
+  return (
+    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+      {srcs.map((src, i) => (
+        <img key={i} src={src} alt={`图片${i + 1}`}
+          style={{ maxWidth: 120, maxHeight: 120, borderRadius: 6, border: '1px solid var(--border)', objectFit: 'cover' }} />
+      ))}
+    </div>
+  );
+}
+
+/** 预览正文渲染：Markdown 图片语法 → <img>，保留 blob/data URL */
+function renderPreviewBody(body: string): string {
+  return body
+    .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" style="max-width:100%;border-radius:6px;margin:8px 0" />')
+    .replace(/\n/g, '<br>');
+}
+
 function outputToHtml(output: PreviewOutput) {
   return `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escapeHtml(output.title)}</title><style>body{max-width:760px;margin:32px auto;padding:0 20px;font-family:system-ui,-apple-system,sans-serif;line-height:1.75;color:#202124}h1{font-size:26px;line-height:1.35}.summary{color:#5f6368}.tags{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0 24px}.tag{padding:3px 10px;border-radius:999px;background:#f1f3f4;font-size:12px;color:#5f6368}</style></head><body><h1>${escapeHtml(output.title)}</h1>${output.summary ? `<p class="summary">${escapeHtml(output.summary)}</p>` : ''}<div class="tags">${output.tags.map((t) => `<span class="tag">${escapeHtml(t)}</span>`).join('')}</div><main>${output.body.replace(/\n/g, '<br />')}</main></body></html>`;
 }
@@ -52,6 +81,55 @@ function dataUrlToBlob(dataUrl: string) {
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
   return new Blob([bytes], { type: mime });
+}
+
+/** 从 HTML 提取所有 <img> 的 src，返回去重列表 */
+function extractImageSrcs(html: string): string[] {
+  const srcs: string[] = [];
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  doc.querySelectorAll('img').forEach((img) => {
+    const s = img.getAttribute('src');
+    if (s) srcs.push(s);
+  });
+  return [...new Set(srcs)];
+}
+
+/** 等待图片后台转换完成，然后把 outputs 中所有 blob URL 替换为 data URL */
+async function resolveBlobUrlsInOutputs(outputs: PreviewOutput[]): Promise<PreviewOutput[]> {
+  // 收集所有 blob URL
+  const blobUrls = new Set<string>();
+  const blobRe = /blob:[\w-]+:\/\/[^)\s"']+/g;
+  for (const o of outputs) {
+    for (const m of o.body.matchAll(blobRe)) blobUrls.add(m[0]);
+  }
+  if (blobUrls.size === 0) return outputs;
+
+  // 等待后台 FileReader 全部转换完成
+  await waitForDataUrls([...blobUrls]);
+
+  // 替换
+  return outputs.map((o) => ({
+    ...o,
+    body: replaceBlobUrlsWithData(o.body),
+  }));
+}
+
+function replaceBlobUrlsWithData(text: string): string {
+  return text.replace(/blob:[\w-]+:\/\/[^)\s"']+/g, (match) => {
+    const dataUrl = getResolvedDataUrl(match);
+    return dataUrl || match; // 没完成转换就保留原样
+  });
+}
+
+/** 将图片 src（可能是 blob URL 或 data URL）转为可传输的 data URL */
+async function convertSrcToDataUrl(src: string): Promise<string | null> {
+  if (src.startsWith('data:')) return src;
+  if (src.startsWith('blob:')) {
+    // 等待后台 FileReader 转换完成
+    await waitForDataUrls([src]);
+    return getResolvedDataUrl(src) || null;
+  }
+  return src;
 }
 
 export default function Sidepanel() {
@@ -112,19 +190,36 @@ export default function Sidepanel() {
     try {
       const source = buildSourceContent();
       const outputs = adaptContent(source, Array.from(selected));
+      // data URL 图片不持久化到 chrome.storage（超 8KB 配额），存标记即可
+      const persistCover = draft.coverImage && !draft.coverImage.startsWith('data:')
+        ? draft.coverImage
+        : (draft.coverImage ? '[local]' : undefined);
+      // 正文中的 data/blob URL 图片不持久化（HTML + Markdown 格式都要清）
+      const cleanMarkdown = draft.rawMarkdown
+        .replace(/<img[^>]*src\s*=\s*["'](?:data:image|blob):[^"']*["'][^>]*\/?>/gi, '')
+        .replace(/!\[[^\]]*\]\((?:data:image|blob):[^)]+\)/gi, '');
       await saveContent({
-        id: source.id, title: draft.title, rawMarkdown: draft.rawMarkdown,
+        id: source.id, title: draft.title, rawMarkdown: cleanMarkdown,
         tags: source.tags, summary: draft.summary || undefined,
-        coverImage: draft.coverImage || undefined,
+        coverImage: persistCover,
         outputs: outputs.map((o) => ({
           id: o.outputId, platform: o.platform, platformName: o.platformName,
-          title: o.title, summary: o.summary, body: o.body, tags: o.tags,
-          coverImage: o.coverImage, extra: o.extra, status: 'ready',
+          title: o.title, summary: o.summary,
+          // 输出正文也不存 data URL（图片由 Content Script 上传时处理）
+          body: o.body
+            .replace(/<img[^>]*src\s*=\s*["'](?:data:image|blob):[^"']*["'][^>]*\/?>/gi, '')
+            .replace(/!\[[^\]]*\]\((?:data:image|blob):[^)]+\)/gi, ''),
+          tags: o.tags,
+          // 输出的封面图也不存 data URL
+          coverImage: o.coverImage && !String(o.coverImage).startsWith('data:') ? o.coverImage : undefined,
+          extra: o.extra, status: 'ready',
           validationMessages: o.validationMessages || [],
         })),
         createdAt: new Date().toISOString(),
       });
-      setPreviewOutputs(outputs);
+      // 预览前把 blob URL → data URL，确保图片在任何时候都可见
+      const resolved = await resolveBlobUrlsInOutputs(outputs);
+      setPreviewOutputs(resolved);
       if (outputs.length > 0) setActiveTab(outputs[0].platform);
       resetPublishState();
       setPage('preview');
@@ -133,12 +228,13 @@ export default function Sidepanel() {
     } finally { setLoading(false); }
   };
 
-  const regeneratePreview = () => {
+  const regeneratePreview = async () => {
     const text = stripHtml(draft.rawMarkdown);
     if (!draft.title.trim() || !text) { showNotice({ type: 'error', message: '标题和正文不能为空' }); return; }
     const platforms = previewOutputs.length > 0 ? previewOutputs.map((o) => o.platform) : Array.from(selected);
     const outputs = adaptContent(buildSourceContent(), platforms);
-    setPreviewOutputs(outputs);
+    const resolved = await resolveBlobUrlsInOutputs(outputs);
+    setPreviewOutputs(resolved);
     if (outputs.length > 0) setActiveTab(outputs[0].platform);
     resetPublishState();
     showNotice({ type: 'success', message: '已重新生成平台适配版本' });
@@ -158,6 +254,37 @@ export default function Sidepanel() {
   const publishOne = async (output: PreviewOutput) => {
     setPublishing(output.outputId); setNotice(null);
     try {
+      // 构建图片列表：封面图 + 正文中的本地图片
+      // 封面图 + 正文图片（支持 data URL 和 blob URL）
+      const images: ImagePayload[] = [];
+      if (draft.coverImage) {
+        const coverDataUrl = draft.coverImage.startsWith('blob:')
+          ? await convertSrcToDataUrl(draft.coverImage)
+          : draft.coverImage;
+        if (coverDataUrl) {
+          images.push({
+            id: 'cover',
+            dataUrl: coverDataUrl,
+            filename: 'cover.png',
+            mimeType: coverDataUrl.match(/data:(image\/[^;]*);/)?.[1] || 'image/png',
+          });
+        }
+      }
+      const bodySrcs = extractImageSrcs(draft.rawMarkdown);
+      for (let i = 0; i < bodySrcs.length; i++) {
+        const src = bodySrcs[i];
+        if (src === draft.coverImage) continue;
+        const dataUrl = await convertSrcToDataUrl(src);
+        if (dataUrl && dataUrl.startsWith('data:')) {
+          images.push({
+            id: `img_${i}`,
+            dataUrl,
+            filename: `image_${i}.png`,
+            mimeType: dataUrl.match(/data:(image\/[^;]*);/)?.[1] || 'image/png',
+          });
+        }
+      }
+
       const response = await chrome.runtime.sendMessage({
         type: 'PUBLISH_TO_PLATFORM',
         payload: {
@@ -165,8 +292,10 @@ export default function Sidepanel() {
           platformName: output.platformName,
           content: output,
           autoLayout: (output.platform === 'xiaohongshu' || output.platform === 'wechat') ? autoLayout : undefined,
+          images: images.length > 0 ? images : undefined,
         },
       }) as PublishResult | undefined;
+      console.log('[SP-IMG] publishOne platform:', output.platform, 'images count:', images.length, 'ids:', images.map(i => i.id), 'sizes:', images.map(i => i.dataUrl.length));
       const result: PublishResult = response || { platform: output.platform, platformName: output.platformName, status: 'failed', message: '未收到发布结果' };
       setPublishedSet((prev) => { const n = new Set(prev); result.status === 'success' ? n.add(output.platform) : n.delete(output.platform); return n; });
       setPublishResults((prev) => ({ ...prev, [output.platform]: result }));
@@ -260,6 +389,8 @@ export default function Sidepanel() {
           {editingOutput?.outputId === active.outputId ? (
             /* ── Edit Mode ── */
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {/* 图片预览 — 来自编辑器，不放在 textarea 里 */}
+              {renderPreviewImages(draft.rawMarkdown)}
               <input value={editingOutput.title} onChange={(e) => setEditingOutput({ ...editingOutput, title: e.target.value })} className="input" placeholder="平台标题" />
               <input value={editingOutput.summary} onChange={(e) => setEditingOutput({ ...editingOutput, summary: e.target.value })} className="input" placeholder="摘要（可选）" />
               <textarea value={editingOutput.body} onChange={(e) => setEditingOutput({ ...editingOutput, body: e.target.value })} className="input" placeholder="平台正文" style={{ minHeight: 200, fontFamily: 'var(--font-mono)', lineHeight: 1.7 }} />
@@ -296,8 +427,11 @@ export default function Sidepanel() {
                 {active.tags.map((t, i) => <span key={i} className="tag">{t}</span>)}
               </div>
 
+              {/* 图片 — 直接从编辑器 HTML 提取，不经过适配器链 */}
+              {renderPreviewImages(draft.rawMarkdown)}
+
               {/* Body */}
-              <div className="preview-body" style={{ marginBottom: 10 }} dangerouslySetInnerHTML={{ __html: active.body.replace(/\n/g, '<br>') }} />
+              <div className="preview-body" style={{ marginBottom: 10 }} dangerouslySetInnerHTML={{ __html: renderPreviewBody(active.body) }} />
 
               {/* Validation */}
               {!!active.validationMessages?.length && (
@@ -431,8 +565,33 @@ export default function Sidepanel() {
         <div className="input-row">
           <input type="text" value={draft.tags} onChange={(e) => setDraft({ tags: e.target.value })}
             placeholder="标签，逗号分隔" className="input" />
-          <input type="text" value={draft.coverImage} onChange={(e) => setDraft({ coverImage: e.target.value })}
-            placeholder="封面图 URL" className="input" />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <label className="help-text" style={{ fontSize: 11, color: 'var(--text-secondary)' }}>封面图</label>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <label className="btn btn-ghost btn-sm" style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}>
+                📁 选择图片
+                <input type="file" accept="image/*" style={{ display: 'none' }}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = () => setDraft({ coverImage: reader.result as string });
+                    reader.readAsDataURL(file);
+                  }} />
+              </label>
+              {draft.coverImage && (
+                <button onClick={() => setDraft({ coverImage: '' })} className="btn btn-ghost btn-sm" style={{ color: 'var(--danger)', padding: '2px 6px' }}>
+                  <X size={12} />清除
+                </button>
+              )}
+            </div>
+            {draft.coverImage ? (
+              <img src={draft.coverImage} alt="封面预览"
+                style={{ width: '100%', maxWidth: 200, borderRadius: 6, border: '1px solid var(--border)', objectFit: 'cover', aspectRatio: '3/4' }} />
+            ) : (
+              <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>未选择封面图（可选）</span>
+            )}
+          </div>
         </div>
 
         <div>

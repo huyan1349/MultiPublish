@@ -57,6 +57,7 @@ export const zhihuAdapter: PlatformAdapter = {
       .map((t) => t.replace(/^#/, ''));
 
     return { title, summary: plainText.substring(0, 100) + '…', body, tags,
+      coverImage: content.coverImage,
       extra: { contentType: 'article', structure: 'conclusion-first' } };
   },
 

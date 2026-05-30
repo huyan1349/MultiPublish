@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+﻿import { useState, useCallback, useRef, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AlertCircle, ArrowLeft, ArrowRight, MessageCircle, RefreshCw, Save, Sparkles, Wand2, Zap, FileText, List } from 'lucide-react';
 import { useContentStore } from '../stores/contentStore';
@@ -8,7 +8,8 @@ import AiAssistantPanel from '../components/editor/AiAssistantPanel';
 import PlatformCard from '../components/publish/PlatformCard';
 import PublishButton from '../components/publish/PublishButton';
 import ToastContainer, { showToast } from '../components/publish/Toast';
-import { publishViaExtension, isExtensionInstalled } from '../utils/extensionBridge';
+import { publishViaExtension, isExtensionInstalled } from '../utils/extensionBridge'
+import { buildImagePayloads } from '../utils/imageUtils';;
 import { useExtensionStatus } from '../hooks/useExtensionStatus';
 import { generateTitle, suggestTags, generateContentFromOutline, beautifyContentForPlatform } from '../services/deepseek';
 import { api } from '../api/client';

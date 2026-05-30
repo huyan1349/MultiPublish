@@ -48,6 +48,18 @@ const LOGIN_INDICATORS = [
       return;
     }
 
+    // ── 上传封面图 ──
+    try {
+      const resp = await chrome.runtime.sendMessage({ type: 'GET_IMAGES', payload: { platform: PLATFORM } });
+      const allImages = (resp?.images || []) as { id: string; dataUrl: string; filename: string; mimeType: string }[];
+      console.log('[XHS-IMG] images:', allImages.length);
+      for (const img of allImages) {
+        const ok = await _xhsUploadCover(img);
+        console.log('[XHS-IMG]', img.id, ok ? 'OK' : 'FAIL');
+        if (ok) await sleep(2000);
+      }
+    } catch (e) { console.log('[XHS-IMG] err:', e); }
+
     if (!autoLayout) {
       showContentBridgeToast('✅ 内容已填充完成，请手动操作', 'success');
       await report(true, '小红书内容已填充，请手动排版和发布');
@@ -62,11 +74,21 @@ const LOGIN_INDICATORS = [
       return;
     }
 
+    // 一键排版后编辑器被清空，重新填正文
+    await sleep(2000);
+    const bodyEl2 = await waitForElement(findBodyEditor, FILL_TIMEOUT);
+    if (bodyEl2) {
+      const refillOk = await fillContentEditable(bodyEl2, plainText.substring(0, 5000));
+      console.log('[XHS] refill:', refillOk);
+      if (tags.length > 0) await appendTagsToBody(bodyEl2, tags);
+    }
+
     const nextOk = await clickNextStep();
     if (!nextOk) {
       await report(false, '未找到"下一步"按钮，请手动点击');
       return;
     }
+    await sleep(8000);
 
     const publishOk = await clickPublish();
     if (!publishOk) {
@@ -712,4 +734,71 @@ function waitForElement<T extends HTMLElement>(finder: () => T | null, timeout: 
     observer.observe(document.body || document.documentElement, { childList: true, subtree: true });
     setTimeout(() => { observer.disconnect(); resolve(null); }, timeout);
   });
+}
+
+/* ── 图片上传 ── */
+
+function _xhsDataUrlToBlob(dataUrl: string): Blob {
+  const parts = dataUrl.split(',');
+  const mime = (parts[0].match(/data:(.*?);/) || [])[1] || 'image/png';
+  let payload = parts.slice(1).join(','); // handle commas in base64
+  const isBase64 = parts[0].includes('base64');
+  if (isBase64) {
+    try { payload = atob(payload); } catch {
+      payload = atob(decodeURIComponent(payload));
+    }
+  }
+  const bytes = new Uint8Array(payload.length);
+  for (let i = 0; i < payload.length; i++) bytes[i] = payload.charCodeAt(i);
+  return new Blob([bytes], { type: mime });
+}
+
+const _xhsNativeFS = (() => {
+  try { const d = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'files'); return d?.set || null; }
+  catch { return null; }
+})();
+
+function _xhsSetInputFiles(input: HTMLInputElement, file: File): void {
+  const dt = new DataTransfer();
+  dt.items.add(file);
+  if (_xhsNativeFS) _xhsNativeFS.call(input, dt.files);
+  else input.files = dt.files;
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+  input.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+async function _xhsUploadCover(img: { dataUrl: string; filename: string; mimeType: string }): Promise<boolean> {
+  const blob = _xhsDataUrlToBlob(img.dataUrl);
+  const file = new File([blob], img.filename || 'img.png', { type: img.mimeType || 'image/png' });
+
+  // 找已有的 file input
+  const inputs = document.querySelectorAll<HTMLInputElement>('input[type="file"]');
+  console.log('[XHS-IMG] file inputs:', inputs.length);
+  for (let i = 0; i < inputs.length; i++) {
+    _xhsSetInputFiles(inputs[i], file);
+    await sleep(2000);
+  }
+
+  // Shadow DOM
+  const customs = Array.from(document.querySelectorAll('*')).filter(el => el.tagName.includes('-'));
+  for (const el of customs) {
+    const shadowInputs = _xhsShadowQueryAll(el, 'input[type="file"]');
+    for (const inp of shadowInputs) {
+      _xhsSetInputFiles(inp as HTMLInputElement, file);
+      await sleep(2000);
+    }
+  }
+
+  return inputs.length > 0;
+}
+
+function _xhsShadowQueryAll(root: Element, selector: string): HTMLElement[] {
+  const results: HTMLElement[] = [];
+  const sr = (root as any).shadowRoot || (root as any).__shadowRoot__;
+  if (sr) {
+    sr.querySelectorAll(selector).forEach((e: Element) => results.push(e as HTMLElement));
+    for (const child of sr.children) results.push(..._xhsShadowQueryAll(child, selector));
+  }
+  for (const child of root.children) results.push(..._xhsShadowQueryAll(child, selector));
+  return results;
 }

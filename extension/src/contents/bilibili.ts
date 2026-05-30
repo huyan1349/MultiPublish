@@ -9,7 +9,7 @@ export const config: PlasmoCSConfig = {
 
 const PLATFORM = 'bilibili';
 const NAME = 'B站';
-const FILL_TIMEOUT = 20000;
+const FILL_TIMEOUT = 40000;
 const PUBLISH_TIMEOUT = 60000;
 
 (async function init() {
@@ -32,6 +32,25 @@ const PUBLISH_TIMEOUT = 60000;
       showContentBridgeToast('ContentBridge 填充失败：未找到B站图文编辑器', 'error');
       return;
     }
+
+    // ── 上传正文图片（GET_IMAGES，不删数据，多 frame 安全）──
+    try {
+      const resp = await chrome.runtime.sendMessage({ type: 'GET_IMAGES', payload: { platform: PLATFORM } });
+      const allImages = (resp?.images || []) as { id: string; dataUrl: string; filename: string; mimeType: string }[];
+      const bodyImages = allImages.filter((img: { id: string }) => img.id !== 'cover');
+      console.log('[BILI-IMG] GET_IMAGES:', allImages.length, 'total,', bodyImages.length, 'body');
+      if (bodyImages.length > 0) {
+        const ed = findBodyEditor();
+        if (ed) { ed.focus(); ed.click(); await sleep(300); }
+        for (const img of bodyImages) {
+          console.log('[BILI-IMG] 上传:', img.id, img.dataUrl.length);
+          const ok = await uploadBiliImage(img);
+          console.log('[BILI-IMG] 结果:', ok ? 'OK' : 'FAIL');
+          if (ok) await sleep(1500);
+        }
+        await sleep(3000);
+      }
+    } catch (e) { console.log('[BILI-IMG] err:', e); }
 
     console.log('[ContentBridge:Bilibili] 填充完成，开始自动发布');
     const published = await tryAutoPublish();
@@ -771,4 +790,156 @@ function escapeHtml(value: string): string {
 
 function escapeAttribute(value = ''): string {
   return escapeHtml(value).replace(/`/g, '&#96;');
+}
+
+/* ── 图片上传 ── */
+
+function _dataUrlToBlob(dataUrl: string): Blob {
+  const [header, payload] = dataUrl.split(',');
+  const mime = header.match(/data:(.*?);/)?.[1] || 'image/png';
+  const binary = atob(payload);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return new Blob([bytes], { type: mime });
+}
+
+const _nativeFS = (() => {
+  try { const d = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'files'); return d?.set || null; }
+  catch { return null; }
+})();
+
+function _setInputFiles(input: HTMLInputElement, file: File): void {
+  const dt = new DataTransfer();
+  dt.items.add(file);
+  if (_nativeFS) _nativeFS.call(input, dt.files);
+  else input.files = dt.files;
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+  input.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+async function uploadBiliImage(img: { dataUrl: string; filename: string; mimeType: string }): Promise<boolean> {
+  const blob = _dataUrlToBlob(img.dataUrl);
+  const file = new File([blob], img.filename || 'img.png', { type: img.mimeType || 'image/png' });
+
+  // Phase 1: 遍历已存在的 file input
+  const inputs = document.querySelectorAll<HTMLInputElement>('input[type="file"]');
+  console.log('[BILI-IMG] 已有 file input 数量:', inputs.length);
+  for (let i = 0; i < inputs.length; i++) {
+    const inp = inputs[i];
+    console.log('[BILI-IMG] Phase1 尝试 input', i, 'accept=', inp.getAttribute('accept'), 'visible=', inp.offsetParent !== null);
+    _setInputFiles(inp, file);
+    await sleep(2500);
+    const ed = findBodyEditor();
+    if (ed?.querySelectorAll('img').length) { console.log('[BILI-IMG] Phase1 成功!'); return true; }
+  }
+
+  // Phase 2: 直接操作 eva3-toolbar-image → shadow DOM
+  console.log('[BILI-IMG] Phase2...');
+
+  const imgToolbar = document.querySelector('eva3-toolbar-image');
+  console.log('[BILI-IMG] eva3-toolbar-image:', imgToolbar ? '找到' : '未找到');
+  if (!imgToolbar) return false;
+
+  // 用原生 click() + forceClick 触发（B站已有函数，走鼠标事件 + React Fiber）
+  forceClick(imgToolbar as HTMLElement);
+  await sleep(800);
+
+  // MutationObserver 监控新增的 input[type="file"]
+  let newInput: HTMLInputElement | null = null;
+  const observer = new MutationObserver((mutations) => {
+    for (const m of mutations) {
+      for (const node of m.addedNodes) {
+        if (node instanceof HTMLInputElement && node.type === 'file') {
+          console.log('[BILI-IMG] MO 捕获到新增 file input');
+          newInput = node;
+          observer.disconnect();
+          return;
+        }
+        if (node instanceof HTMLElement) {
+          const inp = node.querySelector<HTMLInputElement>('input[type="file"]');
+          if (inp) {
+            console.log('[BILI-IMG] MO 捕获到子树中的 file input');
+            newInput = inp;
+            observer.disconnect();
+            return;
+          }
+        }
+      }
+    }
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
+
+  // 拦截 HTMLInputElement.prototype.click
+  let capturedClick: HTMLInputElement | null = null;
+  const origClick = HTMLInputElement.prototype.click;
+  HTMLInputElement.prototype.click = function (this: HTMLInputElement) {
+    console.log('[BILI-IMG] 拦截 input.click');
+    capturedClick = this;
+  };
+
+  // 找 dropdown 里"上传图片"按钮 —— 也在 shadow DOM 里递归搜
+  const allItems = _deepQuerySelectorAll(imgToolbar, '.item');
+  console.log('[BILI-IMG] dropdown items:', allItems.length, allItems.map(e => (e.textContent || '').trim()));
+  const uploadItem = allItems.find(e => (e.textContent || '').trim() === '上传图片') || allItems[0];
+
+  if (uploadItem) {
+    console.log('[BILI-IMG] 点击:', (uploadItem.textContent || '').trim());
+    forceClick(uploadItem);
+  } else {
+    // 直接点 eva3-icon
+    const icon = _deepQuerySelector(imgToolbar, 'eva3-icon');
+    if (icon) {
+      console.log('[BILI-IMG] 直接点 eva3-icon');
+      forceClick(icon as HTMLElement);
+    }
+  }
+  await sleep(1000);
+
+  HTMLInputElement.prototype.click = origClick;
+  observer.disconnect();
+
+  // 检查结果
+  const fileInput = capturedClick || newInput || document.querySelector<HTMLInputElement>('input[type="file"]');
+  console.log('[BILI-IMG] file input:', fileInput ? '有' : '无',
+    'capturedClick:', !!capturedClick, 'MO:', !!newInput, 'querySelector:', !!document.querySelector('input[type="file"]'));
+
+  if (fileInput) {
+    _setInputFiles(fileInput, file);
+    await sleep(3000);
+    const ed = findBodyEditor();
+    if (ed?.querySelectorAll('img').length) { console.log('[BILI-IMG] Phase2 成功!'); return true; }
+  }
+
+  console.log('[BILI-IMG] Phase2 失败');
+  return false;
+}
+
+function _deepQuerySelector(root: Element, selector: string): Element | null {
+  if (root.shadowRoot) {
+    const found = root.shadowRoot.querySelector(selector);
+    if (found) return found;
+    for (const child of root.shadowRoot.children) {
+      const r = _deepQuerySelector(child, selector);
+      if (r) return r;
+    }
+  }
+  for (const child of root.children) {
+    const r = _deepQuerySelector(child, selector);
+    if (r) return r;
+  }
+  return null;
+}
+
+function _deepQuerySelectorAll(root: Element, selector: string): HTMLElement[] {
+  const results: HTMLElement[] = [];
+  if (root.shadowRoot) {
+    root.shadowRoot.querySelectorAll(selector).forEach(e => results.push(e as HTMLElement));
+    for (const child of root.shadowRoot.children) {
+      results.push(..._deepQuerySelectorAll(child, selector));
+    }
+  }
+  for (const child of root.children) {
+    results.push(..._deepQuerySelectorAll(child, selector));
+  }
+  return results;
 }

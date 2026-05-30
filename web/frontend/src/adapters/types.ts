@@ -57,11 +57,21 @@ export interface PlatformAdapter {
   getPreviewMeta(output: PlatformOutputDraft): PreviewMeta;
 }
 
+export interface ImagePayload {
+  id: string;
+  dataUrl: string;
+  filename: string;
+  mimeType: string;
+  width?: number;
+  height?: number;
+}
+
 export interface PublishPayload {
   platform: PlatformType;
   platformName: string;
   content: PlatformOutputDraft;
   autoLayout?: boolean;
+  images?: ImagePayload[];
 }
 
 export interface PublishResult {

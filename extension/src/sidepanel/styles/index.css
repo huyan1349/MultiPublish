@@ -303,6 +303,15 @@ body {
   content: attr(data-placeholder); color: var(--text-muted);
   float: left; height: 0; pointer-events: none;
 }
+.tiptap-content img {
+  max-width: 100%; height: auto; border-radius: 6px;
+  margin: 8px 0; display: block;
+  border: 1px dashed var(--border);
+}
+.tiptap-content img.ProseMirror-selectednode {
+  outline: 2px solid var(--accent);
+  border-color: var(--accent);
+}
 
 /* ═══ Empty State ═══ */
 .empty-state {

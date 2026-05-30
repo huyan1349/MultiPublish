@@ -7,4 +7,6 @@ export type {
   PlatformOutputDraft,
   PreviewMeta,
   PlatformAdapter,
+  ImagePayload,
+  PublishPayload,
 } from '../../shared/types';

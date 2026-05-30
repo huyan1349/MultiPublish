@@ -1,9 +1,10 @@
-import { useState, useEffect, useMemo } from 'react';
+﻿import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Rocket, CheckCircle, AlertTriangle, Info, Loader2, Zap, Eye, Edit3, ExternalLink, Globe } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../api/client';
-import { publishViaExtension, isExtensionInstalled, type ExtensionPublishResult } from '../utils/extensionBridge';
+import { publishViaExtension, isExtensionInstalled, type ExtensionPublishResult } from '../utils/extensionBridge'
+import { buildImagePayloads } from '../utils/imageUtils';;
 
 interface Output {
   id: string; platform: string; platformName: string;

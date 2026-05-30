@@ -1,4 +1,4 @@
-import type { PlatformType, PublishPayload, PublishResult } from './shared/types';
+import type { ImagePayload, PlatformType, PublishPayload, PublishResult } from './shared/types';
 
 const PLATFORM_URLS: Record<string, string> = {
   wechat: 'https://mp.weixin.qq.com/',
@@ -20,6 +20,9 @@ const PLATFORM_NAMES: Record<string, string> = {
   bilibili: 'B站',
   xiaohongshu: '小红书',
 };
+
+// 大图片数据不走 chrome.storage，暂存内存，Content Script 通过消息通道取
+const pendingImages = new Map<PlatformType, ImagePayload[]>();
 
 void chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
 
@@ -52,6 +55,12 @@ function handleMessage(message: { type: string; payload?: unknown }, sendRespons
       .catch((err) => sendResponse({ status: 'failed', message: err.message }));
     return true;
   }
+  if (message.type === 'GET_IMAGES') {
+    const { platform } = message.payload as { platform: PlatformType };
+    const images = pendingImages.get(platform) || [];
+    sendResponse({ images });
+    return false;
+  }
   return false;
 }
 
@@ -69,8 +78,22 @@ async function handlePublish(payload: PublishPayload): Promise<PublishResult> {
   if (!url) throw new Error(`Unknown platform: ${platform}`);
 
   try {
+    // 图片存入内存
+    if (payload.images && payload.images.length > 0) {
+      pendingImages.set(platform, payload.images);
+    }
+
+    // 写入 storage 前清除 data URL
+    const cleanContent = { ...content };
+    if (cleanContent.coverImage && cleanContent.coverImage.startsWith('data:')) {
+      delete cleanContent.coverImage;
+    }
+    cleanContent.body = cleanContent.body
+      .replace(/<img[^>]*src\s*=\s*["']data:image\/[^"']*["'][^>]*\/?>/gi, '')
+      .replace(/!\[[^\]]*\]\(data:image\/[^)]+\)/gi, '');
+
     await chrome.storage.local.set({
-      contentbridge_fill: { platform, content, autoLayout: payload.autoLayout, timestamp: Date.now() },
+      contentbridge_fill: { platform, content: cleanContent, autoLayout: payload.autoLayout, timestamp: Date.now() },
     });
 
     const domain = PLATFORM_DOMAINS[platform];
@@ -94,6 +117,7 @@ async function handlePublish(payload: PublishPayload): Promise<PublishResult> {
     return result;
   } catch (err) {
     const msg = err instanceof Error ? err.message : '发布失败';
+    pendingImages.delete(platform);
     return { platform, platformName, status: 'failed', message: msg };
   }
 }
@@ -149,6 +173,7 @@ function waitForFillResult(platform: PlatformType, platformName: string): Promis
   return new Promise((resolve) => {
     const timeout = setTimeout(() => {
       chrome.storage.onChanged.removeListener(listener);
+      pendingImages.delete(platform);
       resolve({ platform, platformName, status: 'failed', message: `${platformName}自动发布超时，请检查是否已登录或页面结构是否变化` });
     }, 90000);
 
@@ -160,6 +185,7 @@ function waitForFillResult(platform: PlatformType, platformName: string): Promis
       clearTimeout(timeout);
       chrome.storage.onChanged.removeListener(listener);
       chrome.storage.local.remove('contentbridge_result');
+      pendingImages.delete(platform);
       resolve({
         platform: result.platform,
         platformName: result.platformName || platformName,

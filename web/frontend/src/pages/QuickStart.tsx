@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+﻿import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, RefreshCw, Sparkles, Zap, Check, Wand2, ChevronDown, ChevronUp } from 'lucide-react';
 import { useContentStore } from '../stores/contentStore';
@@ -6,7 +6,8 @@ import TiptapEditor from '../components/editor/TiptapEditor';
 import PlatformCard from '../components/publish/PlatformCard';
 import PublishButton from '../components/publish/PublishButton';
 import ToastContainer, { showToast } from '../components/publish/Toast';
-import { publishViaExtension, isExtensionInstalled } from '../utils/extensionBridge';
+import { publishViaExtension, isExtensionInstalled } from '../utils/extensionBridge'
+import { buildImagePayloads } from '../utils/imageUtils';;
 import { useExtensionStatus } from '../hooks/useExtensionStatus';
 import { generateInspiration, beautifyContentForPlatform } from '../services/deepseek';
 import { api } from '../api/client';

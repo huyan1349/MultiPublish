@@ -1,7 +1,9 @@
-import { useEditor, EditorContent } from '@tiptap/react';
+import { useEffect, useRef, useCallback } from 'react';
+import { useEditor, EditorContent, type Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import Link from '@tiptap/extension-link';
+import Image from '@tiptap/extension-image';
 import { Bold, Italic, Strikethrough, Code, List, ListOrdered, Quote, Heading2, Heading3, Undo, Redo } from 'lucide-react';
 
 interface TiptapEditorProps {
@@ -27,16 +29,67 @@ const ToolButton = ({ onClick, isActive, title, children }: {
   </button>
 );
 
+const blobUrlToDataUrl = new Map<string, string>();
+export function getResolvedDataUrl(blobUrl: string) { return blobUrlToDataUrl.get(blobUrl); }
+export function waitForDataUrls(blobUrls: string[]) { return new Promise<Map<string, string>>((resolve) => { const check = () => { if (blobUrls.every((u) => blobUrlToDataUrl.has(u))) resolve(new Map(blobUrlToDataUrl)); else setTimeout(check, 200); }; check(); }); }
+
 export default function TiptapEditor({ content, placeholder, onChange }: TiptapEditorProps) {
+  const editorRef = useRef<Editor | null>(null);
+
+  const handleImageFiles = useCallback((files: FileList | File[]) => {
+    const ed = editorRef.current;
+    if (!ed) return;
+    for (const file of Array.from(files)) {
+      if (!file.type.startsWith('image/')) continue;
+      const blobUrl = URL.createObjectURL(file);
+      ed.chain().focus().setImage({ src: blobUrl }).run();
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = reader.result as string;
+        blobUrlToDataUrl.set(blobUrl, dataUrl);
+        const edNow = editorRef.current;
+        if (!edNow) return;
+        const { state, view } = edNow;
+        state.doc.descendants((node, pos) => {
+          if (node.type.name === 'image' && node.attrs.src === blobUrl) {
+            view.dispatch(state.tr.setNodeMarkup(pos, undefined, { ...node.attrs, src: dataUrl }));
+            return false;
+          }
+          return true;
+        });
+      };
+      reader.readAsDataURL(file);
+    }
+  }, []);
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({ heading: { levels: [2, 3] } }),
       Placeholder.configure({ placeholder: placeholder || '开始输入内容…' }),
       Link.configure({ openOnClick: false }),
+      Image.configure({ allowBase64: true, inline: true }),
     ],
     content: content || '',
+    editorProps: {
+      attributes: { class: 'tiptap-content' },
+      handleDrop: (_view: any, event: any) => {
+        if (event.dataTransfer?.files.length) { handleImageFiles(event.dataTransfer.files); return true; }
+        return false;
+      },
+      handlePaste: (_view: any, event: any) => {
+        const items = event.clipboardData?.items;
+        if (!items) return false;
+        let hasImage = false;
+        for (let i = 0; i < items.length; i++) {
+          if (items[i].type.startsWith('image/')) { const f = items[i].getAsFile(); if (f) { hasImage = true; handleImageFiles([f]); } }
+        }
+        return hasImage;
+      },
+    },
     onUpdate: ({ editor }) => onChange(editor.getHTML(), editor.getText()),
   });
+
+  useEffect(() => { editorRef.current = editor; }, [editor]);
 
   if (!editor) return null;
 
