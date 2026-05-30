@@ -427,6 +427,163 @@ export async function chatAboutArticle(
   return chat(allMessages, 0.7);
 }
 
+export interface GenerateContentInput {
+  platform: PlatformStyle;
+  platformName: string;
+  formatId: string;
+  formatName: string;
+  outline: { topic: string; points: string; style: string };
+}
+
+export interface GenerateContentResult {
+  title: string;
+  htmlBody: string;
+  tags: string[];
+}
+
+const FORMAT_PROMPTS: Record<string, Record<string, string>> = {
+  wechat: {
+    deep: `你是一位资深公众号主编。根据大纲创作一篇公众号「深度长文」，要求：
+- 2500-4000字，小标题分段（<h3>），逻辑递进
+- 开篇钩子引发兴趣，中间干货密集，结尾引导关注
+- 关键观点用<strong>加粗</strong>，适当引用数据
+- 保持HTML格式输出，段落清晰`,
+    knowledge: `你是一位公众号干货分享达人。根据大纲创作一篇「干货分享」文章，要求：
+- 1500-2500字，结构化呈现，每段聚焦一个技巧
+- 多用"首先/其次/最后"组织逻辑
+- 实操步骤用编号列表，关键词<strong>加粗</strong>
+- 结尾附总结要点，引导关注
+- 保持HTML格式输出`,
+    story: `你是一位公众号情感故事作者。根据大纲创作一篇「情感叙事」文章，要求：
+- 第一人称或第三人称叙事，1500-2500字
+- 开头设置悬念/场景，中间展开故事，结尾升华主题
+- 语言真挚自然，避免过度煽情
+- 适当使用对话和细节描写
+- 保持HTML格式输出`,
+    hotspot: `你是一位公众号热点评论员。根据大纲创作一篇「热点解读」文章，要求：
+- 快速切入热点事件，1500-2000字
+- 观点鲜明有态度，论据支撑
+- 用<h3>划分不同分析角度
+- 结尾引发讨论
+- 保持HTML格式输出`,
+  },
+  zhihu: {
+    analysis: `你是一位知乎高赞答主。根据大纲创作一篇「专业分析」回答，要求：
+- 逻辑严密，数据驱动，2000-3500字
+- 开头开门见山抛出核心观点
+- 引用权威来源（"根据XX研究""数据显示"）
+- 用<h3>组织论点，每个论点配论据
+- 适当用<blockquote>引用关键信息
+- 保持HTML格式输出`,
+    experience: `你是一位知乎经验分享者。根据大纲创作一篇「经验分享」回答，要求：
+- 第一人称真实经历，1500-2500字
+- 以"作为XX领域的从业者"身份切入
+- 具体案例+方法论总结
+- 避免空洞说教，提供可操作建议
+- 保持HTML格式输出`,
+    opinion: `你是一位知乎观点评论者。根据大纲创作一篇「观点评论」回答，要求：
+- 立场鲜明，论证充分，1500-2500字
+- 开头亮出观点，中间逐层论证
+- 用对比/辩证的方式分析
+- 结尾给出结论性观点
+- 保持HTML格式输出`,
+    explain: `你是一位知乎科普作者。根据大纲创作一篇「科普解读」回答，要求：
+- 通俗化专业知识，1500-2500字
+- 用类比/举例让复杂概念易懂
+- 适当引用研究和数据
+- 分层次从浅到深展开
+- 保持HTML格式输出`,
+  },
+  bilibili: {
+    review: `你是一位B站UP主。根据大纲创作一篇「测评体验」专栏，要求：
+- 轻松活泼口语化，1500-2500字
+- 开头用🔥吸引注意力
+- 优缺点对比，真实体验为主
+- 短段落多换行，节奏感强
+- 适当emoji点缀✨，用"家人们""绝了""这波"
+- 保持HTML格式输出`,
+    tutorial: `你是一位B站教程UP主。根据大纲创作一篇「教程攻略」专栏，要求：
+- 步骤清晰拆解，1500-2500字
+- 每步标题用<h3>，内容短段落
+- 适当emoji🎮💡👍标注重点
+- 语言口语化，像在和朋友说话
+- 结尾总结要点
+- 保持HTML格式输出`,
+    commentary: `你是一位B站吐槽UP主。根据大纲创作一篇「观点评论」专栏，要求：
+- 犀利幽默，弹幕感，1500-2000字
+- 短句为主，多换行制造节奏
+- 网络用语自然融入，但不过度
+- 可以用"好家伙""离谱"等B站热词
+- 适当emoji点缀🔥
+- 保持HTML格式输出`,
+    ranking: `你是一位B站盘点UP主。根据大纲创作一篇「盘点合集」专栏，要求：
+- 排名/列表形式，1500-2500字
+- 每项用<h3>标题，下面展开说明
+- 每项配简短点评，语言轻松
+- 开头说明排名标准，结尾总结
+- 适当emoji🔥✨
+- 保持HTML格式输出`,
+  },
+  xiaohongshu: {
+    review: `你是一位小红书博主。根据大纲创作一篇「种草测评」笔记，要求：
+- 种草感强，emoji丰富✨🔥💕🌟
+- 标题用emoji开头，15字以内
+- 使用数字列表"1️⃣2️⃣3️⃣"组织使用体验
+- 每段1-2句短句，配emoji
+- 结尾"姐妹们觉得怎么样？评论区告诉我～"
+- 标签5-8个无#号
+- 保持HTML格式输出`,
+    tutorial: `你是一位小红书教程博主。根据大纲创作一篇「教程攻略」笔记，要求：
+- 步骤化，用①②③或1️⃣2️⃣3️⃣编号
+- 每步简洁说明，配相关emoji📌💡✨
+- 开头说清能获得什么效果
+- 语言亲切邻家，短句为主
+- 结尾引导互动
+- 标签5-8个
+- 保持HTML格式输出`,
+    collection: `你是一位小红书好物博主。根据大纲创作一篇「好物合集」笔记，要求：
+- 清单推荐形式，每项简短种草
+- emoji丰富🔥✨💕🌟📌
+- 每项说明：物品+亮点+推荐理由
+- 开头总述合集主题
+- 结尾"你最心动哪一个？"
+- 标签5-8个
+- 保持HTML格式输出`,
+    explore: `你是一位小红书探店博主。根据大纲创作一篇「探店体验」笔记，要求：
+- 氛围感描述，沉浸式体验
+- emoji丰富✨📍💕🔥
+- 从环境→体验→推荐逐步展开
+- 短句跳跃感，清单体
+- 结尾"值得去吗？答案在评论区～"
+- 标签5-8个
+- 保持HTML格式输出`,
+  },
+};
+
+export async function generateContentFromOutline(
+  input: GenerateContentInput,
+): Promise<GenerateContentResult> {
+  const formatPrompt = FORMAT_PROMPTS[input.platform]?.[input.formatId]
+    || `根据大纲生成${input.platformName}风格的完整内容`;
+
+  const raw = await chat([
+    {
+      role: 'system',
+      content: `${formatPrompt}\n\n请严格按以下JSON格式返回，不要包含任何其他文字：\n{"title":"生成的标题","htmlBody":"生成的HTML正文","tags":["标签1","标签2","标签3"]}`,
+    },
+    {
+      role: 'user',
+      content: `话题：${input.outline.topic}\n\n大纲要点：\n${input.outline.points}\n\n风格偏好：${input.outline.style || '无特殊要求'}\n\n请基于以上大纲，以「${input.formatName}」格式创作一篇完整的${input.platformName}内容，返回JSON。`,
+    },
+  ], 0.8);
+
+  return parseJsonResponse<GenerateContentResult>(raw, {
+    title: input.outline.topic,
+    htmlBody: `<p>生成失败，请重试</p>`,
+    tags: [],
+  });
+}
+
 export async function suggestTags(title: string, body: string): Promise<string[]> {
   const raw = await chat([
     {
