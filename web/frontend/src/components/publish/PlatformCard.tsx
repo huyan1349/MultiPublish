@@ -4,11 +4,11 @@ import { beautifyContentForPlatform } from '../../services/deepseek';
 import type { BeautifiedContent } from '../../stores/contentStore';
 import type { PlatformType } from '../../adapters/types';
 
-const platformMeta: Record<string, { color: string; label: string }> = {
-  wechat:      { color: '#6f846d', label: 'WC' },
-  zhihu:       { color: '#6d8aa6', label: 'ZH' },
-  bilibili:    { color: '#50624f', label: 'BL' },
-  xiaohongshu: { color: '#8ba287', label: 'XH' },
+const platformMeta: Record<string, { color: string; soft: string; deep: string; label: string }> = {
+  wechat:      { color: 'var(--platform-wechat)', soft: 'var(--platform-wechat-soft)', deep: 'var(--platform-wechat-deep)', label: 'WC' },
+  zhihu:       { color: 'var(--platform-zhihu)', soft: 'var(--platform-zhihu-soft)', deep: 'var(--platform-zhihu-deep)', label: 'ZH' },
+  bilibili:    { color: 'var(--platform-bilibili)', soft: 'var(--platform-bilibili-soft)', deep: 'var(--platform-bilibili-deep)', label: 'BL' },
+  xiaohongshu: { color: 'var(--platform-xiaohongshu)', soft: 'var(--platform-xiaohongshu-soft)', deep: 'var(--platform-xiaohongshu-deep)', label: 'XH' },
 };
 
 const levelIcon: Record<string, typeof XCircle> = { error: XCircle, warning: AlertTriangle, info: Info };

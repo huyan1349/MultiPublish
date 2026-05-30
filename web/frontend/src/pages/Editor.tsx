@@ -15,6 +15,13 @@ import type { PlatformType } from '../adapters/types';
 
 const allPlatforms: PlatformType[] = ['wechat', 'zhihu', 'bilibili', 'xiaohongshu'];
 
+const PLATFORM_BRAND: Record<string, { color: string; soft: string; deep: string }> = {
+  wechat: { color: 'var(--platform-wechat)', soft: 'var(--platform-wechat-soft)', deep: 'var(--platform-wechat-deep)' },
+  zhihu: { color: 'var(--platform-zhihu)', soft: 'var(--platform-zhihu-soft)', deep: 'var(--platform-zhihu-deep)' },
+  bilibili: { color: 'var(--platform-bilibili)', soft: 'var(--platform-bilibili-soft)', deep: 'var(--platform-bilibili-deep)' },
+  xiaohongshu: { color: 'var(--platform-xiaohongshu)', soft: 'var(--platform-xiaohongshu-soft)', deep: 'var(--platform-xiaohongshu-deep)' },
+};
+
 function ExtensionIndicator() {
   const extStatus = useExtensionStatus();
 
@@ -356,7 +363,8 @@ export default function Editor() {
                         key={platform}
                         type="button"
                         onClick={() => togglePlatform(platform)}
-                        className={`px-tag ${selectedPlatforms.has(platform) ? 'border-[var(--accent)]/30 bg-[var(--accent)]/10 text-[var(--accent-deep)]' : 'opacity-55'}`}
+                        className={`px-tag ${selectedPlatforms.has(platform) ? '' : 'opacity-55'}`}
+                        style={selectedPlatforms.has(platform) ? { borderColor: PLATFORM_BRAND[platform]?.soft, backgroundColor: PLATFORM_BRAND[platform]?.soft, color: PLATFORM_BRAND[platform]?.deep } : undefined}
                       >
                         {state?.platformName || platform}
                       </button>
