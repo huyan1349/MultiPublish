@@ -93,7 +93,7 @@ export default function PlatformCard({
       className={`cursor-pointer overflow-hidden rounded-[28px] border transition-all duration-200
         ${selected
           ? 'border-[rgba(49,56,45,0.16)] bg-[rgba(255,255,255,0.82)] shadow-[0_18px_32px_rgba(41,48,39,0.08)]'
-          : 'border-[rgba(49,56,45,0.1)] bg-[rgba(244,249,243,0.72)] opacity-60 hover:opacity-85'}`}
+          : 'border-[rgba(49,56,45,0.1)] bg-[rgba(244,249,243,0.8)]'}`}
       onClick={onToggle}
     >
       <div className="p-5">
