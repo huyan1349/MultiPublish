@@ -581,7 +581,7 @@ async function fillTextTarget(el: HTMLElement, text: string): Promise<boolean> {
   }
 
   console.log('[ContentBridge:Bilibili] 填充策略: innerHTML 兜底');
-  el.innerHTML = markdownToHtml(text);
+  el.innerHTML = text;
   el.dispatchEvent(new InputEvent('beforeinput', { bubbles: true, inputType: 'insertText', data: text }));
   el.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: text }));
   el.dispatchEvent(new Event('change', { bubbles: true }));
@@ -644,17 +644,14 @@ async function fillReactEditor(el: HTMLElement, text: string): Promise<boolean> 
   el.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'deleteContent' }));
   await sleep(100);
 
-  // 逐段输入
-  const chunks = text.match(/.{1,200}/g) || [text];
-  for (const chunk of chunks) {
-    const data = new DataTransfer();
-    data.setData('text/plain', chunk);
-    data.setData('text/html', markdownToHtml(chunk));
-    el.dispatchEvent(new ClipboardEvent('paste', {
-      bubbles: true, cancelable: true, clipboardData: data,
-    }));
-    await sleep(100);
-  }
+  // paste 整个 HTML 正文（body 已是 HTML，不经过 markdownToHtml）
+  const plainText = text.replace(/<[^>]*>/g, '').replace(/\n{2,}/g, '\n').trim();
+  const pasteData = new DataTransfer();
+  pasteData.setData('text/plain', plainText);
+  pasteData.setData('text/html', text);
+  el.dispatchEvent(new ClipboardEvent('paste', {
+    bubbles: true, cancelable: true, clipboardData: pasteData,
+  }));
 
   // 触发了 input 事件后等 React 更新
   el.dispatchEvent(new Event('change', { bubbles: true }));
@@ -705,8 +702,8 @@ async function fillTags(tags: string[]): Promise<void> {
 function dispatchTextPaste(el: HTMLElement, text: string): boolean {
   try {
     const data = new DataTransfer();
-    data.setData('text/plain', text);
-    data.setData('text/html', markdownToHtml(text));
+    data.setData('text/plain', text.replace(/<[^>]*>/g, ''));
+    data.setData('text/html', text);
     return el.dispatchEvent(
       new ClipboardEvent('paste', { bubbles: true, cancelable: true, clipboardData: data }),
     );
