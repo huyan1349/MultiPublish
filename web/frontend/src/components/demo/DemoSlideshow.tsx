@@ -1,166 +1,172 @@
-import { useState, useEffect, useCallback } from 'react';
-import { ChevronLeft, ChevronRight, X, Presentation } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Presentation, X } from 'lucide-react';
 
-interface Slide {
+interface RouteCommentary {
   label: string;
   title: string;
   subtitle: string;
-  points: string[];
+  highlights: string[];
 }
 
-const slides: Slide[] = [
-  {
-    label: '产品定位',
-    title: '一次创作',
-    subtitle: '多端真实分发',
-    points: [
-      'Markdown 统一编写，告别多平台重复排版',
-      'AI 自动适配各平台风格与格式规范',
-      '浏览器扩展真实操作 DOM，不模拟不造假',
-      '覆盖公众号、知乎、B站、小红书、微博五大平台',
+const commentaryMap: Record<string, RouteCommentary> = {
+  '/': {
+    label: '工作台',
+    title: '内容总览',
+    subtitle: '所有稿件的统一管理面板',
+    highlights: [
+      '卡片式展示所有内容，标题、平台、状态一目了然',
+      '快速跳转编辑、预览或查看发布记录',
+      '扩展连接状态实时可见，发布前确保环境就绪',
     ],
   },
-  {
-    label: '编辑台 · 大纲',
-    title: '输入话题',
-    subtitle: 'AI 秒级生成结构化大纲',
-    points: [
-      '核心话题 + 关键要点，先搭骨架再长血肉',
-      '风格偏好可选：口语化、专业严谨、幽默犀利',
-      'writer 助手随时头脑风暴，补充视角',
-      '大纲确认后进入内容生成，无需手动排版',
+  '/editor': {
+    label: '编辑台',
+    title: 'AI 驱动的内容创作',
+    subtitle: '从大纲到发布，三步完成',
+    highlights: [
+      '第一步：输入话题与要点，AI 生成结构化大纲',
+      '第二步：选择平台与格式，AI 自动生成适配内容',
+      '第三步：校验字数与格式，一键推送到真实平台',
     ],
   },
-  {
-    label: '内容生成 · 格式适配',
-    title: '同一份内容',
-    subtitle: '五种平台风格自动转换',
-    points: [
-      '公众号：深度长文、干货分享、情感叙事、热点解读',
-      '知乎：专业分析、经验分享、观点评论、科普解读',
-      'B站：测评体验、教程攻略、吐槽观点、盘点合集',
-      '小红书：种草测评、教程攻略、好物合集、探店体验',
+  '/inspiration': {
+    label: '灵感面板',
+    title: 'AI 选题引擎',
+    subtitle: '一句话获取标题、提纲与标签',
+    highlights: [
+      '输入灵感兴趣方向，AI 生成多个选题角度',
+      '自动输出建议标题、内容提纲、推荐标签',
+      '一键导入编辑台，直接开始内容创作',
     ],
   },
-  {
-    label: '核心能力',
-    title: '真实发布',
-    subtitle: '内容直接注入目标平台编辑器',
-    points: [
-      'Content Script 注入平台页面，找到编辑器元素',
-      '填入标题、正文、标签，触发真实 input 事件',
-      '自动点击发布按钮，走完平台完整发布流程',
-      '发布结果实时回传，成功/失败状态一目了然',
+  '/contents': {
+    label: '稿件管理',
+    title: '内容资产中心',
+    subtitle: '统一管理草稿与已发布内容',
+    highlights: [
+      '列表视图展示所有稿件，支持搜索与筛选',
+      '每篇稿件可预览各平台适配效果',
+      '关联发布记录，追溯每次发布的完整历史',
     ],
   },
-  {
-    label: '工作流闭环',
-    title: '灵感 → 发布',
-    subtitle: '每一步都可控、可追溯',
-    points: [
-      '灵感面板：AI 选题建议，标题与标签自动生成',
-      '编辑台：Tiptap 富文本编辑器，所见即所得',
-      '平台输出：字数校验、格式预览、一键优化美化',
-      '发布记录：全平台发布历史，状态追踪与重试',
+  '/records': {
+    label: '发布记录',
+    title: '发布状态追踪',
+    subtitle: '每一次发布的完整审计日志',
+    highlights: [
+      '按时间线展示所有发布操作记录',
+      '精确到每个平台的成功/失败状态与原因',
+      '支持失败重试，无需重新编辑内容',
     ],
   },
-];
+  '/welcome': {
+    label: '引导页',
+    title: '快速上手指南',
+    subtitle: '配置扩展，确认登录，开始创作',
+    highlights: [
+      '三步安装 Chrome 扩展，自动检测连接状态',
+      '逐平台确认已登录，确保发布链路畅通',
+      '了解从灵感到发布的标准工作流',
+    ],
+  },
+  '/settings': {
+    label: '设置',
+    title: '偏好与系统配置',
+    subtitle: '管理扩展、草稿与版本信息',
+    highlights: [
+      '配置 Chrome 扩展 ID，手动绑定连接',
+      '开启演示模式，在路演中展示产品能力',
+      '管理草稿缓存，查看版本更新记录',
+    ],
+  },
+};
 
-const slideVariants = {
-  enter: { opacity: 0, y: 24 },
+function resolveCommentary(pathname: string): RouteCommentary {
+  // exact match first
+  if (commentaryMap[pathname]) return commentaryMap[pathname];
+  // fuzzy match by prefix
+  const key = Object.keys(commentaryMap).find((k) => k !== '/' && pathname.startsWith(k));
+  if (key) return commentaryMap[key];
+  return commentaryMap['/'];
+}
+
+const variants = {
+  enter: { opacity: 0, y: 16 },
   center: { opacity: 1, y: 0 },
-  exit: { opacity: 0, y: -12 },
+  exit: { opacity: 0, y: -8 },
 };
 
 export default function DemoSlideshow({ onClose }: { onClose: () => void }) {
-  const [index, setIndex] = useState(0);
-
-  const prev = useCallback(() => setIndex((i) => (i === 0 ? slides.length - 1 : i - 1)), []);
-  const next = useCallback(() => setIndex((i) => (i === slides.length - 1 ? 0 : i + 1)), []);
-
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') next();
-      else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') prev();
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [next, prev]);
-
-  const slide = slides[index];
+  const location = useLocation();
+  const commentary = resolveCommentary(location.pathname);
 
   return (
     <div className="flex flex-col h-full bg-white">
       {/* Top bar */}
-      <div className="flex items-center justify-between px-8 py-4 shrink-0">
-        <div className="flex items-center gap-2.5">
-          <Presentation size={15} className="text-[var(--accent-deep)]" />
-          <span className="font-['IBM_Plex_Mono'] text-[9px] uppercase tracking-[0.18em] text-[var(--ink-faint)]">
-            演示模式 · DEMO
+      <div className="flex items-center justify-between px-6 py-3.5 shrink-0 border-b border-[rgba(49,56,45,0.05)]">
+        <div className="flex items-center gap-2">
+          <Presentation size={14} className="text-[var(--accent-deep)]" />
+          <span className="font-['IBM_Plex_Mono'] text-[9px] uppercase tracking-[0.16em] text-[var(--ink-faint)]">
+            演示解说
           </span>
         </div>
-        <div className="flex items-center gap-4">
-          <span className="text-[11px] text-[var(--ink-faint)] tabular-nums">
-            {index + 1} / {slides.length}
-          </span>
-          <button
-            onClick={onClose}
-            className="flex items-center gap-1.5 rounded-full border border-[rgba(49,56,45,0.1)] px-3.5 py-1.5 text-[11px] text-[var(--ink-soft)] hover:bg-[rgba(49,56,45,0.04)] hover:text-[var(--ink)] transition-all"
-          >
-            <X size={11} />
-            退出
-          </button>
-        </div>
+        <button
+          onClick={onClose}
+          className="flex items-center gap-1 rounded-full border border-[rgba(49,56,45,0.1)] px-3 py-1.5 text-[11px] text-[var(--ink-soft)] hover:bg-[rgba(49,56,45,0.04)] transition-all"
+        >
+          <X size={11} />
+          退出
+        </button>
       </div>
 
-      {/* Main slide area */}
-      <div className="flex-1 flex items-center px-8 relative overflow-hidden">
-        {/* Ambient accent */}
-        <div className="absolute top-1/4 -right-12 w-72 h-72 rounded-full bg-[var(--accent)]/3 blur-3xl pointer-events-none" />
+      {/* Commentary area */}
+      <div className="flex-1 flex items-center px-6 relative overflow-hidden">
+        {/* Ambient glow */}
+        <div className="absolute top-1/3 -right-12 w-56 h-56 rounded-full bg-[var(--accent)]/3 blur-3xl pointer-events-none" />
 
-        <div className="relative z-10 w-full max-w-[560px]">
+        <div className="relative z-10 w-full max-w-[480px]">
           <AnimatePresence mode="wait">
             <motion.div
-              key={index}
-              variants={slideVariants}
+              key={location.pathname}
+              variants={variants}
               initial="enter"
               animate="center"
               exit="exit"
-              transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+              transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
             >
-              {/* Label */}
-              <div className="mb-8">
-                <span className="inline-flex items-center gap-2 rounded-full border border-[rgba(49,56,45,0.1)] bg-[rgba(249,250,248,0.8)] px-4 py-1.5 text-[11px] text-[var(--ink-soft)]">
+              {/* Label pill */}
+              <div className="mb-7">
+                <span className="inline-flex items-center gap-2 rounded-full border border-[rgba(49,56,45,0.1)] bg-[rgba(249,250,248,0.9)] px-4 py-1.5 text-[11px] text-[var(--ink-soft)]">
                   <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent)]" />
-                  {slide.label}
+                  {commentary.label}
                 </span>
               </div>
 
               {/* Title */}
-              <h2 className="font-['Cormorant_Garamond'] text-[68px] leading-[0.9] tracking-[-0.06em] text-[var(--ink)] mb-4">
-                {slide.title}
+              <h2 className="font-['Cormorant_Garamond'] text-[60px] leading-[0.88] tracking-[-0.06em] text-[var(--ink)] mb-3">
+                {commentary.title}
               </h2>
 
               {/* Subtitle */}
-              <p className="font-['Cormorant_Garamond'] text-[34px] leading-[0.95] tracking-[-0.04em] text-[var(--accent-deep)] mb-10">
-                {slide.subtitle}
+              <p className="font-['Cormorant_Garamond'] text-[28px] leading-[0.95] tracking-[-0.04em] text-[var(--accent-deep)] mb-9">
+                {commentary.subtitle}
               </p>
 
               {/* Divider */}
-              <div className="w-16 h-px bg-[rgba(49,56,45,0.15)] mb-8" />
+              <div className="w-12 h-px bg-[rgba(49,56,45,0.12)] mb-7" />
 
-              {/* Points */}
-              <ul className="space-y-4">
-                {slide.points.map((point, i) => (
+              {/* Highlights */}
+              <ul className="space-y-3.5">
+                {commentary.highlights.map((point, i) => (
                   <motion.li
                     key={i}
-                    className="flex items-start gap-3 text-[14px] leading-6 text-[var(--ink-soft)]"
-                    initial={{ opacity: 0, x: -8 }}
+                    className="flex items-start gap-3 text-[13px] leading-6 text-[var(--ink-soft)]"
+                    initial={{ opacity: 0, x: -6 }}
                     animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.15 + i * 0.08 }}
+                    transition={{ delay: 0.1 + i * 0.06 }}
                   >
-                    <span className="mt-1.5 shrink-0 w-1.5 h-1.5 rounded-full bg-[var(--accent)]/40" />
+                    <span className="mt-2 shrink-0 w-1 h-1 rounded-full bg-[var(--accent)]/40" />
                     {point}
                   </motion.li>
                 ))}
@@ -170,35 +176,12 @@ export default function DemoSlideshow({ onClose }: { onClose: () => void }) {
         </div>
       </div>
 
-      {/* Bottom nav */}
-      <div className="flex items-center justify-between px-8 py-5 shrink-0 border-t border-[rgba(49,56,45,0.06)]">
-        <div className="flex items-center gap-1.5">
-          {slides.map((_, i) => (
-            <button
-              key={i}
-              onClick={() => setIndex(i)}
-              className={`rounded-full transition-all duration-300 ${
-                i === index
-                  ? 'w-5 h-1.5 bg-[var(--accent)]'
-                  : 'w-1.5 h-1.5 bg-[rgba(49,56,45,0.15)] hover:bg-[rgba(49,56,45,0.3)]'
-              }`}
-            />
-          ))}
-        </div>
-
-        <div className="flex items-center gap-1.5">
-          <button
-            onClick={prev}
-            className="flex h-9 w-9 items-center justify-center rounded-full border border-[rgba(49,56,45,0.1)] text-[var(--ink-soft)] hover:bg-[rgba(49,56,45,0.04)] hover:text-[var(--ink)] transition-all"
-          >
-            <ChevronLeft size={16} />
-          </button>
-          <button
-            onClick={next}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--ink)] text-white hover:bg-[var(--ink)]/90 transition-all shadow-[0_4px_12px_rgba(40,46,38,0.15)]"
-          >
-            <ChevronRight size={16} />
-          </button>
+      {/* Bottom route indicator */}
+      <div className="px-6 py-3.5 shrink-0 border-t border-[rgba(49,56,45,0.05)]">
+        <div className="flex items-center gap-4 text-[10px] text-[var(--ink-faint)] font-mono">
+          <span>当前页面</span>
+          <span className="text-[var(--ink-soft)]">{location.pathname}</span>
+          <span className="ml-auto">{commentary.label}</span>
         </div>
       </div>
     </div>
