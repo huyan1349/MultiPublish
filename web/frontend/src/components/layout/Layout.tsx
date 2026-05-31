@@ -30,18 +30,14 @@ export default function Layout({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex h-screen overflow-hidden bg-gradient-to-br from-[#fafaf7] via-[#f7f8f4] to-[#fafaf8]">
-      {/* Screen mockup — most of the space */}
-      <div className="flex flex-col items-center justify-center shrink-0" style={{ width: '64vw' }}>
+      {/* Screen mockup — 80% */}
+      <div className="flex flex-col items-center justify-center shrink-0" style={{ width: '80vw' }}>
         <div className="relative flex flex-col items-center">
-          {/* Monitor */}
           <div
             className="relative flex flex-col rounded-[14px] overflow-hidden border-[7px] border-[#2c2c2a] bg-[var(--paper-bg)] shadow-[0_24px_64px_rgba(40,46,38,0.1),0_4px_16px_rgba(40,46,38,0.06)]"
-            style={{ width: '56vw', aspectRatio: '16/10' }}
+            style={{ width: '72vw', aspectRatio: '16/10' }}
           >
-            {/* Screen glare */}
             <div className="pointer-events-none absolute inset-0 z-50 bg-gradient-to-br from-white/6 via-transparent to-transparent rounded-[7px]" />
-
-            {/* Browser chrome */}
             <div className="flex items-center gap-2 px-3.5 py-2.5 bg-[#e8ebe5] border-b border-[rgba(49,56,45,0.06)] shrink-0">
               <div className="flex items-center gap-1.5">
                 <span className="block w-2.5 h-2.5 rounded-full bg-[#EC6A5F]" />
@@ -52,18 +48,14 @@ export default function Layout({ children }: { children: ReactNode }) {
                 <span className="text-[9px] text-[var(--ink-faint)] font-mono">localhost:5173</span>
               </div>
             </div>
-
-            {/* App — flex-1 requires parent flex-col, now it works */}
             <AppShell>{children}</AppShell>
           </div>
-
-          {/* Monitor stand */}
           <div className="w-20 h-3 bg-[#d5d8d2] rounded-b-[6px] -mt-[1px]" />
           <div className="w-36 h-1.5 bg-[#e0e3dc] rounded-b-[4px]" />
         </div>
       </div>
 
-      {/* Right: subtle commentary */}
+      {/* Right: vertical commentary — 20%, vertical writing */}
       <div className="flex-1 flex items-center min-w-0">
         <DemoPoster onClose={toggle} />
       </div>
