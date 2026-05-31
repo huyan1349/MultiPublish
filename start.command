@@ -1,4 +1,6 @@
 #!/bin/bash
+set -e
+
 cd "$(dirname "$0")"
 
 ROOT="$(pwd)"
@@ -13,41 +15,22 @@ echo ""
 
 echo "[1/6] Installing backend dependencies..."
 cd "$BACKEND"
+test -f .env || cp .env.example .env
 npm install
-if [ $? -ne 0 ]; then
-    echo "[ERROR] Backend npm install failed"
-    exit 1
-fi
 
 echo "[2/6] Initializing database..."
 npx prisma db push
-if [ $? -ne 0 ]; then
-    echo "[ERROR] Prisma db push failed"
-    exit 1
-fi
 
 echo "[3/6] Installing frontend dependencies..."
 cd "$FRONTEND"
 npm install
-if [ $? -ne 0 ]; then
-    echo "[ERROR] Frontend npm install failed"
-    exit 1
-fi
 
 echo "[4/6] Installing extension dependencies..."
 cd "$EXTENSION"
 pnpm install
-if [ $? -ne 0 ]; then
-    echo "[ERROR] Extension pnpm install failed"
-    exit 1
-fi
 
 echo "[5/6] Building extension..."
 pnpm build
-if [ $? -ne 0 ]; then
-    echo "[ERROR] Extension pnpm build failed"
-    exit 1
-fi
 
 echo "[6/6] Starting services..."
 echo ""

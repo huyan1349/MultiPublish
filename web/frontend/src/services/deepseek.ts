@@ -1,5 +1,4 @@
-const API_KEY = 'sk-ef508b028884458a8972f038a4e8abfc';
-const API_URL = 'https://api.deepseek.com/chat/completions';
+const API_URL = 'http://localhost:4395/api/ai/chat';
 const MODEL = 'deepseek-chat';
 const TIMEOUT_MS = 30000;
 
@@ -15,10 +14,7 @@ async function chat(messages: ChatMessage[], temperature = 0.7): Promise<string>
   try {
     const res = await fetch(API_URL, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${API_KEY}`,
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: MODEL,
         messages,
@@ -62,10 +58,7 @@ async function streamChat(
   try {
     const res = await fetch(API_URL, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${API_KEY}`,
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: MODEL,
         messages,

@@ -14,6 +14,7 @@ set "EXTENSION=%ROOT%extension"
 
 echo [1/6] Installing backend dependencies...
 cd /d "%BACKEND%"
+if not exist ".env" copy ".env.example" ".env" >nul
 call npm install
 if %errorlevel% neq 0 (
     echo [ERROR] Backend npm install failed

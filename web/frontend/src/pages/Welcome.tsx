@@ -137,13 +137,6 @@ export default function Welcome() {
   }, []);
   const extStatus = useExtensionStatus(3000);
   const [copied, setCopied] = useState(false);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-
-  useEffect(() => {
-    const handler = () => setIsFullscreen(!!document.fullscreenElement);
-    document.addEventListener('fullscreenchange', handler);
-    return () => document.removeEventListener('fullscreenchange', handler);
-  }, []);
   const [installExpanded, setInstallExpanded] = useState(false);
   const [activeStep, setActiveStep] = useState(1);
   const extId = getExtensionId();
@@ -181,67 +174,6 @@ export default function Welcome() {
   };
 
   const handleGoDashboard = () => navigate('/');
-
-  // Fullscreen: standalone clean hero page
-  if (isFullscreen) {
-    return (
-      <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#fafaf7]">
-        <div className="pointer-events-none absolute inset-0 z-0">
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-[var(--accent)]/4 blur-3xl" />
-        </div>
-        <div className="relative z-10 flex flex-col items-center text-center px-8">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.8, ease: [0.34, 1.56, 0.64, 1] }}
-          >
-            <BrandMark size={96} rounded={32} />
-          </motion.div>
-          <motion.h1
-            className="mt-10 font-['Cormorant_Garamond'] text-[80px] leading-[0.88] tracking-[-0.07em] text-[var(--ink)]"
-            initial={{ opacity: 0, y: 24 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.3 }}
-          >
-            MultiPublish
-          </motion.h1>
-          <motion.p
-            className="mt-5 font-['Cormorant_Garamond'] text-[32px] leading-[1.1] tracking-[-0.04em] text-[var(--accent-deep)]"
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.6 }}
-          >
-            一次创作，多端真实分发
-          </motion.p>
-          <motion.div
-            className="mt-12 w-20 h-px bg-[rgba(49,56,45,0.12)]"
-            initial={{ opacity: 0, scaleX: 0 }}
-            animate={{ opacity: 1, scaleX: 1 }}
-            transition={{ duration: 0.5, delay: 0.9 }}
-          />
-          <motion.p
-            className="mt-6 max-w-[420px] text-[14px] leading-7 text-[var(--ink-soft)]"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.5, delay: 1.1 }}
-          >
-            Markdown 编写 · AI 智能适配 · 浏览器扩展真实发布
-            <br />
-            覆盖公众号、知乎、B站、小红书、微博五大平台
-          </motion.p>
-          <motion.button
-            onClick={handleFullscreen}
-            className="mt-12 inline-flex items-center gap-2 rounded-full border border-[rgba(49,56,45,0.1)] bg-white/60 backdrop-blur-sm px-5 py-2.5 text-[13px] text-[var(--ink-soft)] hover:bg-white hover:border-[rgba(49,56,45,0.2)] transition-all"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.5, delay: 1.4 }}
-          >
-            退出全屏
-          </motion.button>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-[#fafcf9]">
