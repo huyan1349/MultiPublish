@@ -3,6 +3,10 @@ import { blocksToPlainText } from '../parserService';
 
 const LIMITS = { maxTitle: 20, maxBody: 1000, maxTags: 10 };
 
+function countBodyChars(body: string): number {
+  return body.replace(/data:image\/[^;]+;base64,[A-Za-z0-9+/=]+/g, '').length;
+}
+
 const EMOJIS = ['✨', '🔥', '💡', '📌', '🚀', '💪', '🎯', '⭐', '🌟', '✅'];
 
 function makeShortTitle(title: string): string {
@@ -16,35 +20,38 @@ function addEmojiToTitle(title: string): string {
 }
 
 function buildNoteBody(blocks: StandardContent['blocks']): string {
-  const lines: string[] = [];
+  const parts: string[] = [];
   for (const b of blocks) {
     switch (b.type) {
       case 'heading':
-        lines.push(`📌 ${b.text}`); lines.push(''); break;
+        parts.push(`<p style="font-size:16px;font-weight:bold;margin:12px 0 6px;">📌 ${b.text}</p>`);
+        break;
       case 'paragraph': {
         const sentences = (b.text || '').split(/[。！？]/);
-        for (const s of sentences) { if (s.trim()) lines.push(`${s.trim()}。`); }
-        lines.push(''); break;
+        const formatted = sentences.filter(s => s.trim()).map(s => `${s.trim()}。`).join('<br/>');
+        parts.push(`<p style="font-size:14px;line-height:1.8;color:#333;margin:6px 0;">${formatted}</p>`);
+        break;
       }
       case 'list': {
-        for (const item of (b.items || [])) {
-          lines.push(`${EMOJIS[Math.floor(Math.random() * EMOJIS.length)]} ${item}`);
-        }
-        lines.push(''); break;
+        const items = (b.items || []).map(item =>
+          `<li style="margin:3px 0;padding-left:4px;">${EMOJIS[Math.floor(Math.random() * EMOJIS.length)]} ${item}</li>`
+        ).join('');
+        parts.push(`<ul style="padding-left:20px;margin:6px 0;">${items}</ul>`);
+        break;
       }
       case 'quote':
-        lines.push(`💬 ${(b.text || '').replace(/\n/g, ' ')}`); lines.push(''); break;
+        parts.push(`<blockquote style="border-left:3px solid #FF2442;padding:6px 12px;color:#666;margin:8px 0;background:#fff5f7;"><p style="font-size:13px;line-height:1.6;margin:0;">💬 ${(b.text || '').replace(/\n/g, ' ')}</p></blockquote>`);
+        break;
       case 'image':
         if (b.url) {
-          lines.push(`<p style="text-align:center;margin:8px 0;"><img src="${b.url}" alt="${b.caption || '图片'}" style="max-width:100%;border-radius:4px;"/></p>`);
+          parts.push(`<p style="text-align:center;margin:8px 0;"><img src="${b.url}" alt="${b.caption || '图片'}" style="max-width:100%;border-radius:4px;"/></p>`);
         }
-        lines.push('');
         break;
     }
   }
-  let body = lines.join('\n');
+  let body = parts.join('\n');
   if (!body.includes('#')) {
-    body += '\n\n#内容创作 #效率工具 #自媒体 #干货分享';
+    body += `\n<p style="font-size:13px;color:#999;margin-top:12px;">#内容创作 #效率工具 #自媒体 #干货分享</p>`;
   }
   return body;
 }
@@ -80,7 +87,7 @@ export const xiaohongshuAdapter: PlatformAdapter = {
 
   getPreviewMeta(output: PlatformOutputDraft): PreviewMeta {
     return {
-      titleCharCount: output.title.length, bodyCharCount: output.body.length,
+      titleCharCount: output.title.length, bodyCharCount: countBodyChars(output.body),
       tagCount: output.tags.length, maxTitleLength: LIMITS.maxTitle,
       maxBodyLength: LIMITS.maxBody, maxTags: LIMITS.maxTags, needsCover: true,
     };

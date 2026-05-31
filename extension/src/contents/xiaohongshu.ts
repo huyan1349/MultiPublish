@@ -390,7 +390,7 @@ async function clickPublish(): Promise<boolean> {
     }
   }
 
-  return true;
+  return hasPublishSuccessSignal();
 }
 
 async function clickPublishViaMainWorld(): Promise<boolean> {
@@ -995,37 +995,37 @@ async function _xhsClickToolbarCaptureInput(): Promise<HTMLInputElement | null> 
     return origClick.call(this);
   };
 
-  // 搜索工具栏中的图片按钮
-  const toolbarBtns = Array.from(document.querySelectorAll<HTMLElement>(
-    '[class*="toolbar"] button, [class*="Toolbar"] button, [class*="toolbar"] [role="button"]'
-  )).filter(btn => {
-    const t = (btn.getAttribute('title') || btn.textContent || '').toLowerCase();
-    return t.includes('图片') || t.includes('image') || t.includes('img');
-  });
-  for (const btn of toolbarBtns) {
-    forceClickElement(btn);
-    await sleep(800);
-    if (capturedInput) break;
-  }
+  try {
+    const toolbarBtns = Array.from(document.querySelectorAll<HTMLElement>(
+      '[class*="toolbar"] button, [class*="Toolbar"] button, [class*="toolbar"] [role="button"]'
+    )).filter(btn => {
+      const t = (btn.getAttribute('title') || btn.textContent || '').toLowerCase();
+      return t.includes('图片') || t.includes('image') || t.includes('img');
+    });
+    for (const btn of toolbarBtns) {
+      forceClickElement(btn);
+      await sleep(800);
+      if (capturedInput) break;
+    }
 
-  // ProseMirror / Tiptap 工具栏
-  if (!capturedInput) {
-    const pmToolbar = document.querySelector('.ProseMirror-toolbar, .tiptap-toolbar, [class*="toolbar"]');
-    if (pmToolbar) {
-      const btns = pmToolbar.querySelectorAll<HTMLElement>('button, [role="button"]');
-      for (const btn of btns) {
-        const title = (btn.getAttribute('title') || btn.textContent || '').toLowerCase();
-        if (title.includes('图片') || title.includes('image') || title.includes('img')) {
-          forceClickElement(btn);
-          await sleep(800);
-          if (capturedInput) break;
+    if (!capturedInput) {
+      const pmToolbar = document.querySelector('.ProseMirror-toolbar, .tiptap-toolbar, [class*="toolbar"]');
+      if (pmToolbar) {
+        const btns = pmToolbar.querySelectorAll<HTMLElement>('button, [role="button"]');
+        for (const btn of btns) {
+          const title = (btn.getAttribute('title') || btn.textContent || '').toLowerCase();
+          if (title.includes('图片') || title.includes('image') || title.includes('img')) {
+            forceClickElement(btn);
+            await sleep(800);
+            if (capturedInput) break;
+          }
         }
       }
     }
+  } finally {
+    HTMLInputElement.prototype.click = origClick;
+    observer.disconnect();
   }
-
-  HTMLInputElement.prototype.click = origClick;
-  observer.disconnect();
   return capturedInput;
 }
 

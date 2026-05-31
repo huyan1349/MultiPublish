@@ -1,5 +1,5 @@
 import { AlertTriangle, XCircle, Info, ChevronDown, ChevronUp, RefreshCw, Check, Sparkles } from 'lucide-react';
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { beautifyContentForPlatform } from '../../services/deepseek';
 import type { BeautifiedContent } from '../../stores/contentStore';
 import type { PlatformType } from '../../adapters/types';
@@ -51,17 +51,9 @@ export default function PlatformCard({
   const [expanded, setExpanded] = useState(false);
   const [beautifying, setBeautifying] = useState(false);
   const [hasBeautified, setHasBeautified] = useState(false);
-  const [expandHeight, setExpandHeight] = useState(0);
-  const expandRef = useRef<HTMLDivElement>(null);
   const meta = platformMeta[platform] || platformMeta.wechat;
 
   const renderedBody = useMemo(() => markdownBodyToHtml(previewBody), [previewBody]);
-
-  useEffect(() => {
-    if (expanded && expandRef.current) {
-      setExpandHeight(expandRef.current.scrollHeight);
-    }
-  }, [expanded, previewBody, previewTags, beautifiedContent]);
 
   const handleBeautify = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -220,13 +212,10 @@ export default function PlatformCard({
 
       <div
         style={{
-          maxHeight: expanded ? expandHeight : 0,
-          opacity: expanded ? 1 : 0,
-          overflow: 'hidden',
-          transition: 'max-height 0.3s ease, opacity 0.2s ease',
+          display: expanded ? 'block' : 'none',
         }}
       >
-        <div ref={expandRef} className="border-t border-[rgba(49,56,45,0.12)] bg-[rgba(244,249,243,0.76)] px-5 py-5">
+        <div className="border-t border-[rgba(49,56,45,0.12)] bg-[rgba(244,249,243,0.76)] px-5 py-5">
             {beautifiedContent && (
               <div className="mb-5 rounded-[22px] border border-amber-200/60 bg-amber-50/40 p-4">
                 <div className="flex items-center justify-between mb-3">

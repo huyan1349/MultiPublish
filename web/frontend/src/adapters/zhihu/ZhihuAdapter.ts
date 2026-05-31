@@ -3,20 +3,32 @@ import { blocksToPlainText } from '../parserService';
 
 const LIMITS = { maxTitle: 60, maxTags: 5 };
 
+function countBodyChars(body: string): number {
+  return body.replace(/data:image\/[^;]+;base64,[A-Za-z0-9+/=]+/g, '').length;
+}
+
 function buildBody(blocks: StandardContent['blocks']): string {
   return blocks.map((b) => {
     switch (b.type) {
-      case 'heading': return `## ${b.text}\n\n`;
-      case 'paragraph': return `${b.text}\n\n`;
-      case 'list': {
-        const items = (b.items || []).map((item) => `- ${item}`).join('\n');
-        return `${items}\n\n`;
+      case 'heading': {
+        const tag = b.level === 1 ? 'h2' : `h${(b.level || 2) + 1}`;
+        return `<${tag} style="font-size:${b.level === 1 ? '22px' : '18px'};font-weight:bold;color:#1a1a1a;margin:20px 0 12px;">${b.text}</${tag}>`;
       }
-      case 'quote': return `> ${(b.text || '').replace(/\n/g, '\n> ')}\n\n`;
-      case 'image': return `![${b.caption || ''}](${b.url})\n\n`;
+      case 'paragraph':
+        return `<p style="font-size:15px;line-height:1.75;color:#1a1a1a;margin:8px 0;">${b.text}</p>`;
+      case 'list': {
+        const items = (b.items || []).map((item) => `<li style="margin:4px 0;padding-left:4px;">${item}</li>`).join('');
+        return `<ul style="padding-left:24px;margin:8px 0;">${items}</ul>`;
+      }
+      case 'quote':
+        return `<blockquote style="border-left:3px solid #0066FF;padding:8px 16px;color:#666;margin:12px 0;background:#f0f5ff;"><p style="font-size:14px;line-height:1.6;margin:4px 0;">${(b.text || '').replace(/\n/g, '<br/>')}</p></blockquote>`;
+      case 'image':
+        return b.url
+          ? `<p style="text-align:center;margin:12px 0;"><img src="${b.url}" alt="${b.caption || ''}" style="max-width:100%;border-radius:4px;"/></p>`
+          : '';
       default: return '';
     }
-  }).join('');
+  }).join('\n');
 }
 
 export const zhihuAdapter: PlatformAdapter = {
@@ -47,7 +59,7 @@ export const zhihuAdapter: PlatformAdapter = {
 
   getPreviewMeta(output: PlatformOutputDraft): PreviewMeta {
     return {
-      titleCharCount: output.title.length, bodyCharCount: output.body.length,
+      titleCharCount: output.title.length, bodyCharCount: countBodyChars(output.body),
       tagCount: output.tags.length, maxTitleLength: LIMITS.maxTitle,
       maxBodyLength: Infinity, maxTags: LIMITS.maxTags, needsCover: false,
     };

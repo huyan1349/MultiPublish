@@ -7,16 +7,20 @@ function makeColumnTitle(title: string): string {
 }
 
 function buildArticleBody(blocks: StandardContent['blocks']): string {
-  const lines = blocks.map((block) => {
+  return blocks.map((block) => {
     switch (block.type) {
-      case 'heading':
-        return `${'#'.repeat(block.level || 2)} ${block.text || ''}`;
+      case 'heading': {
+        const tag = block.level === 1 ? 'h2' : `h${(block.level || 2) + 1}`;
+        return `<${tag} style="font-size:${block.level === 1 ? '22px' : '18px'};font-weight:bold;color:#333;margin:20px 0 12px;">${block.text || ''}</${tag}>`;
+      }
       case 'paragraph':
-        return block.text || '';
-      case 'list':
-        return (block.items || []).map((item) => `- ${item}`).join('\n');
+        return `<p style="font-size:15px;line-height:1.75;color:#333;margin:8px 0;">${block.text || ''}</p>`;
+      case 'list': {
+        const items = (block.items || []).map((item) => `<li style="margin:4px 0;padding-left:4px;">${item}</li>`).join('');
+        return `<ul style="padding-left:24px;margin:8px 0;">${items}</ul>`;
+      }
       case 'quote':
-        return `> ${block.text || ''}`;
+        return `<blockquote style="border-left:3px solid #FB7299;padding:8px 16px;color:#666;margin:12px 0;background:#fff5f8;"><p style="font-size:14px;line-height:1.6;margin:4px 0;">${block.text || ''}</p></blockquote>`;
       case 'image':
         return block.url
           ? `<p style="text-align:center;margin:12px 0;"><img src="${block.url}" alt="${block.caption || block.text || '图片'}" style="max-width:100%;border-radius:4px;"/></p>`
@@ -24,9 +28,7 @@ function buildArticleBody(blocks: StandardContent['blocks']): string {
       default:
         return '';
     }
-  });
-
-  return lines.filter(Boolean).join('\n\n');
+  }).join('\n');
 }
 
 function buildSummary(body: string): string {

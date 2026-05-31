@@ -125,12 +125,12 @@ export default function AiAssistantPanel({
     <AnimatePresence>
       {open && (
         <motion.div
-          initial={{ width: 0, opacity: 0 }}
-          animate={{ width: 400, opacity: 1 }}
-          exit={{ width: 0, opacity: 0 }}
-          transition={{ duration: 0.25, ease: [0.22, 0.61, 0.36, 1] }}
+          initial={{ opacity: 0, x: 40 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: 40 }}
+          transition={{ duration: 0.2, ease: [0.22, 0.61, 0.36, 1] }}
           className="shrink-0 overflow-hidden border-l border-[rgba(49,56,45,0.08)]"
-          style={{ backgroundColor: 'var(--paper-bg)' }}
+          style={{ backgroundColor: 'var(--paper-bg)', width: 400 }}
         >
           <div className="flex h-full w-[400px] flex-col">
             {/* Header */}

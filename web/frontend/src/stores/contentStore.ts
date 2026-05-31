@@ -99,12 +99,15 @@ function buildInitialStates(): Map<PlatformType, PlatformPublishState> {
   return map;
 }
 
+let _refreshTimer: ReturnType<typeof setTimeout> | null = null;
+
 export const useContentStore = create<ContentState>((set, get) => ({
   draft: { title: '', htmlContent: '', tags: '', coverImage: '' },
   currentContentId: null,
   setDraft: (partial) => {
     set((s) => ({ draft: { ...s.draft, ...partial } }));
-    get().refreshPlatformOutputs();
+    if (_refreshTimer) clearTimeout(_refreshTimer);
+    _refreshTimer = setTimeout(() => { get().refreshPlatformOutputs(); }, 300);
   },
   resetDraft: () => {
     set({ draft: { title: '', htmlContent: '', tags: '', coverImage: '' } });

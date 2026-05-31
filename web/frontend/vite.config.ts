@@ -10,4 +10,15 @@ export default defineConfig({
       '/health': 'http://localhost:4395',
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          'vendor-tiptap': ['@tiptap/react', '@tiptap/starter-kit', '@tiptap/extension-placeholder', '@tiptap/extension-link', '@tiptap/extension-image'],
+          'vendor-motion': ['framer-motion'],
+        },
+      },
+    },
+  },
 })

@@ -3,6 +3,10 @@ import { blocksToPlainText } from '../parserService';
 
 const LIMITS = { maxTitle: 64, maxSummary: 120, maxTags: 4 };
 
+function countBodyChars(body: string): number {
+  return body.replace(/data:image\/[^;]+;base64,[A-Za-z0-9+/=]+/g, '').length;
+}
+
 function buildBody(blocks: StandardContent['blocks']): string {
   return blocks.map((b) => {
     switch (b.type) {
@@ -59,7 +63,7 @@ export const wechatAdapter: PlatformAdapter = {
 
   getPreviewMeta(output: PlatformOutputDraft): PreviewMeta {
     return {
-      titleCharCount: output.title.length, bodyCharCount: output.body.length,
+      titleCharCount: output.title.length, bodyCharCount: countBodyChars(output.body),
       tagCount: output.tags.length, maxTitleLength: LIMITS.maxTitle,
       maxBodyLength: 20000, maxTags: LIMITS.maxTags, needsCover: true,
     };
