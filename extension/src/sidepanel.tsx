@@ -142,7 +142,7 @@ export default function Sidepanel() {
   const [notice, setNotice] = useState<Notice | null>(null);
   const [previewOutputs, setPreviewOutputs] = useState<PreviewOutput[]>([]);
   const [activeTab, setActiveTab] = useState<PlatformType>('wechat');
-  const [publishing, setPublishing] = useState<string | null>(null);
+  const [publishing, setPublishing] = useState<Set<string>>(new Set());
   const [publishedSet, setPublishedSet] = useState<Set<PlatformType>>(new Set());
   const [publishResults, setPublishResults] = useState<Record<string, PublishResult>>({});
   const [editingOutput, setEditingOutput] = useState<EditingOutput | null>(null);
@@ -253,7 +253,7 @@ export default function Sidepanel() {
   };
 
   const publishOne = async (output: PreviewOutput) => {
-    setPublishing(output.outputId); setNotice(null);
+    setPublishing((prev) => { const n = new Set(prev); n.add(output.outputId); return n; }); setNotice(null);
     try {
       // 构建图片列表：封面图 + 正文中的本地图片
       // 封面图 + 正文图片（支持 data URL 和 blob URL）
@@ -308,10 +308,18 @@ export default function Sidepanel() {
       setPublishResults((prev) => ({ ...prev, [output.platform]: result }));
       showNotice({ type: 'error', message: result.message });
       await addRecord({ id: genId(), contentId: '', platform: output.platform, platformName: output.platformName, status: 'failed', message: result.message, publishedAt: new Date().toISOString() });
-    } finally { setPublishing(null); }
+    } finally { setPublishing((prev) => { const n = new Set(prev); n.delete(output.outputId); return n; }); }
   };
 
-  const publishAll = async () => { for (const o of previewOutputs) await publishOne(o); };
+  const publishAll = async () => { await Promise.all(previewOutputs.map((o) => publishOne(o))); };
+
+  const cancelAll = async () => {
+    try {
+      await chrome.runtime.sendMessage({ type: 'CANCEL_PUBLISH', payload: {} });
+    } catch { /* */ }
+    setPublishing(new Set());
+    setNotice({ type: 'info', message: '发布已取消' });
+  };
 
   const exportPackage = () => {
     if (previewOutputs.length === 0) { showNotice({ type: 'error', message: '没有可导出的适配内容' }); return; }
@@ -349,7 +357,7 @@ export default function Sidepanel() {
       );
     }
     const activeResult = publishResults[active.platform];
-    const isPublishing = publishing === active.outputId;
+    const isPublishing = publishing.has(active.outputId);
     const isSuccess = publishedSet.has(active.platform) || activeResult?.status === 'success';
     const isFailed = activeResult?.status === 'failed';
 
@@ -461,13 +469,20 @@ export default function Sidepanel() {
 
               {/* Action Buttons */}
               <div style={{ display: 'flex', gap: 8 }}>
-                <button onClick={() => setEditingOutput({
-                  outputId: active.outputId, title: active.title,
-                  summary: active.summary || '', body: active.body,
-                  tags: active.tags.join(', '),
-                })} className="btn btn-ghost btn-sm" style={{ flex: 1 }}>
-                  <Edit3 size={12} />编辑
-                </button>
+                {isPublishing ? (
+                  <button onClick={cancelAll}
+                    className="btn btn-ghost btn-sm" style={{ flex: 1, color: 'var(--danger)', borderColor: 'var(--danger)' }}>
+                    <X size={12} />取消发布
+                  </button>
+                ) : (
+                  <button onClick={() => setEditingOutput({
+                    outputId: active.outputId, title: active.title,
+                    summary: active.summary || '', body: active.body,
+                    tags: active.tags.join(', '),
+                  })} className="btn btn-ghost btn-sm" style={{ flex: 1 }}>
+                    <Edit3 size={12} />编辑
+                  </button>
+                )}
                 <button onClick={() => publishOne(active)} disabled={isPublishing}
                   className="btn btn-primary btn-sm btn-publish" style={{ flex: 2 }}>
                   {isPublishing ? <Loader2 size={12} className="animate-spin" /> : <Rocket size={12} />}
@@ -478,12 +493,19 @@ export default function Sidepanel() {
           )}
         </div>
 
-        {/* Publish All — bottom, full-width */}
-        <button onClick={publishAll} disabled={publishing !== null}
-          className="btn btn-primary btn-block btn-publish" style={{ padding: '11px', fontSize: 13, gap: 8 }}>
-          {publishing ? <Loader2 size={14} className="animate-spin" /> : <Rocket size={14} />}
-          一键发布全部平台
-        </button>
+        {/* Publish All / Cancel — bottom, full-width */}
+        {publishing.size > 0 ? (
+          <button onClick={cancelAll}
+            className="btn btn-block" style={{ padding: '11px', fontSize: 13, gap: 8, background: 'var(--danger)', color: '#fff', border: 'none' }}>
+            <X size={14} />取消全部发布 ({publishing.size} 个平台进行中)
+          </button>
+        ) : (
+          <button onClick={publishAll} disabled={publishing.size > 0}
+            className="btn btn-primary btn-block btn-publish" style={{ padding: '11px', fontSize: 13, gap: 8 }}>
+            <Rocket size={14} />
+            一键发布全部平台
+          </button>
+        )}
       </div>
     );
   }

@@ -25,6 +25,7 @@ const PLATFORM_NAMES: Record<string, string> = {
 };
 
 const pendingImages = new Map<PlatformType, ImagePayload[]>();
+const activePublishTabs = new Map<PlatformType, number>(); // platform → tabId
 
 void chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
 
@@ -63,6 +64,13 @@ function handleMessage(message: { type: string; payload?: unknown }, sendRespons
     sendResponse({ images });
     return false;
   }
+  if (message.type === 'CANCEL_PUBLISH') {
+    const { platform } = (message.payload || {}) as { platform?: PlatformType };
+    handleCancelPublish(platform)
+      .then(() => sendResponse({ status: 'cancelled' }))
+      .catch((err) => sendResponse({ status: 'error', message: err.message }));
+    return true;
+  }
   return false;
 }
 
@@ -91,32 +99,77 @@ async function handlePublish(payload: PublishPayload): Promise<PublishResult> {
     cleanContent.body = stripDataUrlFromBody(cleanContent.body);
 
     await chrome.storage.local.set({
-      contentbridge_fill: { platform, content: cleanContent, autoLayout: payload.autoLayout, timestamp: Date.now() },
+      [`contentbridge_fill_${platform}`]: { platform, content: cleanContent, autoLayout: payload.autoLayout, timestamp: Date.now() },
     });
 
     const domain = PLATFORM_DOMAINS[platform];
     const existing = await findExistingPlatformTab(domain);
 
+    let activeTabId: number | undefined;
     if (existing) {
-      await chrome.tabs.update(existing.id!, { active: true });
+      activeTabId = existing.id;
+      await chrome.tabs.update(activeTabId!, { active: true });
       if (platform === 'wechat') {
         await chrome.scripting.executeScript({
-          target: { tabId: existing.id! },
+          target: { tabId: activeTabId! },
           func: () => window.location.reload(),
         });
       } else {
-        await chrome.tabs.update(existing.id!, { url, active: true });
+        await chrome.tabs.update(activeTabId!, { url, active: true });
       }
     } else {
-      await chrome.tabs.create({ url, active: true });
+      const tab = await chrome.tabs.create({ url, active: true });
+      activeTabId = tab.id;
+    }
+
+    if (activeTabId) {
+      activePublishTabs.set(platform, activeTabId);
     }
 
     const result = await waitForFillResult(platform, platformName);
+    activePublishTabs.delete(platform);
     return result;
   } catch (err) {
     const msg = err instanceof Error ? err.message : '发布失败';
     pendingImages.delete(platform);
+    activePublishTabs.delete(platform);
     return { platform, platformName, status: 'failed', message: msg };
+  }
+}
+
+async function handleCancelPublish(platform?: PlatformType): Promise<void> {
+  const platformsToCancel = platform
+    ? [platform]
+    : Array.from(activePublishTabs.keys());
+
+  for (const p of platformsToCancel) {
+    // Clear fill data so content scripts stop
+    await chrome.storage.local.remove(`contentbridge_fill_${p}`);
+    // Clear wechat-specific keys too
+    await chrome.storage.local.remove('contentbridge_wechat_editor');
+    await chrome.storage.local.remove('contentbridge_wechat_autopublish');
+
+    // Close the active tab for this platform
+    const tabId = activePublishTabs.get(p);
+    if (tabId) {
+      try { await chrome.tabs.remove(tabId); } catch { /* tab may already be closed */ }
+      activePublishTabs.delete(p);
+    }
+
+    // Clear pending images
+    pendingImages.delete(p);
+
+    // Write cancelled result so any waiting promise resolves
+    const platformName = PLATFORM_NAMES[p] || p;
+    await chrome.storage.local.set({
+      contentbridge_result: {
+        platform: p,
+        platformName,
+        success: false,
+        message: '发布已取消',
+        error: '用户取消',
+      },
+    });
   }
 }
 

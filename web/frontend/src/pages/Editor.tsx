@@ -123,8 +123,10 @@ export default function Editor() {
   const [aiPanelOpen, setAiPanelOpen] = useState(true);
   const [editorKey, setEditorKey] = useState(0);
   const [isAiModified, setIsAiModified] = useState(false);
+  const [publishRunning, setPublishRunning] = useState(false);
   const editorRef = useRef<HTMLDivElement>(null);
   const tiptapRef = useRef<TiptapEditorHandle>(null);
+  const publishInFlightRef = useRef(false);
 
   // Outline state
   const [outline, setOutline] = useState({ topic: paramTopic, points: paramPoints, style: '' });
@@ -388,7 +390,14 @@ export default function Editor() {
     } finally { setSaving(false); }
   };
 
+  const cancelledRef = useRef(false);
+
   const handlePublish = async () => {
+    if (publishInFlightRef.current) {
+      showToast('info', '正在发布', '当前一键发布还在执行，请等待本轮完成');
+      return;
+    }
+
     const selected = allPlatforms.filter((platform) => selectedPlatforms.has(platform));
     if (selected.length === 0) { setError('请至少选择一个平台'); return; }
     if (!draft.title.trim() || !draft.htmlContent.replace(/<[^>]*>/g, '').trim()) {
@@ -399,74 +408,106 @@ export default function Editor() {
       showToast('error', '扩展未连接', '请先安装并启用 MultiPublish 扩展，然后再执行真实发布。');
       return;
     }
+    publishInFlightRef.current = true;
+    cancelledRef.current = false;
+    setPublishRunning(true);
     setError('');
     resetPublishStates();
 
-    let contentId = currentContentId;
-    if (!contentId) {
-      try {
-        const tags = draft.tags.split(/[,，]/).map((t) => t.trim()).filter(Boolean);
-        const content = await api.createContent({
-          title: draft.title,
-          rawMarkdown: draft.htmlContent,
-          tags,
-          coverImage: draft.coverImage || undefined,
-        });
-        contentId = content.id;
-        setCurrentContentId(content.id);
-      } catch (err) {
-        showToast('error', '自动保存失败', '发布前保存内容到后端失败，请先手动保存');
-        return;
-      }
-    }
-
-    for (const platform of selected) {
-      const state = platformStates.get(platform);
-      if (!state) continue;
-      setPlatformPublishStatus(platform, 'publishing');
-      try {
-        let resolvedBody = await resolveBodyImages(state.output.body);
-        const images = await buildImagePayloads(resolvedBody, draft.coverImage);
-        resolvedBody = stripDataUrlImages(resolvedBody);
-        let cleanCoverImage = state.output.coverImage;
-        if (cleanCoverImage && cleanCoverImage.startsWith('data:')) {
-          cleanCoverImage = undefined;
+    try {
+      let contentId = currentContentId;
+      if (!contentId) {
+        try {
+          const tags = draft.tags.split(/[,，]/).map((t) => t.trim()).filter(Boolean);
+          const content = await api.createContent({
+            title: draft.title,
+            rawMarkdown: draft.htmlContent,
+            tags,
+            coverImage: draft.coverImage || undefined,
+          });
+          contentId = content.id;
+          setCurrentContentId(content.id);
+        } catch (err) {
+          showToast('info', '自动保存失败', '后端暂不可用，已跳过记录保存并继续真实发布');
         }
-
-        const result = await publishViaExtension({
-          platform,
-          content: {
-            ...state.output,
-            body: resolvedBody,
-            coverImage: cleanCoverImage,
-          },
-          autoLayout: true,
-          images: images.length > 0 ? images : undefined,
-        });
-        api.createPublishRecord({
-          contentId: contentId!, platform, platformName: state.platformName,
-          status: result.success ? 'success' : 'failed', message: result.message,
-        }).catch(() => {});
-        if (result.success) {
-          setPlatformPublishStatus(platform, 'success', result.message);
-          showToast('success', `${state.platformName} 发布成功`, result.message);
-        } else {
-          setPlatformPublishStatus(platform, 'failed', result.message);
-          showToast('error', `${state.platformName} 发布失败`, result.message);
-        }
-      } catch (err) {
-        const message = err instanceof Error ? err.message : '未知错误';
-        setPlatformPublishStatus(platform, 'failed', message);
-        showToast('error', `${state.platformName} 发布失败`, message);
-        api.createPublishRecord({
-          contentId: contentId!, platform, platformName: state.platformName,
-          status: 'failed', message,
-        }).catch(() => {});
       }
+
+      // Publish all platforms in parallel
+      const publishTasks = selected.map(async (platform) => {
+        if (cancelledRef.current) return;
+        const state = platformStates.get(platform);
+        if (!state) return;
+        setPlatformPublishStatus(platform, 'publishing');
+        try {
+          let resolvedBody = await resolveBodyImages(state.output.body);
+          const images = await buildImagePayloads(resolvedBody, draft.coverImage);
+          resolvedBody = stripDataUrlImages(resolvedBody);
+          let cleanCoverImage = state.output.coverImage;
+          if (cleanCoverImage && cleanCoverImage.startsWith('data:')) {
+            cleanCoverImage = undefined;
+          }
+
+          const result = await publishViaExtension({
+            platform,
+            content: {
+              ...state.output,
+              body: resolvedBody,
+              coverImage: cleanCoverImage,
+            },
+            autoLayout: true,
+            images: images.length > 0 ? images : undefined,
+          });
+          if (contentId) {
+            api.createPublishRecord({
+              contentId, platform, platformName: state.platformName,
+              status: result.success ? 'success' : 'failed', message: result.message,
+            }).catch(() => {});
+          }
+          if (result.success) {
+            setPlatformPublishStatus(platform, 'success', result.message);
+            showToast('success', `${state.platformName} 发布成功`, result.message);
+          } else {
+            setPlatformPublishStatus(platform, 'failed', result.message);
+            showToast('error', `${state.platformName} 发布失败`, result.message);
+          }
+        } catch (err) {
+          const message = err instanceof Error ? err.message : '未知错误';
+          setPlatformPublishStatus(platform, 'failed', message);
+          showToast('error', `${state.platformName} 发布失败`, message);
+          if (contentId) {
+            api.createPublishRecord({
+              contentId, platform, platformName: state.platformName,
+              status: 'failed', message,
+            }).catch(() => {});
+          }
+        }
+      });
+
+      await Promise.all(publishTasks);
+    } finally {
+      publishInFlightRef.current = false;
+      setPublishRunning(false);
     }
   };
 
-  const publishing = Array.from(platformStates.values()).some((state) => state.status === 'publishing');
+  const handleCancelPublish = async () => {
+    cancelledRef.current = true;
+    try {
+      await chrome.runtime.sendMessage({ type: 'CANCEL_PUBLISH', payload: {} });
+    } catch { /* extension not available */ }
+    setPublishRunning(false);
+    publishInFlightRef.current = false;
+    // Reset all publishing states
+    allPlatforms.forEach((platform) => {
+      const state = platformStates.get(platform);
+      if (state?.status === 'publishing') {
+        setPlatformPublishStatus(platform, 'failed', '发布已取消');
+      }
+    });
+    showToast('info', '已取消', '发布已取消');
+  };
+
+  const publishing = publishRunning || Array.from(platformStates.values()).some((state) => state.status === 'publishing');
   const generatedContent = generatedContents[activePlatform];
   const streamingBlocks = useMemo(() => streamingHtml ? splitHtmlBlocks(streamingHtml) : [], [streamingHtml]);
 
@@ -961,6 +1002,7 @@ export default function Editor() {
                     selectedCount={Array.from(selectedPlatforms).length}
                     platformStatuses={new Map(Array.from(selectedPlatforms).map((platform) => [platform, platformStates.get(platform)?.status || 'idle']))}
                     onPublish={handlePublish}
+                    onCancel={handleCancelPublish}
                   />
                 </div>
               </div>

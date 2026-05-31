@@ -21,8 +21,8 @@ const LOGIN_INDICATORS = [
 ];
 
 (async function init() {
-  const data = await chrome.storage.local.get('contentbridge_fill');
-  const fill = data.contentbridge_fill;
+  const data = await chrome.storage.local.get(`contentbridge_fill_${PLATFORM}`);
+  const fill = data[`contentbridge_fill_${PLATFORM}`];
   if (!fill || fill.platform !== PLATFORM) return;
 
   try {
@@ -31,7 +31,7 @@ const LOGIN_INDICATORS = [
       return;
     }
 
-    await chrome.storage.local.remove('contentbridge_fill');
+    await chrome.storage.local.remove(`contentbridge_fill_${PLATFORM}`);
 
     const { title, body, tags } = fill.content as { title: string; body: string; tags: string[] };
     const plainText = htmlToPlainText(body);
@@ -116,7 +116,7 @@ const LOGIN_INDICATORS = [
       return;
     }
 
-    await sleep(3000);
+    await sleep(1500);
 
     const bodyEl2 = await waitForElement(findBodyEditor, FILL_TIMEOUT);
     if (bodyEl2) {
@@ -170,7 +170,7 @@ const LOGIN_INDICATORS = [
       await report(false, '未找到"下一步"按钮，请手动点击');
       return;
     }
-    await sleep(8000);
+    await sleep(4000);
 
     const publishOk = await clickPublish();
     if (!publishOk) {
@@ -202,7 +202,7 @@ async function checkLogin(): Promise<boolean> {
   for (const selector of LOGIN_INDICATORS) {
     if (document.querySelector(selector)) return true;
   }
-  await sleep(3000);
+  await sleep(1500);
   for (const selector of LOGIN_INDICATORS) {
     if (document.querySelector(selector)) return true;
   }
@@ -221,7 +221,7 @@ async function navigateToLongArticleEditor(): Promise<boolean> {
   if (/\/publish\/(publish|imgNote)/.test(location.pathname)) {
     const clicked = await clickByText('写长文', NAV_TIMEOUT);
     if (clicked) {
-      await sleep(2000);
+      await sleep(1000);
       if (await isLongArticleEditorReady()) return true;
     }
   }
@@ -230,15 +230,15 @@ async function navigateToLongArticleEditor(): Promise<boolean> {
     const publishBtn = await findElementByText('发布笔记', NAV_TIMEOUT);
     if (publishBtn) {
       clickElement(publishBtn);
-      await sleep(2000);
+      await sleep(1000);
     } else {
       window.location.href = 'https://creator.xiaohongshu.com/publish/publish';
-      await sleep(3000);
+      await sleep(1500);
     }
 
     const clicked = await clickByText('写长文', NAV_TIMEOUT);
     if (clicked) {
-      await sleep(2000);
+      await sleep(1000);
       if (await isLongArticleEditorReady()) return true;
     }
   }
@@ -254,7 +254,7 @@ async function isLongArticleEditorReady(): Promise<boolean> {
   const newCreationBtn = await findElementByText('新的创作', 3000);
   if (newCreationBtn) {
     clickElement(newCreationBtn);
-    await sleep(2000);
+    await sleep(1000);
     return !!(findTitleInput() || findBodyEditor());
   }
 
@@ -357,7 +357,7 @@ async function clickAutoLayout(): Promise<boolean> {
   const btn = await findElementByText('一键排版', NAV_TIMEOUT);
   if (!btn) return false;
   clickElement(btn);
-  await sleep(3000);
+  await sleep(1500);
   return true;
 }
 
@@ -366,27 +366,27 @@ async function clickNextStep(): Promise<boolean> {
   if (!btn && findPublishButtonNow()) return true;
   if (!btn) return false;
   clickElement(btn);
-  await sleep(3000);
+  await sleep(1500);
   return true;
 }
 
 async function clickPublish(): Promise<boolean> {
-  await sleep(3000);
+  await sleep(1500);
 
   const btn = await findPublishButton(PUBLISH_TIMEOUT);
   const clicked = btn ? forceClickElement(btn) : await clickPublishViaMainWorld();
   if (!clicked && !clickPublishViaPosition()) return false;
 
-  await sleep(3000);
+  await sleep(1500);
 
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < 4; i++) {
     if (hasPublishSuccessSignal()) return true;
     const confirmBtn = findConfirmButton();
     if (confirmBtn) {
       forceClickElement(confirmBtn);
-      await sleep(2000);
+      await sleep(1000);
     } else {
-      await sleep(1500);
+      await sleep(800);
     }
   }
 

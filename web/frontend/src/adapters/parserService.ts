@@ -21,7 +21,16 @@ export function parseHtmlToBlocks(html: string): ContentBlock[] {
       pushTextBlock('heading', element.textContent || '', Number(tag.slice(1)) as 1 | 2 | 3);
       return;
     }
-    if (tag === 'p') { pushTextBlock('paragraph', element.textContent || ''); return; }
+    if (tag === 'p') {
+      // Walk children to handle inline elements and images
+      for (const child of Array.from(element.children)) {
+        if (child.tagName.toLowerCase() === 'img') {
+          const img = child as HTMLImageElement;
+          if (img.src) blocks.push({ type: 'image', url: img.src, caption: img.alt || undefined });
+        }
+      }
+      pushTextBlock('paragraph', element.textContent || ''); return;
+    }
     if (tag === 'blockquote') { pushTextBlock('quote', element.textContent || ''); return; }
     if (tag === 'ul' || tag === 'ol') {
       const items = Array.from(element.children)
