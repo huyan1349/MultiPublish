@@ -138,23 +138,16 @@ const TiptapEditorInner = forwardRef<TiptapEditorHandle, TiptapEditorProps>(func
 
   const handleImageFiles = useCallback((files: FileList | File[]) => {
     const ed = editorRef.current;
-    if (!ed) {
-      console.warn('[TiptapEditor] handleImageFiles: editor not ready');
-      return;
-    }
+    if (!ed) return;
     for (const file of Array.from(files)) {
       if (!file.type.startsWith('image/')) continue;
       const blobUrl = URL.createObjectURL(file);
-      if (!ed.isFocused) {
-        ed.commands.focus('end');
-      }
-      const insertOk = ed.chain().setImage({ src: blobUrl }).run();
-      console.log('[TiptapEditor] setImage result:', insertOk, 'src:', blobUrl.slice(0, 60));
-      if (!insertOk) {
-        const endPos = ed.state.doc.content.size;
-        ed.chain().insertContentAt(endPos, { type: 'image', attrs: { src: blobUrl } }).run();
-        console.log('[TiptapEditor] fallback insertContentAt at end');
-      }
+
+      // 用 ProseMirror transaction 直接插入，避免 setImage 在自定义 NodeView 下不稳定的问题
+      const node = ed.state.schema.nodes.image.create({ src: blobUrl });
+      const tr = ed.state.tr.replaceSelectionWith(node);
+      ed.view.dispatch(tr);
+
       const reader = new FileReader();
       reader.onload = () => {
         const dataUrl = reader.result as string;
@@ -162,9 +155,9 @@ const TiptapEditorInner = forwardRef<TiptapEditorHandle, TiptapEditorProps>(func
         const edNow = editorRef.current;
         if (!edNow) return;
         const { state, view } = edNow;
-        state.doc.descendants((node, pos) => {
-          if (node.type.name === 'image' && node.attrs.src === blobUrl) {
-            view.dispatch(state.tr.setNodeMarkup(pos, undefined, { ...node.attrs, src: dataUrl }));
+        state.doc.descendants((n, pos) => {
+          if (n.type.name === 'image' && n.attrs.src === blobUrl) {
+            view.dispatch(state.tr.setNodeMarkup(pos, undefined, { ...n.attrs, src: dataUrl }));
             return false;
           }
           return true;
