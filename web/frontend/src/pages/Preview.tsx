@@ -25,6 +25,7 @@ const PLATFORMS = [
   { id: 'zhihu', name: '知乎', color: '#0066FF', desc: '观点结构与逻辑推进', mockWidth: 680 },
   { id: 'bilibili', name: 'B站', color: '#FB7299', desc: '标签与导语节奏', mockWidth: 680 },
   { id: 'xiaohongshu', name: '小红书', color: '#FF2442', desc: '标题吸引与短段落表达', mockWidth: 420 },
+  { id: 'weibo', name: '微博', color: '#E6162D', desc: '话题驱动与即时传播', mockWidth: 600 },
 ];
 
 const levelIcon: Record<string, typeof AlertTriangle> = { error: AlertTriangle, warning: AlertTriangle, info: Info };

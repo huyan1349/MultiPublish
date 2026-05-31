@@ -76,7 +76,7 @@ function buildPlatformState(platform: PlatformType, content: StandardContent): P
   };
 }
 
-const allPlatforms: PlatformType[] = ['wechat', 'zhihu', 'bilibili', 'xiaohongshu'];
+const allPlatforms: PlatformType[] = ['wechat', 'zhihu', 'bilibili', 'xiaohongshu', 'weibo'];
 
 const DEMO_HTML = `<h2>多平台内容发布工具</h2>
 <p>很多创作者需要在公众号、知乎、B站、小红书等平台同步发布内容，但每个平台的格式、语气和发布字段都不一样。</p>

@@ -14,7 +14,7 @@ import { api } from '../api/client';
 import type { PlatformType } from '../adapters/types';
 import type { BeautifiedContent } from '../stores/contentStore';
 
-const allPlatforms: PlatformType[] = ['wechat', 'zhihu', 'bilibili', 'xiaohongshu'];
+const allPlatforms: PlatformType[] = ['wechat', 'zhihu', 'bilibili', 'xiaohongshu', 'weibo'];
 
 type QuickStep = 'inspire' | 'outline' | 'edit' | 'platform';
 

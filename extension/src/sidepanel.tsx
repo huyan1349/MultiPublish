@@ -30,6 +30,7 @@ const PLATFORMS: Array<{ id: PlatformType; name: string; color: string; desc: st
   { id: 'zhihu', name: '知乎', color: '#448AFF', desc: '逻辑分析，结论先行' },
   { id: 'bilibili', name: 'B站', color: '#FB7299', desc: '图文专栏，标签驱动' },
   { id: 'xiaohongshu', name: '小红书', color: '#FF5A5F', desc: '种草风格，短小精炼' },
+  { id: 'weibo', name: '微博', color: '#E6162D', desc: '话题驱动，实时互动' },
 ];
 
 function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
@@ -722,6 +723,7 @@ export default function Sidepanel() {
       { id: 'zhihu' as PlatformType, name: '知乎', color: '#448AFF', status: '完整发布链路', detail: '自动填充 + 自动发布', done: true },
       { id: 'bilibili' as PlatformType, name: 'B站', color: '#FB7299', status: '填充可用', detail: '手动确认发布', done: false },
       { id: 'xiaohongshu' as PlatformType, name: '小红书', color: '#FF5A5F', status: '完整发布链路', detail: '自动填充 + 一键排版 + 自动发布', done: true },
+      { id: 'weibo' as PlatformType, name: '微博', color: '#E6162D', status: '填充可用', detail: '自动填充 + 手动确认发布', done: false },
     ];
 
     return (

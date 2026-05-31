@@ -1,4 +1,4 @@
-export type PlatformType = 'wechat' | 'zhihu' | 'bilibili' | 'xiaohongshu';
+export type PlatformType = 'wechat' | 'zhihu' | 'bilibili' | 'xiaohongshu' | 'weibo';
 
 export interface ContentBlock {
   type: 'heading' | 'paragraph' | 'list' | 'quote' | 'image';

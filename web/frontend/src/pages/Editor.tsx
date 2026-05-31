@@ -15,13 +15,14 @@ import { generateTitle, suggestTags, generateContentFromOutline, beautifyContent
 import { api } from '../api/client';
 import type { PlatformType } from '../adapters/types';
 
-const allPlatforms: PlatformType[] = ['wechat', 'zhihu', 'bilibili', 'xiaohongshu'];
+const allPlatforms: PlatformType[] = ['wechat', 'zhihu', 'bilibili', 'xiaohongshu', 'weibo'];
 
 const PLATFORM_BRAND: Record<string, { color: string; soft: string; deep: string }> = {
   wechat: { color: 'var(--platform-wechat)', soft: 'var(--platform-wechat-soft)', deep: 'var(--platform-wechat-deep)' },
   zhihu: { color: 'var(--platform-zhihu)', soft: 'var(--platform-zhihu-soft)', deep: 'var(--platform-zhihu-deep)' },
   bilibili: { color: 'var(--platform-bilibili)', soft: 'var(--platform-bilibili-soft)', deep: 'var(--platform-bilibili-deep)' },
   xiaohongshu: { color: 'var(--platform-xiaohongshu)', soft: 'var(--platform-xiaohongshu-soft)', deep: 'var(--platform-xiaohongshu-deep)' },
+  weibo: { color: 'var(--platform-weibo)', soft: 'var(--platform-weibo-soft)', deep: 'var(--platform-weibo-deep)' },
 };
 
 const PLATFORM_NAMES: Record<PlatformType, string> = {
@@ -29,6 +30,7 @@ const PLATFORM_NAMES: Record<PlatformType, string> = {
   zhihu: '知乎',
   bilibili: 'B站',
   xiaohongshu: '小红书',
+  weibo: '微博',
 };
 
 const CONTENT_FORMATS: Record<PlatformType, Array<{ id: string; label: string; desc: string; icon: typeof Sparkles }>> = {
@@ -55,6 +57,12 @@ const CONTENT_FORMATS: Record<PlatformType, Array<{ id: string; label: string; d
     { id: 'tutorial', label: '教程攻略', desc: '步骤编号、简洁说明、亲切邻家', icon: Zap },
     { id: 'collection', label: '好物合集', desc: '清单推荐、每项种草、互动引导', icon: List },
     { id: 'explore', label: '探店体验', desc: '氛围感描述、沉浸式、清单体', icon: Wand2 },
+  ],
+  weibo: [
+    { id: 'hotspot', label: '热点速递', desc: '快节奏、观点鲜明、引发讨论', icon: Zap },
+    { id: 'opinion', label: '观点评论', desc: '锐评时事、态度明确、激发互动', icon: Wand2 },
+    { id: 'story', label: '话题分享', desc: '生活分享、个人见解、引发共鸣', icon: Sparkles },
+    { id: 'thread', label: '微博长文', desc: '多图分段、话题标签、深度表达', icon: FileText },
   ],
 };
 

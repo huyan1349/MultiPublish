@@ -19,6 +19,7 @@ const platformColors: Record<string, string> = {
   zhihu: '#6d8aa6',
   bilibili: '#50624f',
   xiaohongshu: '#8ba287',
+  weibo: '#E6162D',
 };
 
 const statusConfig: Record<string, { label: string; color: string }> = {

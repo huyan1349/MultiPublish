@@ -5,6 +5,7 @@ const PLATFORM_URLS: Record<string, string> = {
   zhihu: 'https://zhuanlan.zhihu.com/write',
   bilibili: 'https://member.bilibili.com/platform/upload/text/edit',
   xiaohongshu: 'https://creator.xiaohongshu.com/publish/publish',
+  weibo: 'https://weibo.com/',
 };
 
 const PLATFORM_DOMAINS: Record<string, string> = {
@@ -12,6 +13,7 @@ const PLATFORM_DOMAINS: Record<string, string> = {
   zhihu: 'zhuanlan.zhihu.com',
   bilibili: 'member.bilibili.com',
   xiaohongshu: 'creator.xiaohongshu.com',
+  weibo: 'weibo.com',
 };
 
 const PLATFORM_NAMES: Record<string, string> = {
@@ -19,6 +21,7 @@ const PLATFORM_NAMES: Record<string, string> = {
   zhihu: '知乎',
   bilibili: 'B站',
   xiaohongshu: '小红书',
+  weibo: '微博',
 };
 
 const pendingImages = new Map<PlatformType, ImagePayload[]>();

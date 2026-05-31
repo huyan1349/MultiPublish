@@ -10,6 +10,7 @@ const platformMeta: Record<string, { color: string; soft: string; deep: string; 
   zhihu:       { color: 'var(--platform-zhihu)', soft: 'var(--platform-zhihu-soft)', deep: 'var(--platform-zhihu-deep)', label: 'ZH', hex: '#0066FF', hexDeep: '#0052cc' },
   bilibili:    { color: 'var(--platform-bilibili)', soft: 'var(--platform-bilibili-soft)', deep: 'var(--platform-bilibili-deep)', label: 'BL', hex: '#FB7299', hexDeep: '#e0557a' },
   xiaohongshu: { color: 'var(--platform-xiaohongshu)', soft: 'var(--platform-xiaohongshu-soft)', deep: 'var(--platform-xiaohongshu-deep)', label: 'XH', hex: '#FF2442', hexDeep: '#d91c37' },
+  weibo:       { color: 'var(--platform-weibo)', soft: 'var(--platform-weibo-soft)', deep: 'var(--platform-weibo-deep)', label: 'WB', hex: '#E6162D', hexDeep: '#c4122a' },
 };
 
 const levelIcon: Record<string, typeof XCircle> = { error: XCircle, warning: AlertTriangle, info: Info };

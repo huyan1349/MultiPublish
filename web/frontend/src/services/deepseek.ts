@@ -149,7 +149,7 @@ function parseJsonResponse<T>(raw: string, fallback: T, requiredKeys?: string[])
   }
 }
 
-export type PlatformStyle = 'wechat' | 'zhihu' | 'bilibili' | 'xiaohongshu';
+export type PlatformStyle = 'wechat' | 'zhihu' | 'bilibili' | 'xiaohongshu' | 'weibo';
 
 export interface BeautifyContentInput {
   platform: PlatformStyle;
@@ -205,6 +205,17 @@ const PLATFORM_SYSTEM_PROMPTS: Record<PlatformStyle, string> = {
 6. 保持HTML标签格式输出
 7. 标签：5-8个小红书热门话题标签（不带#号）
 8. 重要：如果输入内容是大纲/要点/列表形式（简短条目、项目符号、编号列表），必须将每个要点展开为完整的段落，补充细节、体验分享或种草理由，使其成为一篇内容充实、可独立发布的完整笔记`,
+
+  weibo: `你是一位微博大V。请将用户的内容改写为微博风格，要求：
+1. 标题：简短有力、可带话题、适合社交传播，20字以内
+2. 正文风格：口语化、高互动性、适合碎片化阅读
+3. 适当使用emoji（🔥📢💬👍🎙️等），每段1-2个
+4. 用短句和空行增强节奏感
+5. 关键内容用【】标注重点，可适当使用#话题#格式
+6. 结尾可添加引导互动的句子，如"你怎么看？评论区聊聊～"
+7. 保持HTML标签格式输出
+8. 标签：3-6个微博热门话题标签（使用#话题#格式）
+9. 重要：如果输入内容是大纲/要点/列表形式（简短条目、项目符号、编号列表），必须将每个要点展开为完整的段落，补充细节、观点或互动引导，使其成为一篇内容充实、可独立发布的完整微博`,
 };
 
 export async function beautifyContentForPlatform(input: BeautifyContentInput): Promise<BeautifyContentResult> {
@@ -248,6 +259,7 @@ export async function beautifyForPlatform(opts: BeautifyOptions): Promise<{
     zhihu: '知乎风格：逻辑严密、数据支撑、专业术语、理性分析、适当引用',
     bilibili: 'B站风格：轻松活泼、二次元用语、弹幕感、短句为主、emoji点缀',
     xiaohongshu: '小红书风格：种草感、清单体、emoji丰富、短标题吸睛、话题感强',
+    weibo: '微博风格：口语化社交、话题驱动、高互动性、短句节奏、适合碎片阅读',
   };
 
   const style = platformStyles[opts.platform] || '通用风格：清晰简洁';
@@ -365,7 +377,7 @@ const INSPIRATION_SYSTEM_PROMPT = `你是一位资深内容策划师，为中文
 
 export async function generateInspiration(topic?: string, platform?: PlatformStyle): Promise<InspirationResult> {
   const platformContext = platform
-    ? `\n用户偏好平台：${platform === 'wechat' ? '公众号' : platform === 'zhihu' ? '知乎' : platform === 'bilibili' ? 'B站' : '小红书'}。请优先给出适合该平台风格的角度。`
+    ? `\n用户偏好平台：${platform === 'wechat' ? '公众号' : platform === 'zhihu' ? '知乎' : platform === 'bilibili' ? 'B站' : platform === 'xiaohongshu' ? '小红书' : '微博'}。请优先给出适合该平台风格的角度。`
     : '';
 
   const raw = await chat([
@@ -647,6 +659,36 @@ const FORMAT_PROMPTS: Record<string, Record<string, string>> = {
 - 短句跳跃感，清单体
 - 结尾"值得去吗？答案在评论区～"
 - 标签5-8个
+- 保持HTML格式输出`,
+  },
+  weibo: {
+    hotspot: `你是一位微博热点评论员。根据大纲创作一篇「热点速递」微博，要求：
+- 快速切入热点，150-500字，短句节奏
+- 用【】标注关键信息，观点鲜明
+- 适当使用emoji🔥📢增强表现力
+- 结尾引导互动"你怎么看？"
+- 标签使用#话题#格式
+- 保持HTML格式输出`,
+    opinion: `你是一位微博意见领袖。根据大纲创作一篇「观点评论」微博，要求：
+- 态度鲜明，200-500字，逻辑清晰
+- 短段落多换行，便于碎片阅读
+- 适当使用emoji💬👍点缀
+- 使用#话题#格式标签
+- 结尾抛问题引发讨论
+- 保持HTML格式输出`,
+    story: `你是一位微博生活博主。根据大纲创作一篇「话题分享」微博，要求：
+- 生活化口语化表达，200-500字
+- 第一人称叙事，真实亲切
+- 使用#话题#关联热门话题
+- emoji适度点缀🌿📷✨
+- 结尾邀请读者分享类似经历
+- 保持HTML格式输出`,
+    thread: `你是一位微博深度博主。根据大纲创作一篇「微博长文」（多段图文），要求：
+- 500-1500字，分段清晰，适合长微博
+- 每段用【】小标题引领
+- 图文结合，为每张图配简短说明
+- 使用#话题#关联3-5个热门话题
+- 结尾@相关大V或官号邀转发
 - 保持HTML格式输出`,
   },
 };
