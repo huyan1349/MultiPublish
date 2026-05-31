@@ -12,8 +12,8 @@ const NAME = '微博';
 const FILL_TIMEOUT = 40000;
 
 (async function init() {
-  const data = await chrome.storage.local.get('contentbridge_fill');
-  const fill = data.contentbridge_fill;
+  const data = await chrome.storage.local.get(`contentbridge_fill_${PLATFORM}`);
+  const fill = data[`contentbridge_fill_${PLATFORM}`];
   if (!fill || fill.platform !== PLATFORM) return;
 
   try {
@@ -25,7 +25,7 @@ const FILL_TIMEOUT = 40000;
     if (!editor) {
       if (window.top !== window) return;
       dumpPageState();
-      await chrome.storage.local.remove('contentbridge_fill');
+      await chrome.storage.local.remove(`contentbridge_fill_${PLATFORM}`);
       await chrome.storage.local.set({
         contentbridge_result: { platform: PLATFORM, platformName: NAME, success: false, message: '未找到微博发布编辑器' },
       });
@@ -70,7 +70,7 @@ const FILL_TIMEOUT = 40000;
     // Step 4: auto publish
     console.log('[WB] 开始自动发布');
     const published = await tryAutoPublish();
-    await chrome.storage.local.remove('contentbridge_fill');
+    await chrome.storage.local.remove(`contentbridge_fill_${PLATFORM}`);
     await chrome.storage.local.set({
       contentbridge_result: {
         platform: PLATFORM, platformName: NAME,
@@ -80,7 +80,7 @@ const FILL_TIMEOUT = 40000;
     });
     showContentBridgeToast(published.message, published.success ? 'success' : 'error');
   } catch (err) {
-    await chrome.storage.local.remove('contentbridge_fill');
+    await chrome.storage.local.remove(`contentbridge_fill_${PLATFORM}`);
     const msg = err instanceof Error ? err.message : '微博自动发布失败';
     await chrome.storage.local.set({
       contentbridge_result: { platform: PLATFORM, platformName: NAME, success: false, message: msg },
@@ -520,28 +520,38 @@ const PUBLISH_LABELS = ['发布', '发送', '发表', '发布微博', '发送微
 const CONFIRM_LABELS = ['确认', '确定', '发布', '发送'];
 
 async function tryAutoPublish(): Promise<{ success: boolean; message: string }> {
-  await sleep(2000);
+  await sleep(800);
 
-  const publishBtn = findButtonByText(PUBLISH_LABELS);
+  // First, try to ensure the publish button is enabled
+  // (Weibo may keep it disabled until the editor's React state updates)
+  await ensurePublishButtonEnabled();
+
+  // Try to find the publish button — first by text, then by Weibo-specific selectors
+  const publishBtn = findPublishButton();
   if (!publishBtn) {
     dumpAllTexts();
     return { success: false, message: '未找到微博发布按钮，内容已填充，请手动点击发布' };
   }
 
-  console.log('[WB] 发布按钮:', describe(publishBtn));
-  forceClick(publishBtn);
-  await sleep(2000);
+  console.log('[WB] 发布按钮:', describe(publishBtn), '| tag:', publishBtn.tagName, '| disabled:', isDisabled(publishBtn));
+
+  // Try all strategies to click the publish button
+  const clicked = tryAllClickStrategies(publishBtn);
+  console.log('[WB] 发布按钮点击结果:', clicked);
+  await sleep(1000);
 
   if (hasPublishSuccessSignal()) return { success: true, message: '微博已自动发布' };
 
-  for (let round = 0; round < 5; round++) {
-    await sleep(1500);
+  // Look for confirmation dialogs and click through them
+  for (let round = 0; round < 6; round++) {
+    await sleep(800);
     if (hasPublishSuccessSignal()) return { success: true, message: '微博已自动发布' };
+
     const confirmBtn = findButtonByText(CONFIRM_LABELS);
     if (confirmBtn) {
       console.log('[WB] 确认按钮:', describe(confirmBtn));
-      forceClick(confirmBtn);
-      await sleep(1000);
+      tryAllClickStrategies(confirmBtn);
+      await sleep(500);
       if (hasPublishSuccessSignal()) return { success: true, message: '微博已自动发布' };
     }
   }
@@ -551,7 +561,129 @@ async function tryAutoPublish(): Promise<{ success: boolean; message: string }> 
     : { success: false, message: '微博内容已填充，请在页面确认后手动点击发布' };
 }
 
-/* ── Helpers ── */
+/**
+ * Try to enable the publish button if it's disabled.
+ * Weibo uses controlled React inputs — the button stays disabled
+ * until the editor's onChange fires and updates component state.
+ */
+async function ensurePublishButtonEnabled() {
+  // Find the editor and re-dispatch input events to wake up React
+  const editor = findWeiboEditor();
+  if (editor) {
+    console.log('[WB] 重新触发编辑器事件以确保按钮可用');
+    editor.focus();
+
+    if (editor instanceof HTMLTextAreaElement || editor instanceof HTMLInputElement) {
+      // Read current value, clear and restore to trigger React
+      const current = editor.value;
+      if (current) {
+        const proto = editor instanceof HTMLTextAreaElement
+          ? HTMLTextAreaElement.prototype
+          : HTMLInputElement.prototype;
+        const desc = Object.getOwnPropertyDescriptor(proto, 'value');
+        // Force a change that React can detect
+        desc?.set?.call(editor, '');
+        editor.dispatchEvent(new Event('input', { bubbles: true }));
+        editor.dispatchEvent(new Event('change', { bubbles: true }));
+        await sleep(100);
+        desc?.set?.call(editor, current);
+        editor.dispatchEvent(new Event('input', { bubbles: true }));
+        editor.dispatchEvent(new Event('change', { bubbles: true }));
+        editor.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: current, composed: true }));
+      }
+    } else if (editor.getAttribute('contenteditable') === 'true') {
+      // For contenteditable, dispatch composition events
+      editor.dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true }));
+      editor.dispatchEvent(new CompositionEvent('compositionupdate', { bubbles: true, data: editor.textContent || '' }));
+      editor.dispatchEvent(new CompositionEvent('compositionend', { bubbles: true, data: editor.textContent || '' }));
+      editor.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText' }));
+    }
+  }
+
+  // Wait briefly for React to re-render
+  await sleep(500);
+
+  // If there's a disabled publish button, try to remove the disabled state
+  for (const label of PUBLISH_LABELS) {
+    const btns = Array.from(document.querySelectorAll<HTMLElement>('button, [role="button"]'))
+      .filter(isVisible)
+      .filter((el) => {
+        const text = compactText(el.innerText || el.textContent || '');
+        return text === label;
+      });
+    for (const btn of btns) {
+      if (isDisabled(btn)) {
+        console.log('[WB] 发布按钮被禁用，尝试启用');
+        btn.removeAttribute('disabled');
+        btn.setAttribute('aria-disabled', 'false');
+        // Remove disabled class patterns
+        if (btn.className && typeof btn.className === 'string') {
+          btn.className = btn.className.replace(/\bdisabled\b/gi, '').replace(/\bdisable\b/gi, '');
+        }
+      }
+    }
+  }
+}
+
+/* ── Publish Button Discovery ── */
+
+function findPublishButton(): HTMLElement | null {
+  // Priority 1: Weibo's woo-button with publish text
+  const wooBtn = findWooPublishButton();
+  if (wooBtn) { console.log('[WB] 通过 woo-button 选择器找到发布按钮'); return wooBtn; }
+
+  // Priority 2: text-based search
+  const textBtn = findButtonByText(PUBLISH_LABELS);
+  if (textBtn) { console.log('[WB] 通过文本匹配找到发布按钮'); return textBtn; }
+
+  // Priority 3: broad button search near the editor area
+  return findPublishButtonNearEditor();
+}
+
+/** Find Weibo's woo-button-primary that contains publish text */
+function findWooPublishButton(): HTMLElement | null {
+  const selectors = [
+    '.woo-button-primary', '.woo-button-main',
+    'button[class*="woo-button"]',
+    '[class*="publish"] button', '[class*="submit"] button',
+    'button[class*="primary"]', 'button[class*="send"]',
+  ];
+  for (const sel of selectors) {
+    try {
+      const els = Array.from(document.querySelectorAll<HTMLElement>(sel))
+        .filter(isVisible)
+        .filter((el) => !isDisabled(el));
+      for (const el of els) {
+        const text = compactText(el.innerText || el.textContent || '');
+        if (PUBLISH_LABELS.some((l) => text === l || text.includes(l))) {
+          return el;
+        }
+      }
+    } catch { /* */ }
+  }
+  return null;
+}
+
+/** Find publish button in the vicinity of the editor */
+function findPublishButtonNearEditor(): HTMLElement | null {
+  // Look for toolbars/action bars near the bottom of the page or near the editor
+  const containers = document.querySelectorAll<HTMLElement>(
+    '[class*="toolbar"], [class*="action"], [class*="submit"], [class*="footer"], [class*="publish"]',
+  );
+  for (const container of containers) {
+    if (!isVisible(container)) continue;
+    const btns = Array.from(container.querySelectorAll<HTMLElement>('button, [role="button"]'))
+      .filter(isVisible)
+      .filter((el) => !isDisabled(el));
+    for (const btn of btns) {
+      const text = compactText(btn.innerText || btn.textContent || '');
+      if (PUBLISH_LABELS.some((l) => text === l || text.startsWith(l))) {
+        return btn;
+      }
+    }
+  }
+  return null;
+}
 
 function findButtonByText(labels: string[]): HTMLElement | null {
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_ELEMENT, {
@@ -567,34 +699,246 @@ function findButtonByText(labels: string[]): HTMLElement | null {
   const candidates: HTMLElement[] = [];
   let node = walker.nextNode();
   while (node) { candidates.push(node as HTMLElement); node = walker.nextNode(); }
-  candidates.sort((a, b) => compactText(a.innerText || a.textContent || '').length - compactText(b.innerText || b.textContent || '').length);
+  // Prefer buttons over spans/divs
+  candidates.sort((a, b) => {
+    const aIsBtn = a.tagName === 'BUTTON' ? 0 : 1;
+    const bIsBtn = b.tagName === 'BUTTON' ? 0 : 1;
+    if (aIsBtn !== bIsBtn) return aIsBtn - bIsBtn;
+    return compactText(a.innerText || a.textContent || '').length - compactText(b.innerText || b.textContent || '').length;
+  });
   return candidates[0] || null;
 }
 
-function forceClick(el: HTMLElement) {
+/* ── Multi-Strategy Click ── */
+
+/**
+ * Try EVERY possible way to click a Weibo button.
+ * Weibo uses React with synthetic events — a simple el.click() often isn't enough
+ * because handlers may be attached via event delegation, React portals, or custom
+ * event system. We throw everything at it.
+ */
+function tryAllClickStrategies(el: HTMLElement): boolean {
   el.scrollIntoView({ block: 'center' });
   el.focus();
-  el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
-  el.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true }));
-  el.click();
-  const fiberKey = Object.keys(el).find((k) => k.startsWith('__reactFiber') || k.startsWith('__reactInternalInstance'));
-  if (fiberKey) {
-    let fiber = (el as any)[fiberKey];
-    let depth = 0;
-    while (fiber && depth < 20) {
-      const props = fiber.memoizedProps || fiber.pendingProps;
-      if (props?.onClick) { try { props.onClick(new MouseEvent('click', { bubbles: true, cancelable: true })); } catch { /* */ } return; }
-      fiber = fiber.return; depth++;
+
+  let success = false;
+
+  // Strategy 1: Full native event sequence (pointer + mouse + click)
+  console.log('[WB-click] S1: 原生事件序列');
+  dispatchFullClickSequence(el);
+
+  // Strategy 2: React fiber event handlers — scan deep and wide
+  console.log('[WB-click] S2: React fiber 遍历');
+  const fiberResult = triggerReactHandler(el);
+  if (fiberResult) { console.log('[WB-click] S2 成功:', fiberResult); success = true; }
+
+  // Strategy 3: Try the native .click() again after a microtick
+  setTimeout(() => {
+    try { el.click(); } catch { /* */ }
+  }, 0);
+
+  // Strategy 4: Form submission — find parent form and submit
+  const form = el.closest('form');
+  if (form) {
+    console.log('[WB-click] S4: 表单提交');
+    try {
+      form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+      // Also try requestSubmit (native, not preventable) as last resort
+      setTimeout(() => {
+        try { form.requestSubmit(); } catch { /* requestSubmit may not exist */ }
+      }, 100);
+    } catch { /* */ }
+  }
+
+  // Strategy 5: Keyboard Enter on the button
+  console.log('[WB-click] S5: 键盘事件');
+  el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true, cancelable: true }));
+  el.dispatchEvent(new KeyboardEvent('keypress', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true, cancelable: true }));
+  el.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true, cancelable: true }));
+
+  // Strategy 6: Direct React DOM property access (try __reactProps)
+  const reactPropsKey = Object.keys(el).find((k) => k.startsWith('__reactProps'));
+  if (reactPropsKey) {
+    const props = (el as any)[reactPropsKey];
+    if (props?.onClick) {
+      console.log('[WB-click] S6: __reactProps.onClick');
+      try { props.onClick(new MouseEvent('click', { bubbles: true })); success = true; } catch { /* */ }
+    }
+    if (props?.onMouseDown) {
+      try { props.onMouseDown(new MouseEvent('mousedown', { bubbles: true })); } catch { /* */ }
     }
   }
+
+  // Strategy 7: Touch events (mobile Weibo)
+  el.dispatchEvent(new TouchEvent('touchstart', { bubbles: true, cancelable: true, touches: [] }));
+  el.dispatchEvent(new TouchEvent('touchend', { bubbles: true, cancelable: true, touches: [] }));
+
+  return success;
+}
+
+/** Dispatch a complete native click sequence */
+function dispatchFullClickSequence(el: HTMLElement) {
+  const baseInit = { bubbles: true, cancelable: true, view: window };
+  el.dispatchEvent(new PointerEvent('pointerover', { ...baseInit, pointerId: 1 }));
+  el.dispatchEvent(new PointerEvent('pointerenter', { ...baseInit, pointerId: 1 }));
+  el.dispatchEvent(new MouseEvent('mouseover', baseInit));
+  el.dispatchEvent(new MouseEvent('mouseenter', baseInit));
+  el.dispatchEvent(new PointerEvent('pointerdown', { ...baseInit, pointerId: 1 }));
+  el.dispatchEvent(new MouseEvent('mousedown', baseInit));
+  el.dispatchEvent(new FocusEvent('focus', baseInit));
+  el.dispatchEvent(new PointerEvent('pointerup', { ...baseInit, pointerId: 1 }));
+  el.dispatchEvent(new MouseEvent('mouseup', baseInit));
+  // The critical one
+  el.click();
+  // Also dispatch a standalone click event
+  el.dispatchEvent(new MouseEvent('click', baseInit));
+}
+
+/**
+ * Walk the React fiber tree looking for any event handler that could trigger
+ * the publish action. Goes deeper (50 levels) and checks more handler names.
+ */
+function triggerReactHandler(el: HTMLElement): string | null {
+  const fiberKey = Object.keys(el).find(
+    (k) => k.startsWith('__reactFiber') || k.startsWith('__reactInternalInstance'),
+  );
+  if (!fiberKey) {
+    console.log('[WB-click] 未找到 React fiber key');
+    return null;
+  }
+
+  // Also check __reactEvents for direct event binding (React 17+)
+  const reactEventsKey = Object.keys(el).find((k) => k.startsWith('__reactEvents'));
+  if (reactEventsKey) {
+    const events = (el as any)[reactEventsKey];
+    console.log('[WB-click] 找到 __reactEvents:', Object.keys(events || {}));
+  }
+
+  let fiber = (el as any)[fiberKey];
+
+  // Check the element's own fiber AND walk up
+  for (let depth = 0; fiber && depth < 50; depth++) {
+    const allProps = { ...(fiber.memoizedProps || {}), ...(fiber.pendingProps || {}) };
+    const handled = tryInvokeHandler(allProps);
+    if (handled) {
+      console.log(`[WB-click] fiber depth=${depth} handler: ${handled}`);
+      return handled;
+    }
+
+    // Also check stateNode for class component instances
+    if (fiber.stateNode && fiber.stateNode !== el) {
+      const stateProps = fiber.stateNode.props || {};
+      const handled2 = tryInvokeHandler(stateProps);
+      if (handled2) {
+        console.log(`[WB-click] stateNode depth=${depth} handler: ${handled2}`);
+        return handled2;
+      }
+    }
+
+    // Check sibling fibers too (event delegation on parent)
+    if (fiber.sibling) {
+      let sib = fiber.sibling;
+      for (let s = 0; sib && s < 5; s++) {
+        const sibProps = { ...(sib.memoizedProps || {}), ...(sib.pendingProps || {}) };
+        const handled3 = tryInvokeHandler(sibProps);
+        if (handled3) {
+          console.log(`[WB-click] sibling depth=${depth} sib=${s} handler: ${handled3}`);
+          return handled3;
+        }
+        sib = sib.sibling;
+      }
+    }
+
+    fiber = fiber.return;
+  }
+
+  return null;
+}
+
+/**
+ * Try to invoke any click-related handler from a props object.
+ * Covers all common React event handler naming conventions.
+ */
+function tryInvokeHandler(props: Record<string, unknown>): string | null {
+  if (!props || typeof props !== 'object') return null;
+
+  const clickEvent = new MouseEvent('click', { bubbles: true, cancelable: true });
+  const pointerEvent = new PointerEvent('pointerdown', { bubbles: true, cancelable: true, pointerId: 1 });
+
+  // Priority-ordered list of handler names to try
+  const handlerNames = [
+    // Direct click handlers
+    'onClick', 'onTap', 'onPress', 'handleClick', 'handleSubmit',
+    // Mouse/pointer handlers that might trigger publish
+    'onMouseDown', 'onPointerDown', 'onPointerUp',
+    // Touch handlers
+    'onTouchEnd', 'onTouchStart',
+    // Custom Weibo handler names
+    'onSubmit', 'onPublish', 'onSend', 'doPublish', 'handlePublish',
+    // Generic action handlers
+    'onAction', 'onConfirm',
+    // Form-level handlers
+    'onFinish',
+  ];
+
+  for (const name of handlerNames) {
+    const fn = props[name];
+    if (typeof fn === 'function') {
+      try {
+        // Try with both MouseEvent and PointerEvent
+        fn(clickEvent);
+        return name;
+      } catch {
+        try { fn(pointerEvent); return name; } catch { /* */ }
+      }
+    }
+  }
+
+  // Check for bound/dispatched handlers: look for functions in any prop
+  for (const key of Object.keys(props)) {
+    if (typeof props[key] === 'function' && (
+      /click|publish|send|submit|confirm|post/i.test(key)
+    )) {
+      try { (props[key] as Function)(clickEvent); return key; } catch { /* */ }
+    }
+  }
+
+  return null;
 }
 
 function setNativeValue(el: HTMLInputElement | HTMLTextAreaElement, value: string) {
   const proto = el instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
   const desc = Object.getOwnPropertyDescriptor(proto, 'value');
+  // Set value via native setter so React's tracking picks it up
   desc?.set?.call(el, value);
+
+  // Trigger the full React synthetic event pipeline
+  // React listens for these at the root for its synthetic event system
   el.dispatchEvent(new Event('input', { bubbles: true }));
   el.dispatchEvent(new Event('change', { bubbles: true }));
+  el.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: value, composed: true }));
+
+  // Also try: React 17+ uses native input/change events tracked via
+  // the fiber's updateQueue. But some Weibo components use controlled
+  // inputs that need the value set on the fiber directly.
+  const fiberKey = Object.keys(el).find((k) => k.startsWith('__reactFiber') || k.startsWith('__reactInternalInstance'));
+  if (fiberKey) {
+    let fiber = (el as any)[fiberKey];
+    for (let depth = 0; fiber && depth < 30; depth++) {
+      const props = fiber.memoizedProps || fiber.pendingProps || {};
+      if (typeof props.onChange === 'function') {
+        try {
+          props.onChange({ target: el, currentTarget: el, type: 'change' });
+        } catch { /* */ }
+      }
+      if (typeof props.onInput === 'function') {
+        try {
+          props.onInput({ target: el, currentTarget: el, type: 'input' });
+        } catch { /* */ }
+      }
+      fiber = fiber.return;
+    }
+  }
 }
 
 function hasPublishSuccessSignal(): boolean {

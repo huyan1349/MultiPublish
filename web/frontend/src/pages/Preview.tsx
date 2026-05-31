@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Rocket, CheckCircle, AlertTriangle, Info, Loader2, Zap, Eye, Edit3, ExternalLink, Globe } from 'lucide-react';
+import { ArrowLeft, Rocket, CheckCircle, AlertTriangle, Info, Loader2, Zap, Eye, Edit3, ExternalLink, Globe, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../api/client';
 import { publishViaExtension, isExtensionInstalled, type ExtensionPublishResult } from '../utils/extensionBridge'
@@ -70,6 +70,14 @@ export default function Preview() {
   const startEdit = (output: Output) => {
     setEditingId(output.id);
     setEditingData({ title: output.title, body: stripDataUrlImages(output.body), tags: output.tags.join(', ') });
+  };
+
+  const handleCancelPublish = async () => {
+    try {
+      await chrome.runtime.sendMessage({ type: 'CANCEL_PUBLISH', payload: {} });
+    } catch { /* */ }
+    setExtPublishing(new Set());
+    setPublishing(new Set());
   };
 
   const cancelEdit = () => {
@@ -419,15 +427,23 @@ export default function Preview() {
                           {isPublishing ? '模拟中…' : '模拟发布'}
                         </button>
                         {extensionReady && (
-                          <button
-                            onClick={() => handleRealPublish(output)}
-                            disabled={isExtPublishing}
-                            className="text-[12px] flex items-center gap-1.5 px-4 py-2 rounded-[12px] text-white font-medium transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg"
-                            style={{ backgroundColor: platform.color }}
-                          >
-                            {isExtPublishing ? <Loader2 size={12} className="animate-spin" /> : <Zap size={12} />}
-                            {isExtPublishing ? '发布中…' : `发布到${platform.name}`}
-                          </button>
+                          isExtPublishing ? (
+                            <button
+                              onClick={handleCancelPublish}
+                              className="text-[12px] flex items-center gap-1.5 px-4 py-2 rounded-[12px] text-white font-medium bg-[var(--danger,#e5484d)]"
+                            >
+                              <X size={12} />取消
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleRealPublish(output)}
+                              className="text-[12px] flex items-center gap-1.5 px-4 py-2 rounded-[12px] text-white font-medium transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg"
+                              style={{ backgroundColor: platform.color }}
+                            >
+                              <Zap size={12} />
+                              发布到{platform.name}
+                            </button>
+                          )
                         )}
                       </>
                     )}

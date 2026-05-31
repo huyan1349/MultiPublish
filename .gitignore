@@ -22,3 +22,5 @@ extension/test-tmp-profile/
 extension/test/screenshots/
 handoffgo
 handoffgo.md
+.edge-debug/
+.edge-debug2/

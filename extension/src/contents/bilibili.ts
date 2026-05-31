@@ -13,8 +13,8 @@ const FILL_TIMEOUT = 40000;
 const PUBLISH_TIMEOUT = 60000;
 
 (async function init() {
-  const data = await chrome.storage.local.get('contentbridge_fill');
-  const fill = data.contentbridge_fill;
+  const data = await chrome.storage.local.get(`contentbridge_fill_${PLATFORM}`);
+  const fill = data[`contentbridge_fill_${PLATFORM}`];
   if (!fill || fill.platform !== PLATFORM) return;
 
   try {
@@ -25,7 +25,7 @@ const PUBLISH_TIMEOUT = 60000;
     if (!filled) {
       if (window.top !== window) return;
       dumpPageState();
-      await chrome.storage.local.remove('contentbridge_fill');
+      await chrome.storage.local.remove(`contentbridge_fill_${PLATFORM}`);
       await chrome.storage.local.set({
         contentbridge_result: { platform: PLATFORM, platformName: NAME, success: false, message: '未找到B站图文编辑器' },
       });
@@ -33,7 +33,7 @@ const PUBLISH_TIMEOUT = 60000;
       return;
     }
 
-    // ── 上传正文图片（GET_IMAGES，不删数据，多 frame 安全）──
+    // ── 上传正文图片（GET_IMAGES，串行可靠上传）──
     try {
       const resp = await chrome.runtime.sendMessage({ type: 'GET_IMAGES', payload: { platform: PLATFORM } });
       const allImages = (resp?.images || []) as { id: string; dataUrl: string; filename: string; mimeType: string }[];
@@ -46,15 +46,15 @@ const PUBLISH_TIMEOUT = 60000;
           console.log('[BILI-IMG] 上传:', img.id, img.dataUrl.length);
           const ok = await uploadBiliImage(img);
           console.log('[BILI-IMG] 结果:', ok ? 'OK' : 'FAIL');
-          if (ok) await sleep(1500);
+          if (ok) await sleep(800);
         }
-        await sleep(3000);
+        await sleep(1000);
       }
     } catch (e) { console.log('[BILI-IMG] err:', e); }
 
     console.log('[ContentBridge:Bilibili] 填充完成，开始自动发布');
     const published = await tryAutoPublish();
-    await chrome.storage.local.remove('contentbridge_fill');
+    await chrome.storage.local.remove(`contentbridge_fill_${PLATFORM}`);
     await chrome.storage.local.set({
       contentbridge_result: {
         platform: PLATFORM,
@@ -66,7 +66,7 @@ const PUBLISH_TIMEOUT = 60000;
     });
     showContentBridgeToast(published.message, published.success ? 'success' : 'error');
   } catch (err) {
-    await chrome.storage.local.remove('contentbridge_fill');
+    await chrome.storage.local.remove(`contentbridge_fill_${PLATFORM}`);
     const msg = err instanceof Error ? err.message : 'B站图文自动发布失败';
     await chrome.storage.local.set({
       contentbridge_result: { platform: PLATFORM, platformName: NAME, success: false, message: msg },
@@ -95,12 +95,28 @@ async function tryFill(title: string, body: string, tags: string[]): Promise<boo
 
   if (ed) {
     console.log('[ContentBridge:Bilibili] 正文编辑器最终匹配:', ed.tagName, (ed.className && typeof ed.className === 'string' ? ed.className : '').slice(0, 60));
+
+    // Verify the editor is actually ready (Quill may have failed to init due to CSP)
+    const isReady = await waitForEditorReady(ed, 8000);
+    if (!isReady) {
+      console.log('[ContentBridge:Bilibili] 编辑器可能未初始化（CSP 阻止？），尝试兜底方案');
+    }
+
     let cleanBody = stripAllImageRefs(body);
     let ok = await fillReactEditor(ed, cleanBody);
     console.log('[ContentBridge:Bilibili] React 直填结果:', ok);
     if (!ok) {
       ok = await fillTextTarget(ed, cleanBody);
       console.log('[ContentBridge:Bilibili] 标准填充兜底结果:', ok);
+    }
+
+    // If still blank, retry once after a delay (editor may have loaded late)
+    if (!ok) {
+      console.log('[ContentBridge:Bilibili] 首次填充失败，等待 3s 重试…');
+      await sleep(3000);
+      ok = await fillReactEditor(ed, cleanBody);
+      if (!ok) ok = await fillTextTarget(ed, cleanBody);
+      console.log('[ContentBridge:Bilibili] 重试结果:', ok);
     }
   } else {
     console.log('[ContentBridge:Bilibili] 所有兜底均未找到正文编辑器');
@@ -116,9 +132,10 @@ const PUBLISH_LABELS = ['发布', '立即发布', '发布文章', '发表', '投
 const CONFIRM_LABELS = ['确认', '确定', '确认发布', '提交', '知道了', '我知道了', '好的', '是', '立即发布', '发布'];
 
 async function tryAutoPublish(): Promise<{ success: boolean; message: string }> {
-  await sleep(2000);
+  // Wait for any pending image uploads to at least start
+  await sleep(500);
 
-  // 第一步：XPath 盲搜初始发布按钮（不依赖任何 class 名）
+  // 第一步：XPath 盲搜初始发布按钮
   const publishBtn = findButtonByXPath(PUBLISH_LABELS);
   if (!publishBtn) {
     console.log('[ContentBridge:Bilibili] 未找到发布按钮，dump 页面文本:');
@@ -129,52 +146,48 @@ async function tryAutoPublish(): Promise<{ success: boolean; message: string }> 
   console.log('[ContentBridge:Bilibili] 初始发布按钮:', btnLabel(publishBtn));
   forceClick(publishBtn);
 
-  // 第二步：MutationObserver 监听 + XPath 盲搜循环
+  // 第二步：快速轮询确认按钮
   let clickedElements = new Set<HTMLElement>([publishBtn]);
 
-  for (let round = 0; round < 15; round++) {
-    // 等 DOM 变化或超时
-    const changed = await waitForDomChange(2500);
-    await sleep(600);
+  for (let round = 0; round < 10; round++) {
+    const changed = await waitForDomChange(600);
+    await sleep(200);
 
     if (hasPublishSuccessSignal()) {
       return { success: true, message: 'B站图文已自动提交发布' };
     }
 
-    // XPath 盲搜确认按钮 — 不依赖 class，只按文本找
     const confirmBtn = findButtonByXPath(CONFIRM_LABELS);
     if (confirmBtn && !clickedElements.has(confirmBtn)) {
-      console.log('[ContentBridge:Bilibili] 第', round + 1, '轮 XPath 找到:', btnLabel(confirmBtn));
+      console.log('[ContentBridge:Bilibili] 第', round + 1, '轮:', btnLabel(confirmBtn));
       forceClick(confirmBtn);
       clickedElements.add(confirmBtn);
-      await sleep(1000);
+      await sleep(300);
       if (hasPublishSuccessSignal()) {
         return { success: true, message: 'B站图文已自动提交发布' };
       }
       continue;
     }
 
-    // 策略 B: 找 DOM 最后出现的匹配按钮（弹窗通常在最后）
     const lastMatch = findLastMatchingButton([...PUBLISH_LABELS, ...CONFIRM_LABELS]);
     if (lastMatch && !clickedElements.has(lastMatch)) {
       console.log('[ContentBridge:Bilibili] 第', round + 1, '轮 lastMatch:', btnLabel(lastMatch));
       forceClick(lastMatch);
       clickedElements.add(lastMatch);
-      await sleep(1000);
+      await sleep(300);
       if (hasPublishSuccessSignal()) {
         return { success: true, message: 'B站图文已自动提交发布' };
       }
       continue;
     }
 
-    // 策略 C: 找高 z-index 层中的按钮
     if (changed) {
       const overlayBtn = findButtonInTopLayer(CONFIRM_LABELS);
       if (overlayBtn && !clickedElements.has(overlayBtn)) {
         console.log('[ContentBridge:Bilibili] 第', round + 1, '轮 topLayer:', btnLabel(overlayBtn));
         forceClick(overlayBtn);
         clickedElements.add(overlayBtn);
-        await sleep(1000);
+        await sleep(300);
         if (hasPublishSuccessSignal()) {
           return { success: true, message: 'B站图文已自动提交发布' };
         }
@@ -182,14 +195,13 @@ async function tryAutoPublish(): Promise<{ success: boolean; message: string }> 
       }
     }
 
-    // 第5轮 dump 调试
     if (round === 4) {
       console.log('[ContentBridge:Bilibili] 第5轮 dump:');
       dumpAllTexts();
     }
   }
 
-  // 最终兜底：XPath 全量扫描 + 全点
+  // 最终兜底：XPath 全量扫描
   console.log('[ContentBridge:Bilibili] 兜底 XPath 全扫描');
   const allTargets = findAllByXPath([...PUBLISH_LABELS, ...CONFIRM_LABELS]);
   for (const target of allTargets) {
@@ -198,7 +210,7 @@ async function tryAutoPublish(): Promise<{ success: boolean; message: string }> 
     console.log('[ContentBridge:Bilibili] 兜底点击:', btnLabel(target));
     forceClick(target);
     clickedElements.add(target);
-    await sleep(1200);
+    await sleep(400);
   }
 
   return hasPublishSuccessSignal()
@@ -339,7 +351,11 @@ function findAnyElementByText(labels: string[], root: ParentNode = document): HT
 /* ── Click（多层穿透）── */
 
 function forceClick(el: HTMLElement) {
-  el.scrollIntoView({ block: 'center', inline: 'center' });
+  // Only scroll on first click; subsequent loop clicks skip scrolling
+  if (!(el as any).__biliClicked) {
+    el.scrollIntoView({ block: 'center', inline: 'center' });
+    (el as any).__biliClicked = true;
+  }
   el.focus();
   el.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
   el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
@@ -551,12 +567,36 @@ function firstVisible(selectors: string[]): HTMLElement | null {
   return null;
 }
 
+/**
+ * Wait for the editor to be truly ready — Quill may fail to init if B站's
+ * own scripts are blocked by CSP (eval). Check that the editor responds
+ * to focus and selection.
+ */
+async function waitForEditorReady(el: HTMLElement, timeout: number): Promise<boolean> {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    el.focus();
+    // Quill sets up its own selection system on focus
+    const sel = window.getSelection();
+    if (sel && el.contains(sel.anchorNode)) {
+      return true;
+    }
+    // If Quill's ql-editor has at least the Quill class, it's probably initialized
+    if (el.classList.contains('ql-editor') && el.getAttribute('contenteditable') === 'true') {
+      // Check if Quill's internal container is present
+      const qlContainer = el.closest('.ql-container');
+      if (qlContainer) return true;
+    }
+    await sleep(500);
+  }
+  return false;
+}
+
 /* ── Fill helpers ── */
 
 async function fillTextTarget(el: HTMLElement, text: string): Promise<boolean> {
-  el.scrollIntoView({ block: 'center', inline: 'center' });
   el.focus();
-  await sleep(200);
+  await sleep(100);
 
   if (el instanceof HTMLTextAreaElement || el instanceof HTMLInputElement) {
     setNativeValue(el, text);
@@ -580,8 +620,8 @@ async function fillTextTarget(el: HTMLElement, text: string): Promise<boolean> {
     if (after !== before && after.length > 10) return true;
   }
 
-  console.log('[ContentBridge:Bilibili] 填充策略: innerHTML 兜底');
-  el.innerHTML = text;
+  console.log('[ContentBridge:Bilibili] 填充策略: textContent 兜底');
+  el.textContent = text;
   el.dispatchEvent(new InputEvent('beforeinput', { bubbles: true, inputType: 'insertText', data: text }));
   el.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: text }));
   el.dispatchEvent(new Event('change', { bubbles: true }));
@@ -615,15 +655,14 @@ function selectAllContent(el: HTMLElement): boolean {
 }
 
 async function fillReactEditor(el: HTMLElement, text: string): Promise<boolean> {
-  // React 编辑器（如 Slate.js / ProseMirror / Quill）可能不响应 innerHTML 直接赋值
-  // 策略：通过 React fiber 找到 state updater 或直接触发原生输入事件序列
-  el.scrollIntoView({ block: 'center', inline: 'center' });
+  // React-wrapped Quill editor — use event-based filling, not Quill API directly
+  // (Quill API setContents conflicts with React state management — content gets wiped)
   el.focus();
   await sleep(200);
 
   const before = compactText(el.innerText || el.textContent || '');
 
-  // 策略 A: 选中全部 + execCommand（适用 contenteditable）
+  // Strategy A: 选中全部 + execCommand（适用 contenteditable）
   if (selectAllContent(el)) {
     document.execCommand('selectAll', false);
     document.execCommand('insertText', false, text);
@@ -635,8 +674,7 @@ async function fillReactEditor(el: HTMLElement, text: string): Promise<boolean> 
     }
   }
 
-  // 策略 B: 逐字符输入（模拟键盘，触发 React onChange）
-  // 先清空
+  // Strategy B: 分段 paste（模拟键盘输入，触发 React onChange）
   if (selectAllContent(el)) {
     document.execCommand('delete', false);
   }
@@ -644,16 +682,19 @@ async function fillReactEditor(el: HTMLElement, text: string): Promise<boolean> 
   el.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'deleteContent' }));
   await sleep(100);
 
-  // paste 整个 HTML 正文（body 已是 HTML，不经过 markdownToHtml）
-  const plainText = text.replace(/<[^>]*>/g, '').replace(/\n{2,}/g, '\n').trim();
-  const pasteData = new DataTransfer();
-  pasteData.setData('text/plain', plainText);
-  pasteData.setData('text/html', text);
-  el.dispatchEvent(new ClipboardEvent('paste', {
-    bubbles: true, cancelable: true, clipboardData: pasteData,
-  }));
+  // 逐段输入 — 每 200 字符一段，确保 Quill 能处理
+  const chunks = text.match(/.{1,200}/g) || [text];
+  for (const chunk of chunks) {
+    const data = new DataTransfer();
+    data.setData('text/plain', chunk);
+    data.setData('text/html', markdownToHtml(chunk));
+    el.dispatchEvent(new ClipboardEvent('paste', {
+      bubbles: true, cancelable: true, clipboardData: data,
+    }));
+    await sleep(50);
+  }
 
-  // 触发了 input 事件后等 React 更新
+  // 触发 input 事件后等 React 更新
   el.dispatchEvent(new Event('change', { bubbles: true }));
   el.dispatchEvent(new CompositionEvent('compositionend', { bubbles: true, data: text }));
   el.blur();
@@ -666,7 +707,7 @@ async function fillReactEditor(el: HTMLElement, text: string): Promise<boolean> 
     return true;
   }
 
-  // 策略 C: 直接设置 textContent + dispatch input
+  // Strategy C: 直接设置 textContent + dispatch input
   el.textContent = text;
   el.dispatchEvent(new InputEvent('beforeinput', { bubbles: true, inputType: 'insertText', data: text }));
   el.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: text }));
@@ -675,6 +716,108 @@ async function fillReactEditor(el: HTMLElement, text: string): Promise<boolean> 
 
   const after2 = compactText(el.innerText || el.textContent || '');
   return after2 !== before && after2.length > 10;
+}
+
+/**
+ * Fill the editor using Quill's native API.
+ * Quill stores its instance on the container element or a nearby DOM node.
+ * Using quill.clipboard.convert() + quill.setContents() preserves all
+ * formatting: headings, bold, italic, lists, blockquotes, links, images.
+ */
+async function fillViaQuillApi(el: HTMLElement, html: string): Promise<boolean> {
+  try {
+    // Quill attaches __quill to the editor's scroll container
+    // Look for it on the element itself, its parent, or the .ql-editor / .ql-container
+    const quill = findQuillInstance(el);
+    if (!quill) {
+      console.log('[ContentBridge:Bilibili] Quill 实例未找到，回退到 paste');
+      return false;
+    }
+
+    // Set editor to empty first
+    try { quill.setContents([]); } catch { /* */ }
+    await sleep(50);
+
+    // Convert HTML to Quill Delta (preserves formatting)
+    const delta = quill.clipboard.convert({ html });
+    quill.setContents(delta, 'api');
+
+    // Move cursor to end
+    quill.setSelection(quill.getLength(), 0);
+
+    // Force Quill to emit its change event (which React listens for)
+    quill.emitter.emit('text-change', delta, quill.getContents(), 'api');
+
+    await sleep(300);
+    const afterText = compactText(el.innerText || el.textContent || '');
+    if (afterText.length > 10) {
+      return true;
+    }
+
+    // Delta conversion might produce empty for some HTML — try with plain text
+    const plainText = toBilibiliPlainText(html);
+    if (plainText.length > 10) {
+      const textDelta = quill.clipboard.convert({ text: plainText });
+      quill.setContents(textDelta, 'api');
+      quill.setSelection(quill.getLength(), 0);
+      await sleep(200);
+      const after2 = compactText(el.innerText || el.textContent || '');
+      return after2.length > 10;
+    }
+
+    return false;
+  } catch (err) {
+    console.log('[ContentBridge:Bilibili] Quill API 异常:', err);
+    return false;
+  }
+}
+
+/**
+ * Find the Quill editor instance associated with a DOM element.
+ * Quill v1 stores instance on the `.ql-container` element as `__quill`.
+ * Also checks parent elements and global registries.
+ */
+function findQuillInstance(el: HTMLElement): any | null {
+  // Check the element itself
+  if ((el as any).__quill) return (el as any).__quill;
+
+  // Check parent chain for .ql-container or .ql-editor
+  let current: HTMLElement | null = el;
+  for (let i = 0; i < 10 && current; i++) {
+    if ((current as any).__quill) return (current as any).__quill;
+
+    // Quill container is typically the parent of .ql-editor
+    const container = current.querySelector?.('.ql-container') as HTMLElement | null;
+    if (container && (container as any).__quill) return (container as any).__quill;
+
+    current = current.parentElement;
+  }
+
+  // Search the whole document for Quill containers
+  const containers = document.querySelectorAll<HTMLElement>('.ql-container');
+  for (const c of containers) {
+    if ((c as any).__quill) return (c as any).__quill;
+  }
+
+  // Check React fiber for Quill reference
+  const fiberKey = Object.keys(el).find((k) => k.startsWith('__reactFiber'));
+  if (fiberKey) {
+    let fiber = (el as any)[fiberKey];
+    for (let d = 0; fiber && d < 20; d++) {
+      // React wrapper might hold a Quill ref
+      if (fiber.memoizedState?.current?.constructor?.name === 'Quill') {
+        return fiber.memoizedState.current;
+      }
+      const hooks = fiber.memoizedState;
+      if (hooks?.queue?.lastRenderedState?.current?.constructor?.name === 'Quill') {
+        return hooks.queue.lastRenderedState.current;
+      }
+      if (fiber.stateNode?.quill) return fiber.stateNode.quill;
+      fiber = fiber.return;
+    }
+  }
+
+  return null;
 }
 
 async function fillTags(tags: string[]): Promise<void> {
@@ -702,8 +845,8 @@ async function fillTags(tags: string[]): Promise<void> {
 function dispatchTextPaste(el: HTMLElement, text: string): boolean {
   try {
     const data = new DataTransfer();
-    data.setData('text/plain', text.replace(/<[^>]*>/g, ''));
-    data.setData('text/html', text);
+    data.setData('text/plain', text);
+    data.setData('text/html', markdownToHtml(text));
     return el.dispatchEvent(
       new ClipboardEvent('paste', { bubbles: true, cancelable: true, clipboardData: data }),
     );
@@ -774,6 +917,52 @@ function stripAllImageRefs(body: string): string {
     safety++;
   }
   return result;
+}
+
+function toBilibiliPlainText(value: string): string {
+  let text = stripAllImageRefs(value || '');
+  text = htmlToPlainText(text);
+  return text
+    .replace(/!\[[^\]]*]\([^)]+\)/g, '')
+    .replace(/\[([^\]]+)]\([^)]+\)/g, '$1')
+    .replace(/^#{1,6}\s*/gm, '')
+    .replace(/^\s*>\s?/gm, '')
+    .replace(/^\s*[-*+]\s+/gm, '')
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/__([^_]+)__/g, '$1')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/[*_~]+/g, '')
+    .replace(/ /g, ' ')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n[ \t]+/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+function htmlToPlainText(value: string): string {
+  if (!/<[a-z][\s\S]*>/i.test(value)) return decodeHtmlEntities(value);
+  const html = value
+    .replace(/<\s*br\s*\/?>/gi, '\n')
+    .replace(/<\s*\/\s*(p|div|h[1-6]|li|blockquote|section|article|tr)\s*>/gi, '\n')
+    .replace(/<\s*li\b[^>]*>/gi, '')
+    .replace(/<\s*img\b[^>]*>/gi, '')
+    .replace(/<[^>]+>/g, '');
+  return decodeHtmlEntities(html);
+}
+
+function decodeHtmlEntities(value: string): string {
+  const textarea = document.createElement('textarea');
+  textarea.innerHTML = value;
+  return textarea.value;
+}
+
+function plainTextToHtml(text: string): string {
+  return text
+    .split(/\n{2,}/)
+    .map((chunk) => chunk.trim())
+    .filter(Boolean)
+    .map((chunk) => `<p>${escapeHtml(chunk).replace(/\n/g, '<br>')}</p>`)
+    .join('');
 }
 
 function markdownToHtml(markdown: string): string {
@@ -914,6 +1103,8 @@ async function _clickToolbarCaptureInput(): Promise<HTMLInputElement | null> {
   });
   observer.observe(document.body, { childList: true, subtree: true });
 
+  // Hook: intercept click() on file inputs so B站's own code doesn't
+  // open a real file dialog. Instead we capture the input reference.
   const origClick = HTMLInputElement.prototype.click;
   HTMLInputElement.prototype.click = function (this: HTMLInputElement) {
     if (this.type === 'file') { capturedInput = this; return; }
@@ -924,7 +1115,7 @@ async function _clickToolbarCaptureInput(): Promise<HTMLInputElement | null> {
     const imgToolbar = document.querySelector('eva3-toolbar-image');
     if (imgToolbar) {
       forceClick(imgToolbar as HTMLElement);
-      await sleep(800);
+      await sleep(400);
       const allItems = _deepQuerySelectorAll(imgToolbar, '.item');
       const uploadItem = allItems.find(e => (e.textContent || '').trim() === '上传图片') || allItems[0];
       if (uploadItem) {
@@ -933,12 +1124,12 @@ async function _clickToolbarCaptureInput(): Promise<HTMLInputElement | null> {
         const icon = _deepQuerySelector(imgToolbar, 'eva3-icon');
         if (icon) forceClick(icon as HTMLElement);
       }
-      await sleep(800);
+      await sleep(400);
     }
 
     if (!capturedInput) {
       const quillBtn = document.querySelector('.ql-toolbar .ql-image, .ql-toolbar button.ql-image');
-      if (quillBtn) { forceClick(quillBtn as HTMLElement); await sleep(800); }
+      if (quillBtn) { forceClick(quillBtn as HTMLElement); await sleep(400); }
     }
 
     if (!capturedInput) {
@@ -950,7 +1141,7 @@ async function _clickToolbarCaptureInput(): Promise<HTMLInputElement | null> {
       });
       for (const btn of toolbarBtns) {
         forceClick(btn);
-        await sleep(800);
+        await sleep(400);
         if (capturedInput) break;
       }
     }

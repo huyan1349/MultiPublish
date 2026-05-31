@@ -21,10 +21,10 @@ const PLATFORM = 'zhihu';
 const NAME = '知乎';
 
 (async function init() {
-  const data = await chrome.storage.local.get('contentbridge_fill');
-  const fill = data.contentbridge_fill;
+  const data = await chrome.storage.local.get(`contentbridge_fill_${PLATFORM}`);
+  const fill = data[`contentbridge_fill_${PLATFORM}`];
   if (!fill || fill.platform !== PLATFORM) return;
-  await chrome.storage.local.remove('contentbridge_fill');
+  await chrome.storage.local.remove(`contentbridge_fill_${PLATFORM}`);
 
   const { title, body } = fill.content as { title: string; body: string };
 
@@ -43,7 +43,7 @@ const NAME = '知乎';
     // 0. 上传封面图（如果有）
     if (coverImage) {
       await uploadCoverImage(coverImage);
-      await sleep(3000); // 等上传服务端处理完
+      await sleep(1500); // 等上传服务端处理完
     }
 
     // 1. 找标题
@@ -78,20 +78,20 @@ const NAME = '知乎';
 
     if (!hasContent) return fail('正文为空且无图片');
 
-    // 5. 等图片上传服务端处理完，给 3s 缓冲
-    await sleep(3000);
+    // 5. 等图片上传服务端处理完
+    await sleep(1500);
     const publishBtn = await waitFor(findPublishButton, 15000);
     if (!publishBtn) return fail('未找到发布按钮');
     if (isDisabled(publishBtn)) return fail('发布按钮不可用 — 标题或正文为空');
 
     // 6. 点击发布 → 确认弹窗
     clickEl(publishBtn);
-    await sleep(1500);
-    for (let i = 0; i < 3; i++) {
+    await sleep(1000);
+    for (let i = 0; i < 4; i++) {
       const confirmBtn = findConfirmButton();
       if (!confirmBtn) break;
       clickEl(confirmBtn);
-      await sleep(1500);
+      await sleep(800);
     }
     done('知乎文章已自动提交发布');
   } catch (err) {
@@ -493,9 +493,27 @@ function setNativeValue(el: HTMLInputElement | HTMLTextAreaElement, value: strin
 
 function clickEl(el: HTMLElement) {
   el.scrollIntoView({ block: 'center', inline: 'center' });
+  // Full native event sequence
   el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
   el.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true }));
   el.click();
+  el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+
+  // React fiber fallback — walk up looking for onClick handler
+  const fiberKey = Object.keys(el).find((k) => k.startsWith('__reactFiber') || k.startsWith('__reactInternalInstance'));
+  if (fiberKey) {
+    let fiber = (el as any)[fiberKey];
+    for (let depth = 0; fiber && depth < 30; depth++) {
+      const props = fiber.memoizedProps || fiber.pendingProps || {};
+      const handlerNames = ['onClick', 'onMouseDown', 'onPointerDown', 'onPress'];
+      for (const name of handlerNames) {
+        if (typeof props[name] === 'function') {
+          try { props[name](new MouseEvent('click', { bubbles: true, cancelable: true })); return; } catch { /* */ }
+        }
+      }
+      fiber = fiber.return;
+    }
+  }
 }
 
 function selectAll(el: HTMLElement) {

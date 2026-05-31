@@ -1,44 +1,61 @@
 #!/bin/bash
 set -e
 
-ROOT="$(cd "$(dirname "$0")" && pwd)"
+cd "$(dirname "$0")"
+
+ROOT="$(pwd)"
 BACKEND="$ROOT/web/backend"
 FRONTEND="$ROOT/web/frontend"
+EXTENSION="$ROOT/extension"
 
-echo "===================================="
+echo "============================================"
 echo "  MultiPublish — 一键启动"
-echo "===================================="
+echo "============================================"
 echo ""
 
-# ── Backend ──
-echo "[1/5] 配置后端环境..."
+echo "[1/6] Installing backend dependencies..."
 cd "$BACKEND"
 test -f .env || cp .env.example .env
+npm install
 
-echo "[2/5] 安装后端依赖..."
-npm install --silent
+echo "[2/6] Initializing database..."
+npx prisma db push
 
-echo "[3/5] 初始化数据库..."
-npx prisma db push --accept-data-loss 2>/dev/null || npx prisma db push
-
-echo "[4/5] 安装前端依赖..."
+echo "[3/6] Installing frontend dependencies..."
 cd "$FRONTEND"
-npm install --silent
+npm install
 
-echo "[5/5] 启动服务..."
+echo "[4/6] Installing extension dependencies..."
+cd "$EXTENSION"
+pnpm install
+
+echo "[5/6] Building extension..."
+pnpm build
+
+echo "[6/6] Starting services..."
+echo ""
+
 cd "$BACKEND"
 npm run dev &
-sleep 2
+BACKEND_PID=$!
+
+sleep 3
 
 cd "$FRONTEND"
-npx vite --port 5173 &
-sleep 2
+npm run dev &
+FRONTEND_PID=$!
 
-echo ""
-echo "===================================="
-echo "  后端  http://localhost:4395"
-echo "  前端  http://localhost:5173"
-echo "===================================="
-
+sleep 3
 open http://localhost:5173
-wait
+
+echo "============================================"
+echo "  Backend  : http://localhost:4395"
+echo "  Frontend : http://localhost:5173"
+echo "  Extension: $EXTENSION/build/chrome-mv3-prod"
+echo "  Load in Chrome: chrome://extensions -> Developer mode -> Load unpacked"
+echo "============================================"
+echo ""
+echo "Press Ctrl+C to stop all services."
+echo ""
+
+wait $BACKEND_PID $FRONTEND_PID

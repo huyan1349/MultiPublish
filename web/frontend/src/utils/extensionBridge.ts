@@ -31,8 +31,10 @@ export interface ExtensionPublishResult {
   platform: string;
   platformName: string;
   success: boolean;
+  status?: 'success' | 'failed';
   message: string;
   error?: string;
+  mockUrl?: string;
 }
 
 interface ChromeRuntime {
@@ -42,6 +44,26 @@ interface ChromeRuntime {
 
 interface ChromeNs {
   runtime?: ChromeRuntime;
+}
+
+type RawExtensionPublishResult = Partial<ExtensionPublishResult> & {
+  status?: 'success' | 'failed';
+};
+
+function normalizePublishResult(response: RawExtensionPublishResult): ExtensionPublishResult {
+  const success = typeof response.success === 'boolean'
+    ? response.success
+    : response.status === 'success';
+
+  return {
+    platform: response.platform || '',
+    platformName: response.platformName || response.platform || '',
+    success,
+    status: response.status || (success ? 'success' : 'failed'),
+    message: response.message || response.error || (success ? '发布成功' : '发布失败'),
+    error: response.error,
+    mockUrl: response.mockUrl,
+  };
 }
 
 function getChrome(): ChromeNs | null {
@@ -79,7 +101,7 @@ async function publishViaExtensionMessage(
       cr.runtime.sendMessage(
         extId,
         { type: 'PUBLISH_TO_PLATFORM', ...payload },
-        (response: ExtensionPublishResult) => {
+        (response: RawExtensionPublishResult) => {
           if (cr.runtime?.lastError) {
             reject(new Error(`扩展通信失败: ${cr.runtime.lastError.message}`));
             return;
@@ -88,7 +110,7 @@ async function publishViaExtensionMessage(
             reject(new Error('扩展未响应，可能已休眠，请刷新页面后重试'));
             return;
           }
-          resolve(response);
+          resolve(normalizePublishResult(response));
         },
       );
     } catch {

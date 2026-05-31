@@ -10,8 +10,9 @@ echo.
 set "ROOT=%~dp0"
 set "BACKEND=%ROOT%web\backend"
 set "FRONTEND=%ROOT%web\frontend"
+set "EXTENSION=%ROOT%extension"
 
-echo [1/4] Installing backend dependencies...
+echo [1/6] Installing backend dependencies...
 cd /d "%BACKEND%"
 if not exist ".env" copy ".env.example" ".env" >nul
 call npm install
@@ -21,7 +22,7 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-echo [2/4] Initializing database...
+echo [2/6] Initializing database...
 call npx prisma db push
 if %errorlevel% neq 0 (
     echo [ERROR] Prisma db push failed
@@ -29,7 +30,7 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-echo [3/4] Installing frontend dependencies...
+echo [3/6] Installing frontend dependencies...
 cd /d "%FRONTEND%"
 call npm install
 if %errorlevel% neq 0 (
@@ -38,7 +39,24 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-echo [4/4] Starting services...
+echo [4/6] Installing extension dependencies...
+cd /d "%EXTENSION%"
+call pnpm install
+if %errorlevel% neq 0 (
+    echo [ERROR] Extension pnpm install failed
+    pause
+    exit /b 1
+)
+
+echo [5/6] Building extension...
+call pnpm build
+if %errorlevel% neq 0 (
+    echo [ERROR] Extension pnpm build failed
+    pause
+    exit /b 1
+)
+
+echo [6/6] Starting services...
 echo.
 
 start "MultiPublish-Backend-4395" cmd /k "cd /d "%BACKEND%" && title Backend :4395 && echo Backend starting... http://localhost:4395 && echo. && npm run dev"
@@ -51,8 +69,10 @@ timeout /t 3 /nobreak >nul
 start http://localhost:5173
 
 echo ============================================
-echo   Backend : http://localhost:4395
-echo   Frontend: http://localhost:5173
+echo   Backend  : http://localhost:4395
+echo   Frontend : http://localhost:5173
+echo   Extension: %EXTENSION%\build\chrome-mv3-prod
+echo   Load in Chrome: chrome://extensions -^> Developer mode -^> Load unpacked
 echo ============================================
 echo.
 echo Services started in separate windows.

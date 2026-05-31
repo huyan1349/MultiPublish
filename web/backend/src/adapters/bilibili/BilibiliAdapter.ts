@@ -3,31 +3,38 @@ import type { PlatformAdapter, StandardContent, PlatformOutputDraft, ValidationR
 const LIMITS = { maxTitle: 80, maxDesc: 2000, maxTags: 8 };
 
 function makeVideoTitle(title: string): string {
-  const hooks = ['【干货】', '【教程】', '【揭秘】', '【实战】', ''];
-  const h = hooks[Math.floor(Math.random() * hooks.length)];
-  return `${h}${title}`.substring(0, LIMITS.maxTitle);
+  return title.trim().substring(0, LIMITS.maxTitle);
+}
+
+function cleanInlineText(value = ''): string {
+  return value
+    .replace(/!\[[^\]]*]\([^)]+\)/g, '')
+    .replace(/\[([^\]]+)]\([^)]+\)/g, '$1')
+    .replace(/[*_`~#>]+/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function buildDescription(blocks: StandardContent['blocks']): string {
-  const lines = blocks.map((b) => {
+  const lines = blocks.flatMap((b) => {
     switch (b.type) {
-      case 'heading': return `【${b.text}】`;
-      case 'paragraph': return (b.text || '').substring(0, 200);
-      case 'list': return (b.items || []).map((item) => `• ${item}`).join('\n');
-      case 'quote': return `「${(b.text || '').substring(0, 100)}」`;
+      case 'heading': return cleanInlineText(b.text);
+      case 'paragraph': return cleanInlineText(b.text).substring(0, 200);
+      case 'list': return (b.items || []).map((item, index) => `${index + 1}. ${cleanInlineText(item)}`);
+      case 'quote': return cleanInlineText(b.text).substring(0, 100);
       default: return '';
     }
   }).filter(Boolean);
-  return lines.join('\n').substring(0, LIMITS.maxDesc);
+  return lines.join('\n\n').substring(0, LIMITS.maxDesc);
 }
 
 function buildTimeline(blocks: StandardContent['blocks']): string {
   let minute = 0;
-  const items: string[] = ['## 视频时间轴\n'];
+  const items: string[] = ['视频时间轴'];
   for (const b of blocks) {
     const mm = String(minute).padStart(2, '0');
-    const label = b.type === 'heading' ? b.text : (b.text || '').substring(0, 30);
-    items.push(`- ${mm}:00  ${label}`);
+    const label = cleanInlineText(b.type === 'heading' ? b.text : (b.text || '').substring(0, 30));
+    if (label) items.push(`${mm}:00 ${label}`);
     minute += b.type === 'heading' ? 1 : b.type === 'paragraph' ? 2 : 1;
   }
   return items.join('\n');
