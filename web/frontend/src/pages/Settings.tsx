@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Trash2, Check, AlertCircle, Zap, ExternalLink } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Trash2, Check, AlertCircle, Zap, ExternalLink, ArrowRight } from 'lucide-react';
 import { useContentStore } from '../stores/contentStore';
 import { setExtensionId, getExtensionId, isExtensionInstalled } from '../utils/extensionBridge';
 
@@ -13,6 +14,7 @@ const CHANGELOG = [
 
 export default function Settings() {
   const { resetDraft, saveToStorage } = useContentStore();
+  const navigate = useNavigate();
   const [toast, setToast] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
   const [extIdInput, setExtIdInput] = useState(getExtensionId());
   const [extConnected, setExtConnected] = useState(isExtensionInstalled());
@@ -116,6 +118,14 @@ export default function Settings() {
                     </div>
                   </details>
                 </div>
+
+                <button
+                  onClick={() => navigate('/welcome')}
+                  className="mt-4 w-full flex items-center justify-center gap-2 rounded-[18px] border border-[var(--accent)]/20 bg-[var(--accent)]/5 px-4 py-3 text-[13px] text-[var(--accent-deep)] hover:bg-[var(--accent)]/10 transition-all duration-200"
+                >
+                  重新访问引导界面
+                  <ArrowRight size={13} />
+                </button>
               </div>
             </div>
 
