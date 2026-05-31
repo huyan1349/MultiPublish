@@ -17,12 +17,12 @@ import type { PlatformType } from '../adapters/types';
 
 const allPlatforms: PlatformType[] = ['wechat', 'zhihu', 'bilibili', 'xiaohongshu', 'weibo'];
 
-const PLATFORM_BRAND: Record<string, { color: string; soft: string; deep: string }> = {
-  wechat: { color: 'var(--platform-wechat)', soft: 'var(--platform-wechat-soft)', deep: 'var(--platform-wechat-deep)' },
-  zhihu: { color: 'var(--platform-zhihu)', soft: 'var(--platform-zhihu-soft)', deep: 'var(--platform-zhihu-deep)' },
-  bilibili: { color: 'var(--platform-bilibili)', soft: 'var(--platform-bilibili-soft)', deep: 'var(--platform-bilibili-deep)' },
-  xiaohongshu: { color: 'var(--platform-xiaohongshu)', soft: 'var(--platform-xiaohongshu-soft)', deep: 'var(--platform-xiaohongshu-deep)' },
-  weibo: { color: 'var(--platform-weibo)', soft: 'var(--platform-weibo-soft)', deep: 'var(--platform-weibo-deep)' },
+const PLATFORM_BRAND: Record<string, { color: string; hex: string; soft: string; deep: string }> = {
+  wechat: { color: 'var(--platform-wechat)', hex: '#07C160', soft: 'var(--platform-wechat-soft)', deep: 'var(--platform-wechat-deep)' },
+  zhihu: { color: 'var(--platform-zhihu)', hex: '#0066FF', soft: 'var(--platform-zhihu-soft)', deep: 'var(--platform-zhihu-deep)' },
+  bilibili: { color: 'var(--platform-bilibili)', hex: '#FB7299', soft: 'var(--platform-bilibili-soft)', deep: 'var(--platform-bilibili-deep)' },
+  xiaohongshu: { color: 'var(--platform-xiaohongshu)', hex: '#FF2442', soft: 'var(--platform-xiaohongshu-soft)', deep: 'var(--platform-xiaohongshu-deep)' },
+  weibo: { color: 'var(--platform-weibo)', hex: '#E6162D', soft: 'var(--platform-weibo-soft)', deep: 'var(--platform-weibo-deep)' },
 };
 
 const PLATFORM_NAMES: Record<PlatformType, string> = {
@@ -707,7 +707,7 @@ export default function Editor() {
                           ? 'text-white shadow-[0_4px_12px_rgba(0,0,0,0.12)]'
                           : 'text-[var(--ink-soft)] hover:text-[var(--ink)] hover:bg-[rgba(0,0,0,0.03)]'
                       }`}
-                      style={activePlatform === p ? { backgroundColor: PLATFORM_BRAND[p]?.color } : undefined}
+                      style={activePlatform === p ? { backgroundColor: PLATFORM_BRAND[p]?.hex } : undefined}
                     >
                       {PLATFORM_NAMES[p]}
                       {generatedContents[p] && (
@@ -737,7 +737,7 @@ export default function Editor() {
                           ? 'text-white shadow-[0_4px_16px_rgba(0,0,0,0.15)]'
                           : 'border border-[rgba(49,56,45,0.16)] bg-white hover:border-[rgba(49,56,45,0.3)] hover:bg-[rgba(255,255,255,0.95)] hover:-translate-y-0.5'
                       }`}
-                      style={selectedFormat === fmt.id ? { backgroundColor: PLATFORM_BRAND[activePlatform]?.color } : undefined}
+                      style={selectedFormat === fmt.id ? { backgroundColor: PLATFORM_BRAND[activePlatform]?.hex } : undefined}
                     >
                       <fmt.icon size={13} />
                       <div>
@@ -761,10 +761,10 @@ export default function Editor() {
                       ${generating ? 'opacity-70' : 'hover:-translate-y-0.5'}`}
                     style={{
                       background: selectedFormat
-                        ? `linear-gradient(135deg, ${PLATFORM_BRAND[activePlatform]?.color}, ${PLATFORM_BRAND[activePlatform]?.color}dd)`
+                        ? `linear-gradient(135deg, ${PLATFORM_BRAND[activePlatform]?.hex}, ${PLATFORM_BRAND[activePlatform]?.hex}dd)`
                         : 'var(--ink-faint)',
-                      ['--glow-shadow' as string]: selectedFormat ? `0 8px 24px ${PLATFORM_BRAND[activePlatform]?.color}40` : 'none',
-                      ['--glow-shadow-strong' as string]: selectedFormat ? `0 8px 36px ${PLATFORM_BRAND[activePlatform]?.color}60, 0 0 60px ${PLATFORM_BRAND[activePlatform]?.color}20` : 'none',
+                      ['--glow-shadow' as string]: selectedFormat ? `0 8px 24px ${PLATFORM_BRAND[activePlatform]?.hex}40` : 'none',
+                      ['--glow-shadow-strong' as string]: selectedFormat ? `0 8px 36px ${PLATFORM_BRAND[activePlatform]?.hex}60, 0 0 60px ${PLATFORM_BRAND[activePlatform]?.hex}20` : 'none',
                     }}
                   >
                     {generating ? (
@@ -829,20 +829,20 @@ export default function Editor() {
                         </span>
                         <span className="ai-cursor text-[15px]" />
                       </div>
-                      <div className="shimmer-bar h-5 w-3/4" style={{ '--shimmer-from': `${PLATFORM_BRAND[activePlatform]?.soft}`, '--shimmer-via': `${PLATFORM_BRAND[activePlatform]?.color}20`, '--shimmer-to': `${PLATFORM_BRAND[activePlatform]?.soft}` } as React.CSSProperties} />
-                      <div className="shimmer-bar h-5 w-full" style={{ '--shimmer-from': `${PLATFORM_BRAND[activePlatform]?.soft}`, '--shimmer-via': `${PLATFORM_BRAND[activePlatform]?.color}20`, '--shimmer-to': `${PLATFORM_BRAND[activePlatform]?.soft}` } as React.CSSProperties} />
-                      <div className="shimmer-bar h-5 w-2/3" style={{ '--shimmer-from': `${PLATFORM_BRAND[activePlatform]?.soft}`, '--shimmer-via': `${PLATFORM_BRAND[activePlatform]?.color}20`, '--shimmer-to': `${PLATFORM_BRAND[activePlatform]?.soft}` } as React.CSSProperties} />
-                      <div className="shimmer-bar h-5 w-5/6" style={{ '--shimmer-from': `${PLATFORM_BRAND[activePlatform]?.soft}`, '--shimmer-via': `${PLATFORM_BRAND[activePlatform]?.color}20`, '--shimmer-to': `${PLATFORM_BRAND[activePlatform]?.soft}` } as React.CSSProperties} />
-                      <div className="shimmer-bar h-5 w-1/2" style={{ '--shimmer-from': `${PLATFORM_BRAND[activePlatform]?.soft}`, '--shimmer-via': `${PLATFORM_BRAND[activePlatform]?.color}20`, '--shimmer-to': `${PLATFORM_BRAND[activePlatform]?.soft}` } as React.CSSProperties} />
-                      <div className="shimmer-bar h-5 w-3/4 mt-8" style={{ '--shimmer-from': `${PLATFORM_BRAND[activePlatform]?.soft}`, '--shimmer-via': `${PLATFORM_BRAND[activePlatform]?.color}20`, '--shimmer-to': `${PLATFORM_BRAND[activePlatform]?.soft}` } as React.CSSProperties} />
-                      <div className="shimmer-bar h-5 w-full" style={{ '--shimmer-from': `${PLATFORM_BRAND[activePlatform]?.soft}`, '--shimmer-via': `${PLATFORM_BRAND[activePlatform]?.color}20`, '--shimmer-to': `${PLATFORM_BRAND[activePlatform]?.soft}` } as React.CSSProperties} />
+                      <div className="shimmer-bar h-5 w-3/4" style={{ '--shimmer-from': `${PLATFORM_BRAND[activePlatform]?.soft}`, '--shimmer-via': `${PLATFORM_BRAND[activePlatform]?.hex}20`, '--shimmer-to': `${PLATFORM_BRAND[activePlatform]?.soft}` } as React.CSSProperties} />
+                      <div className="shimmer-bar h-5 w-full" style={{ '--shimmer-from': `${PLATFORM_BRAND[activePlatform]?.soft}`, '--shimmer-via': `${PLATFORM_BRAND[activePlatform]?.hex}20`, '--shimmer-to': `${PLATFORM_BRAND[activePlatform]?.soft}` } as React.CSSProperties} />
+                      <div className="shimmer-bar h-5 w-2/3" style={{ '--shimmer-from': `${PLATFORM_BRAND[activePlatform]?.soft}`, '--shimmer-via': `${PLATFORM_BRAND[activePlatform]?.hex}20`, '--shimmer-to': `${PLATFORM_BRAND[activePlatform]?.soft}` } as React.CSSProperties} />
+                      <div className="shimmer-bar h-5 w-5/6" style={{ '--shimmer-from': `${PLATFORM_BRAND[activePlatform]?.soft}`, '--shimmer-via': `${PLATFORM_BRAND[activePlatform]?.hex}20`, '--shimmer-to': `${PLATFORM_BRAND[activePlatform]?.soft}` } as React.CSSProperties} />
+                      <div className="shimmer-bar h-5 w-1/2" style={{ '--shimmer-from': `${PLATFORM_BRAND[activePlatform]?.soft}`, '--shimmer-via': `${PLATFORM_BRAND[activePlatform]?.hex}20`, '--shimmer-to': `${PLATFORM_BRAND[activePlatform]?.soft}` } as React.CSSProperties} />
+                      <div className="shimmer-bar h-5 w-3/4 mt-8" style={{ '--shimmer-from': `${PLATFORM_BRAND[activePlatform]?.soft}`, '--shimmer-via': `${PLATFORM_BRAND[activePlatform]?.hex}20`, '--shimmer-to': `${PLATFORM_BRAND[activePlatform]?.soft}` } as React.CSSProperties} />
+                      <div className="shimmer-bar h-5 w-full" style={{ '--shimmer-from': `${PLATFORM_BRAND[activePlatform]?.soft}`, '--shimmer-via': `${PLATFORM_BRAND[activePlatform]?.hex}20`, '--shimmer-to': `${PLATFORM_BRAND[activePlatform]?.soft}` } as React.CSSProperties} />
                     </div>
                   )}
 
                   {/* Streaming blur-reveal content */}
                   {streamingHtml && !streamingDone && (
                     <div className="relative">
-                      <div className="flex items-center gap-2 mb-4 pb-3" style={{ borderBottom: `1px solid ${PLATFORM_BRAND[activePlatform]?.color}18` }}>
+                      <div className="flex items-center gap-2 mb-4 pb-3" style={{ borderBottom: `1px solid ${PLATFORM_BRAND[activePlatform]?.hex}18` }}>
                         <Sparkles size={12} style={{ color: PLATFORM_BRAND[activePlatform]?.color }} />
                         <span className="text-[12px] font-medium" style={{ color: PLATFORM_BRAND[activePlatform]?.color }}>
                           AI 正在写入…
@@ -869,7 +869,7 @@ export default function Editor() {
                   {streamingDone && (
                     <div
                       className="rounded-[18px] border py-5 px-5 text-center"
-                      style={{ borderColor: `${PLATFORM_BRAND[activePlatform]?.color}20`, backgroundColor: `${PLATFORM_BRAND[activePlatform]?.soft}` }}
+                      style={{ borderColor: `${PLATFORM_BRAND[activePlatform]?.hex}20`, backgroundColor: `${PLATFORM_BRAND[activePlatform]?.soft}` }}
                     >
                       <Sparkles size={18} className="mx-auto mb-2" style={{ color: PLATFORM_BRAND[activePlatform]?.color }} />
                       <span className="text-[13px] font-medium" style={{ color: PLATFORM_BRAND[activePlatform]?.deep }}>
