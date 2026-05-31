@@ -121,7 +121,7 @@ cp web/backend/.env.example web/backend/.env
 
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
-| `DEEPSEEK_API_KEY` | — | DeepSeek API Key。前端 AI 请求通过后端代理转发，key 只存在服务端，不暴露到浏览器。不配置则 AI 功能不可用 |
+| `DEEPSEEK_API_KEY` | — | DeepSeek API Key。前端 AI 请求通过后端代理转发，key 只存在服务端。`.env.example` 内置了比赛演示用的临时 key（有用量限制），正式使用请替换为自己的 key |
 
 ### 方式一：一键启动
 
