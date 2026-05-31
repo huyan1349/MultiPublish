@@ -30,13 +30,13 @@ export default function Layout({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex h-screen overflow-hidden bg-gradient-to-br from-[#fafaf7] via-[#f7f8f4] to-[#fafaf8]">
-      {/* Screen mockup area */}
-      <div className="flex flex-col items-center justify-center shrink-0" style={{ width: '52vw' }}>
+      {/* Screen mockup — most of the space */}
+      <div className="flex flex-col items-center justify-center shrink-0" style={{ width: '64vw' }}>
         <div className="relative flex flex-col items-center">
           {/* Monitor */}
           <div
-            className="relative rounded-[14px] overflow-hidden border-[7px] border-[#2c2c2a] bg-[var(--paper-bg)] shadow-[0_24px_64px_rgba(40,46,38,0.1),0_4px_16px_rgba(40,46,38,0.06)]"
-            style={{ width: '46vw', aspectRatio: '16/10' }}
+            className="relative flex flex-col rounded-[14px] overflow-hidden border-[7px] border-[#2c2c2a] bg-[var(--paper-bg)] shadow-[0_24px_64px_rgba(40,46,38,0.1),0_4px_16px_rgba(40,46,38,0.06)]"
+            style={{ width: '56vw', aspectRatio: '16/10' }}
           >
             {/* Screen glare */}
             <div className="pointer-events-none absolute inset-0 z-50 bg-gradient-to-br from-white/6 via-transparent to-transparent rounded-[7px]" />
@@ -53,7 +53,7 @@ export default function Layout({ children }: { children: ReactNode }) {
               </div>
             </div>
 
-            {/* App */}
+            {/* App — flex-1 requires parent flex-col, now it works */}
             <AppShell>{children}</AppShell>
           </div>
 
@@ -63,7 +63,7 @@ export default function Layout({ children }: { children: ReactNode }) {
         </div>
       </div>
 
-      {/* Right: commentary — no border, part of the poster */}
+      {/* Right: subtle commentary */}
       <div className="flex-1 flex items-center min-w-0">
         <DemoPoster onClose={toggle} />
       </div>
