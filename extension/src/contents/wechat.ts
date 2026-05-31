@@ -70,8 +70,8 @@ async function waitForMeta(): Promise<WxMeta | null> {
   }
 
   // ── Phase 1a: Draft creation from contentbridge_fill ──
-  const data = await chrome.storage.local.get('contentbridge_fill');
-  const fill = data.contentbridge_fill;
+  const data = await chrome.storage.local.get(`contentbridge_fill_${PLATFORM}`);
+  const fill = data[`contentbridge_fill_${PLATFORM}`];
   if (!fill || fill.platform !== PLATFORM) return;
 
   if (window.self !== window.top) return;
@@ -84,7 +84,7 @@ async function waitForMeta(): Promise<WxMeta | null> {
     const meta = await waitForMeta();
     if (!meta) return fail('等待登录超时（2分钟），请重新点击发布');
 
-    await chrome.storage.local.remove('contentbridge_fill');
+    await chrome.storage.local.remove(`contentbridge_fill_${PLATFORM}`);
 
     showContentBridgeToast('✅ 已登录，正在创建草稿…', 'success');
 
@@ -107,7 +107,7 @@ async function waitForMeta(): Promise<WxMeta | null> {
     window.open(draftLink, '_blank');
     showContentBridgeToast(`草稿已创建${bodyImages.length > 0 ? `，即将上传 ${bodyImages.length} 张图片` : ''}…`, 'info');
   } catch (err) {
-    await chrome.storage.local.remove('contentbridge_fill');
+    await chrome.storage.local.remove(`contentbridge_fill_${PLATFORM}`);
     fail(err instanceof Error ? err.message : '公众号发布失败');
   }
 })();

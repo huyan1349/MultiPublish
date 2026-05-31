@@ -21,8 +21,8 @@ const LOGIN_INDICATORS = [
 ];
 
 (async function init() {
-  const data = await chrome.storage.local.get('contentbridge_fill');
-  const fill = data.contentbridge_fill;
+  const data = await chrome.storage.local.get(`contentbridge_fill_${PLATFORM}`);
+  const fill = data[`contentbridge_fill_${PLATFORM}`];
   if (!fill || fill.platform !== PLATFORM) return;
 
   try {
@@ -31,7 +31,7 @@ const LOGIN_INDICATORS = [
       return;
     }
 
-    await chrome.storage.local.remove('contentbridge_fill');
+    await chrome.storage.local.remove(`contentbridge_fill_${PLATFORM}`);
 
     const { title, body, tags } = fill.content as { title: string; body: string; tags: string[] };
     const plainText = htmlToPlainText(body);

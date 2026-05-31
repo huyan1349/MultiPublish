@@ -13,8 +13,8 @@ const FILL_TIMEOUT = 40000;
 const PUBLISH_TIMEOUT = 60000;
 
 (async function init() {
-  const data = await chrome.storage.local.get('contentbridge_fill');
-  const fill = data.contentbridge_fill;
+  const data = await chrome.storage.local.get(`contentbridge_fill_${PLATFORM}`);
+  const fill = data[`contentbridge_fill_${PLATFORM}`];
   if (!fill || fill.platform !== PLATFORM) return;
 
   try {
@@ -25,7 +25,7 @@ const PUBLISH_TIMEOUT = 60000;
     if (!filled) {
       if (window.top !== window) return;
       dumpPageState();
-      await chrome.storage.local.remove('contentbridge_fill');
+      await chrome.storage.local.remove(`contentbridge_fill_${PLATFORM}`);
       await chrome.storage.local.set({
         contentbridge_result: { platform: PLATFORM, platformName: NAME, success: false, message: '未找到B站图文编辑器' },
       });
@@ -54,7 +54,7 @@ const PUBLISH_TIMEOUT = 60000;
 
     console.log('[ContentBridge:Bilibili] 填充完成，开始自动发布');
     const published = await tryAutoPublish();
-    await chrome.storage.local.remove('contentbridge_fill');
+    await chrome.storage.local.remove(`contentbridge_fill_${PLATFORM}`);
     await chrome.storage.local.set({
       contentbridge_result: {
         platform: PLATFORM,
@@ -66,7 +66,7 @@ const PUBLISH_TIMEOUT = 60000;
     });
     showContentBridgeToast(published.message, published.success ? 'success' : 'error');
   } catch (err) {
-    await chrome.storage.local.remove('contentbridge_fill');
+    await chrome.storage.local.remove(`contentbridge_fill_${PLATFORM}`);
     const msg = err instanceof Error ? err.message : 'B站图文自动发布失败';
     await chrome.storage.local.set({
       contentbridge_result: { platform: PLATFORM, platformName: NAME, success: false, message: msg },

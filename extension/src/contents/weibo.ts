@@ -12,8 +12,8 @@ const NAME = '微博';
 const FILL_TIMEOUT = 40000;
 
 (async function init() {
-  const data = await chrome.storage.local.get('contentbridge_fill');
-  const fill = data.contentbridge_fill;
+  const data = await chrome.storage.local.get(`contentbridge_fill_${PLATFORM}`);
+  const fill = data[`contentbridge_fill_${PLATFORM}`];
   if (!fill || fill.platform !== PLATFORM) return;
 
   try {
@@ -25,7 +25,7 @@ const FILL_TIMEOUT = 40000;
     if (!editor) {
       if (window.top !== window) return;
       dumpPageState();
-      await chrome.storage.local.remove('contentbridge_fill');
+      await chrome.storage.local.remove(`contentbridge_fill_${PLATFORM}`);
       await chrome.storage.local.set({
         contentbridge_result: { platform: PLATFORM, platformName: NAME, success: false, message: '未找到微博发布编辑器' },
       });
@@ -70,7 +70,7 @@ const FILL_TIMEOUT = 40000;
     // Step 4: auto publish
     console.log('[WB] 开始自动发布');
     const published = await tryAutoPublish();
-    await chrome.storage.local.remove('contentbridge_fill');
+    await chrome.storage.local.remove(`contentbridge_fill_${PLATFORM}`);
     await chrome.storage.local.set({
       contentbridge_result: {
         platform: PLATFORM, platformName: NAME,
@@ -80,7 +80,7 @@ const FILL_TIMEOUT = 40000;
     });
     showContentBridgeToast(published.message, published.success ? 'success' : 'error');
   } catch (err) {
-    await chrome.storage.local.remove('contentbridge_fill');
+    await chrome.storage.local.remove(`contentbridge_fill_${PLATFORM}`);
     const msg = err instanceof Error ? err.message : '微博自动发布失败';
     await chrome.storage.local.set({
       contentbridge_result: { platform: PLATFORM, platformName: NAME, success: false, message: msg },

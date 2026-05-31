@@ -21,10 +21,10 @@ const PLATFORM = 'zhihu';
 const NAME = '知乎';
 
 (async function init() {
-  const data = await chrome.storage.local.get('contentbridge_fill');
-  const fill = data.contentbridge_fill;
+  const data = await chrome.storage.local.get(`contentbridge_fill_${PLATFORM}`);
+  const fill = data[`contentbridge_fill_${PLATFORM}`];
   if (!fill || fill.platform !== PLATFORM) return;
-  await chrome.storage.local.remove('contentbridge_fill');
+  await chrome.storage.local.remove(`contentbridge_fill_${PLATFORM}`);
 
   const { title, body } = fill.content as { title: string; body: string };
 

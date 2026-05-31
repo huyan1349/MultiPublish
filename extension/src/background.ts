@@ -99,7 +99,7 @@ async function handlePublish(payload: PublishPayload): Promise<PublishResult> {
     cleanContent.body = stripDataUrlFromBody(cleanContent.body);
 
     await chrome.storage.local.set({
-      contentbridge_fill: { platform, content: cleanContent, autoLayout: payload.autoLayout, timestamp: Date.now() },
+      [`contentbridge_fill_${platform}`]: { platform, content: cleanContent, autoLayout: payload.autoLayout, timestamp: Date.now() },
     });
 
     const domain = PLATFORM_DOMAINS[platform];
@@ -144,7 +144,7 @@ async function handleCancelPublish(platform?: PlatformType): Promise<void> {
 
   for (const p of platformsToCancel) {
     // Clear fill data so content scripts stop
-    await chrome.storage.local.remove('contentbridge_fill');
+    await chrome.storage.local.remove(`contentbridge_fill_${p}`);
     // Clear wechat-specific keys too
     await chrome.storage.local.remove('contentbridge_wechat_editor');
     await chrome.storage.local.remove('contentbridge_wechat_autopublish');
