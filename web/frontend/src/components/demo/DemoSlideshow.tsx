@@ -1,52 +1,76 @@
 import { useState, useEffect, useCallback } from 'react';
-import { ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X, Presentation } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import BrandMark from '../brand/BrandMark';
 
 interface Slide {
-  tag: string;
+  label: string;
   title: string;
   subtitle: string;
-  detail: string;
+  points: string[];
 }
 
 const slides: Slide[] = [
   {
-    tag: '产品概述',
-    title: 'MultiPublish',
-    subtitle: '一次创作，多端真实分发',
-    detail: '面向创作者的多平台内容发布工具。Markdown 编写，AI 适配格式，扩展真实注入发布。',
+    label: '产品定位',
+    title: '一次创作',
+    subtitle: '多端真实分发',
+    points: [
+      'Markdown 统一编写，告别多平台重复排版',
+      'AI 自动适配各平台风格与格式规范',
+      '浏览器扩展真实操作 DOM，不模拟不造假',
+      '覆盖公众号、知乎、B站、小红书、微博五大平台',
+    ],
   },
   {
-    tag: '编辑台 · 大纲',
-    title: 'AI 大纲引擎',
-    subtitle: '输入话题，秒级生成结构化大纲',
-    detail: '支持关键要点拆解、风格偏好配置、多平台视角建议。先搭骨架，再长血肉。',
+    label: '编辑台 · 大纲',
+    title: '输入话题',
+    subtitle: 'AI 秒级生成结构化大纲',
+    points: [
+      '核心话题 + 关键要点，先搭骨架再长血肉',
+      '风格偏好可选：口语化、专业严谨、幽默犀利',
+      'writer 助手随时头脑风暴，补充视角',
+      '大纲确认后进入内容生成，无需手动排版',
+    ],
   },
   {
-    tag: '内容生成',
-    title: '格式智能适配',
-    subtitle: '同一份内容，适配五种平台风格',
-    detail: '公众号深度长文、知乎专业分析、B站教程攻略、小红书种草测评、微博热点速递。每种格式对应平台真实热门模板。',
+    label: '内容生成 · 格式适配',
+    title: '同一份内容',
+    subtitle: '五种平台风格自动转换',
+    points: [
+      '公众号：深度长文、干货分享、情感叙事、热点解读',
+      '知乎：专业分析、经验分享、观点评论、科普解读',
+      'B站：测评体验、教程攻略、吐槽观点、盘点合集',
+      '小红书：种草测评、教程攻略、好物合集、探店体验',
+    ],
   },
   {
-    tag: '核心能力',
-    title: '真实一键发布',
+    label: '核心能力',
+    title: '真实发布',
     subtitle: '内容直接注入目标平台编辑器',
-    detail: '不模拟、不造假。通过浏览器扩展操作真实 DOM，自动填入标题、正文、标签，点击发布按钮，走完整发布流程。',
+    points: [
+      'Content Script 注入平台页面，找到编辑器元素',
+      '填入标题、正文、标签，触发真实 input 事件',
+      '自动点击发布按钮，走完平台完整发布流程',
+      '发布结果实时回传，成功/失败状态一目了然',
+    ],
   },
   {
-    tag: '工作流闭环',
-    title: '全链路可追溯',
-    subtitle: '从灵感到发布记录，每一步可控',
-    detail: '灵感采集 → AI 生成 → 多格式适配 → 平台输出校验 → 一键发布 → 发布状态追踪。',
+    label: '工作流闭环',
+    title: '灵感 → 发布',
+    subtitle: '每一步都可控、可追溯',
+    points: [
+      '灵感面板：AI 选题建议，标题与标签自动生成',
+      '编辑台：Tiptap 富文本编辑器，所见即所得',
+      '平台输出：字数校验、格式预览、一键优化美化',
+      '发布记录：全平台发布历史，状态追踪与重试',
+    ],
   },
 ];
 
 const slideVariants = {
-  enter: { opacity: 0, x: 40 },
-  center: { opacity: 1, x: 0 },
-  exit: { opacity: 0, x: -20 },
+  enter: { opacity: 0, y: 24 },
+  center: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: -12 },
 };
 
 export default function DemoSlideshow({ onClose }: { onClose: () => void }) {
@@ -67,63 +91,96 @@ export default function DemoSlideshow({ onClose }: { onClose: () => void }) {
   const slide = slides[index];
 
   return (
-    <aside className="fixed right-0 top-0 bottom-0 w-[38vw] min-w-[420px] bg-[#121310] text-white flex flex-col z-50 border-l border-white/5 shadow-[-20px_0_60px_rgba(0,0,0,0.3)]">
-      {/* Close bar */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-white/5">
-        <div className="flex items-center gap-2">
-          <BrandMark size={20} rounded={6} />
-          <span className="font-['IBM_Plex_Mono'] text-[9px] tracking-[0.16em] text-white/30">演示模式</span>
+    <div className="flex flex-col h-full bg-white">
+      {/* Top bar */}
+      <div className="flex items-center justify-between px-8 py-4 shrink-0">
+        <div className="flex items-center gap-2.5">
+          <Presentation size={15} className="text-[var(--accent-deep)]" />
+          <span className="font-['IBM_Plex_Mono'] text-[9px] uppercase tracking-[0.18em] text-[var(--ink-faint)]">
+            演示模式 · DEMO
+          </span>
         </div>
-        <button onClick={onClose} className="flex items-center gap-1.5 rounded-full bg-white/5 px-3 py-1.5 text-[11px] text-white/40 hover:bg-white/10 hover:text-white/60 transition">
-          <X size={11} />
-          退出演示
-        </button>
-      </div>
-
-      {/* Slide content */}
-      <div className="flex-1 flex flex-col justify-center px-10 relative overflow-hidden">
-        {/* Background ambient */}
-        <div className="absolute top-1/4 -right-12 w-64 h-64 rounded-full bg-[var(--accent)]/5 blur-3xl pointer-events-none" />
-        <div className="absolute bottom-1/4 -left-12 w-48 h-48 rounded-full bg-white/3 blur-3xl pointer-events-none" />
-
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={index}
-            variants={slideVariants}
-            initial="enter"
-            animate="center"
-            exit="exit"
-            transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-            className="relative z-10"
+        <div className="flex items-center gap-4">
+          <span className="text-[11px] text-[var(--ink-faint)] tabular-nums">
+            {index + 1} / {slides.length}
+          </span>
+          <button
+            onClick={onClose}
+            className="flex items-center gap-1.5 rounded-full border border-[rgba(49,56,45,0.1)] px-3.5 py-1.5 text-[11px] text-[var(--ink-soft)] hover:bg-[rgba(49,56,45,0.04)] hover:text-[var(--ink)] transition-all"
           >
-            <div className="font-['IBM_Plex_Mono'] text-[10px] uppercase tracking-[0.2em] text-[var(--accent)]/70 mb-8">
-              {slide.tag}
-            </div>
-
-            <h2 className="font-['Cormorant_Garamond'] text-[56px] leading-[0.92] tracking-[-0.06em] mb-6">
-              {slide.title}
-            </h2>
-
-            <p className="text-[20px] leading-[1.2] tracking-[-0.02em] text-white/80 mb-6 font-['Cormorant_Garamond']">
-              {slide.subtitle}
-            </p>
-
-            <p className="text-[14px] leading-7 text-white/45 max-w-[90%]">
-              {slide.detail}
-            </p>
-          </motion.div>
-        </AnimatePresence>
+            <X size={11} />
+            退出
+          </button>
+        </div>
       </div>
 
-      {/* Footer with nav */}
-      <div className="flex items-center justify-between px-6 py-5 border-t border-white/5">
-        <div className="flex items-center gap-2">
+      {/* Main slide area */}
+      <div className="flex-1 flex items-center px-8 relative overflow-hidden">
+        {/* Ambient accent */}
+        <div className="absolute top-1/4 -right-12 w-72 h-72 rounded-full bg-[var(--accent)]/3 blur-3xl pointer-events-none" />
+
+        <div className="relative z-10 w-full max-w-[560px]">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={index}
+              variants={slideVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+            >
+              {/* Label */}
+              <div className="mb-8">
+                <span className="inline-flex items-center gap-2 rounded-full border border-[rgba(49,56,45,0.1)] bg-[rgba(249,250,248,0.8)] px-4 py-1.5 text-[11px] text-[var(--ink-soft)]">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent)]" />
+                  {slide.label}
+                </span>
+              </div>
+
+              {/* Title */}
+              <h2 className="font-['Cormorant_Garamond'] text-[68px] leading-[0.9] tracking-[-0.06em] text-[var(--ink)] mb-4">
+                {slide.title}
+              </h2>
+
+              {/* Subtitle */}
+              <p className="font-['Cormorant_Garamond'] text-[34px] leading-[0.95] tracking-[-0.04em] text-[var(--accent-deep)] mb-10">
+                {slide.subtitle}
+              </p>
+
+              {/* Divider */}
+              <div className="w-16 h-px bg-[rgba(49,56,45,0.15)] mb-8" />
+
+              {/* Points */}
+              <ul className="space-y-4">
+                {slide.points.map((point, i) => (
+                  <motion.li
+                    key={i}
+                    className="flex items-start gap-3 text-[14px] leading-6 text-[var(--ink-soft)]"
+                    initial={{ opacity: 0, x: -8 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.15 + i * 0.08 }}
+                  >
+                    <span className="mt-1.5 shrink-0 w-1.5 h-1.5 rounded-full bg-[var(--accent)]/40" />
+                    {point}
+                  </motion.li>
+                ))}
+              </ul>
+            </motion.div>
+          </AnimatePresence>
+        </div>
+      </div>
+
+      {/* Bottom nav */}
+      <div className="flex items-center justify-between px-8 py-5 shrink-0 border-t border-[rgba(49,56,45,0.06)]">
+        <div className="flex items-center gap-1.5">
           {slides.map((_, i) => (
             <button
               key={i}
               onClick={() => setIndex(i)}
               className={`rounded-full transition-all duration-300 ${
-                i === index ? 'w-5 h-1.5 bg-white/60' : 'w-1.5 h-1.5 bg-white/15 hover:bg-white/30'
+                i === index
+                  ? 'w-5 h-1.5 bg-[var(--accent)]'
+                  : 'w-1.5 h-1.5 bg-[rgba(49,56,45,0.15)] hover:bg-[rgba(49,56,45,0.3)]'
               }`}
             />
           ))}
@@ -132,18 +189,18 @@ export default function DemoSlideshow({ onClose }: { onClose: () => void }) {
         <div className="flex items-center gap-1.5">
           <button
             onClick={prev}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-white/5 text-white/30 hover:bg-white/10 hover:text-white/50 transition"
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-[rgba(49,56,45,0.1)] text-[var(--ink-soft)] hover:bg-[rgba(49,56,45,0.04)] hover:text-[var(--ink)] transition-all"
           >
             <ChevronLeft size={16} />
           </button>
           <button
             onClick={next}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white/50 hover:bg-white/15 hover:text-white/70 transition"
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--ink)] text-white hover:bg-[var(--ink)]/90 transition-all shadow-[0_4px_12px_rgba(40,46,38,0.15)]"
           >
             <ChevronRight size={16} />
           </button>
         </div>
       </div>
-    </aside>
+    </div>
   );
 }
