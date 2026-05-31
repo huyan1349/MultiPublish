@@ -5,6 +5,7 @@ import { healthRouter } from './routes/health.js';
 import { contentRouter } from './routes/content.js';
 import { adaptRouter } from './routes/adapt.js';
 import { publishRouter } from './routes/publish.js';
+import { aiRouter } from './routes/ai.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
 const app = express();
@@ -27,6 +28,7 @@ app.use('/health', healthRouter);
 app.use('/api/contents', contentRouter);
 app.use('/api', adaptRouter);
 app.use('/api', publishRouter);
+app.use('/api/ai', aiRouter);
 
 app.use(errorHandler);
 

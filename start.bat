@@ -13,6 +13,7 @@ set "FRONTEND=%ROOT%web\frontend"
 
 echo [1/4] Installing backend dependencies...
 cd /d "%BACKEND%"
+if not exist ".env" copy ".env.example" ".env" >nul
 call npm install
 if %errorlevel% neq 0 (
     echo [ERROR] Backend npm install failed
