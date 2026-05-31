@@ -1,0 +1,62 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Content {
+  id          String   @id @default(cuid())
+  title       String
+  summary     String?
+  rawMarkdown String
+  tags        String   @default("[]")
+  coverImage  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  outputs        PlatformOutput[]
+  publishRecords PublishRecord[]
+}
+
+model PlatformOutput {
+  id                 String   @id @default(cuid())
+  contentId          String
+  platform           String
+  platformName       String
+  title              String
+  summary            String?
+  body               String
+  tags               String   @default("[]")
+  coverImage         String?
+  extra              String?
+  status             String   @default("draft")
+  validationMessages String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  content        Content         @relation(fields: [contentId], references: [id])
+  publishRecords PublishRecord[]
+
+  @@index([contentId])
+}
+
+model PublishRecord {
+  id           String   @id @default(cuid())
+  outputId     String?
+  contentId    String
+  platform     String
+  platformName String
+  status       String
+  message      String
+  mockUrl      String?
+  publishedAt  DateTime @default(now())
+
+  output  PlatformOutput? @relation(fields: [outputId], references: [id])
+  content Content         @relation(fields: [contentId], references: [id])
+
+  @@index([contentId])
+  @@index([outputId])
+}
