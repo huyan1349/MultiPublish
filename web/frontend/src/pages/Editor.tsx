@@ -719,7 +719,7 @@ export default function Editor() {
               </div>
 
               {/* Format selection */}
-              <div className="border-b border-[rgba(49,56,45,0.06)] px-6 py-4 md:px-8 bg-[rgba(249,250,248,0.6)]">
+              <div className="border-b border-[rgba(49,56,45,0.08)] px-6 py-4 md:px-8">
                 <div className="flex items-center gap-2 mb-3">
                   <span className="font-['IBM_Plex_Mono'] text-[9px] uppercase tracking-[0.14em] text-[var(--ink-faint)]">
                     {PLATFORM_NAMES[activePlatform]} 热门格式
@@ -735,7 +735,7 @@ export default function Editor() {
                       className={`flex items-center gap-2 px-4 py-2.5 rounded-[14px] text-[12px] text-left transition-all duration-200 ${
                         selectedFormat === fmt.id
                           ? 'text-white shadow-[0_4px_16px_rgba(0,0,0,0.15)]'
-                          : 'border border-[rgba(49,56,45,0.1)] bg-white hover:border-[rgba(49,56,45,0.2)] hover:-translate-y-0.5'
+                          : 'border border-[rgba(49,56,45,0.16)] bg-white hover:border-[rgba(49,56,45,0.3)] hover:bg-[rgba(255,255,255,0.95)] hover:-translate-y-0.5'
                       }`}
                       style={selectedFormat === fmt.id ? { backgroundColor: PLATFORM_BRAND[activePlatform]?.color } : undefined}
                     >
