@@ -17,7 +17,7 @@ Web 前端（编辑+预览）──→ Chrome 扩展（真发布）
  http://localhost:5173        chrome://extensions 加载
 ```
 
-> 安装步骤见下方 [Chrome 扩展（真发布）](#chrome-扩展真发布)。
+> 安装步骤见下方「Chrome 扩展（真发布）」章节。
 
 ---
 
