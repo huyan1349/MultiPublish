@@ -1,9 +1,9 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowRight, Download, Check, AlertCircle, Zap, PenLine,
   Sparkles, Puzzle, Globe, Shield, ChevronDown, ExternalLink,
-  Copy, RefreshCw,
+  Copy, RefreshCw, Maximize,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useExtensionStatus } from '../hooks/useExtensionStatus';
@@ -127,6 +127,14 @@ function GlowOrb({ color, className, size = 420 }: { color: string; className: s
 
 export default function Welcome() {
   const navigate = useNavigate();
+
+  const handleFullscreen = useCallback(() => {
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    } else {
+      document.documentElement.requestFullscreen().catch(() => {});
+    }
+  }, []);
   const extStatus = useExtensionStatus(3000);
   const [copied, setCopied] = useState(false);
   const [installExpanded, setInstallExpanded] = useState(false);
@@ -177,6 +185,16 @@ export default function Welcome() {
         {/* grain overlay */}
         <div className="absolute inset-0 opacity-[0.015]" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E")` }} />
       </div>
+
+      {/* ── Fullscreen button ── */}
+      <button
+        onClick={handleFullscreen}
+        className="fixed right-4 top-4 z-50 flex items-center gap-1.5 rounded-full border border-[rgba(49,56,45,0.08)] bg-white/60 backdrop-blur-sm px-3 py-1.5 text-[11px] text-[var(--ink-soft)] hover:bg-white hover:border-[rgba(49,56,45,0.15)] transition-all"
+        title="全屏"
+      >
+        <Maximize size={12} />
+        全屏
+      </button>
 
       {/* ── Progress indicator (fixed) ── */}
       <div className="fixed right-6 top-1/2 z-50 hidden -translate-y-1/2 flex-col items-center gap-3 xl:flex">
