@@ -4,10 +4,10 @@ import { ArrowLeft, Rocket, CheckCircle, AlertTriangle, Info, Loader2, Zap, Eye,
 import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../api/client';
 import { publishViaExtension, isExtensionInstalled, type ExtensionPublishResult } from '../utils/extensionBridge'
-import { buildImagePayloads, markdownBodyToHtml } from '../utils/imageUtils';
+import { buildImagePayloads, markdownBodyToHtml, stripDataUrlImages } from '../utils/imageUtils';
 
 interface Output {
-  id: string; platform: string; platformName: string;
+  id: string; contentId?: string; platform: string; platformName: string;
   title: string; summary?: string; body: string; tags: string[];
   coverImage?: string; extra?: Record<string, unknown>;
   validationMessages: Array<{ level: string; field: string; message: string }>;
@@ -68,7 +68,7 @@ export default function Preview() {
 
   const startEdit = (output: Output) => {
     setEditingId(output.id);
-    setEditingData({ title: output.title, body: output.body, tags: output.tags.join(', ') });
+    setEditingData({ title: output.title, body: stripDataUrlImages(output.body), tags: output.tags.join(', ') });
   };
 
   const cancelEdit = () => {
@@ -116,11 +116,24 @@ export default function Preview() {
       });
       setExtResults((prev) => [...prev, result]);
       if (result.success) setPublishedSet((prev) => new Set(prev).add(output.platform));
+      if (output.contentId) {
+        api.createPublishRecord({
+          contentId: output.contentId, platform: output.platform, platformName: output.platformName,
+          status: result.success ? 'success' : 'failed', message: result.message,
+        }).catch(() => {});
+      }
     } catch (err) {
+      const message = err instanceof Error ? err.message : '扩展发布失败';
       setExtResults((prev) => [...prev, {
         platform: output.platform, platformName: output.platformName, success: false,
-        message: err instanceof Error ? err.message : '扩展发布失败',
+        message,
       }]);
+      if (output.contentId) {
+        api.createPublishRecord({
+          contentId: output.contentId, platform: output.platform, platformName: output.platformName,
+          status: 'failed', message,
+        }).catch(() => {});
+      }
     } finally {
       setExtPublishing((prev) => { const n = new Set(prev); n.delete(output.id); return n; });
     }

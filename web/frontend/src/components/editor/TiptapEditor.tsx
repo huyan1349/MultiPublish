@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback, useState, forwardRef, useImperativeHandle } from 'react';
+import { useEffect, useRef, useCallback, useState, forwardRef, useImperativeHandle, memo } from 'react';
 import { useEditor, EditorContent, type Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
@@ -13,9 +13,10 @@ interface TiptapEditorProps {
   onImageInsert?: (files: FileList | File[]) => void;
 }
 
-const ToolButton = ({ onClick, isActive, title, children }: {
+const ToolButton = memo(function ToolButton({ onClick, isActive, title, children }: {
   onClick: () => void; isActive?: boolean; title: string; children: React.ReactNode;
-}) => (
+}) {
+  return (
   <button
     type="button"
     onClick={onClick}
@@ -28,7 +29,8 @@ const ToolButton = ({ onClick, isActive, title, children }: {
   >
     {children}
   </button>
-);
+  );
+});
 
 const blobUrlToDataUrl = new Map<string, string>();
 export function getResolvedDataUrl(blobUrl: string) { return blobUrlToDataUrl.get(blobUrl); }

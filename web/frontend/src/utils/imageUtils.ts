@@ -67,6 +67,8 @@ function stripMarkdownDataUrlImgs(text: string): string {
 }
 
 export function markdownBodyToHtml(body: string): string {
+  if (!body) return '';
+  if (isHtmlBody(body)) return body;
   let result = body;
   result = convertMarkdownImagesToHtml(result);
   result = convertMarkdownHeadings(result);
@@ -74,6 +76,14 @@ export function markdownBodyToHtml(body: string): string {
   result = convertMarkdownQuotes(result);
   result = convertMarkdownParagraphs(result);
   return result;
+}
+
+function isHtmlBody(body: string): boolean {
+  const trimmed = body.trim();
+  if (trimmed.startsWith('<')) return true;
+  const htmlTags = /<(p|h[1-6]|div|ul|ol|li|blockquote|img|table|section|article)\b/i;
+  if (htmlTags.test(trimmed)) return true;
+  return false;
 }
 
 function convertMarkdownImagesToHtml(text: string): string {

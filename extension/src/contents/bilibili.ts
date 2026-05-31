@@ -203,7 +203,7 @@ async function tryAutoPublish(): Promise<{ success: boolean; message: string }> 
 
   return hasPublishSuccessSignal()
     ? { success: true, message: 'B站图文已自动提交发布' }
-    : { success: true, message: '已自动点击B站图文发布流程，请在页面确认最终状态' };
+    : { success: false, message: '已自动点击B站图文发布流程，但未检测到成功信号，请在页面确认最终状态' };
 }
 
 /* ── XPath 文本搜索（不依赖 class 名）── */
@@ -923,45 +923,44 @@ async function _clickToolbarCaptureInput(): Promise<HTMLInputElement | null> {
     return origClick.call(this);
   };
 
-  // 尝试 eva3-toolbar-image 自定义元素
-  const imgToolbar = document.querySelector('eva3-toolbar-image');
-  if (imgToolbar) {
-    forceClick(imgToolbar as HTMLElement);
-    await sleep(800);
-    const allItems = _deepQuerySelectorAll(imgToolbar, '.item');
-    const uploadItem = allItems.find(e => (e.textContent || '').trim() === '上传图片') || allItems[0];
-    if (uploadItem) {
-      forceClick(uploadItem);
-    } else {
-      const icon = _deepQuerySelector(imgToolbar, 'eva3-icon');
-      if (icon) forceClick(icon as HTMLElement);
-    }
-    await sleep(800);
-  }
-
-  // 尝试标准 Quill 工具栏图片按钮
-  if (!capturedInput) {
-    const quillBtn = document.querySelector('.ql-toolbar .ql-image, .ql-toolbar button.ql-image');
-    if (quillBtn) { forceClick(quillBtn as HTMLElement); await sleep(800); }
-  }
-
-  // 尝试通用工具栏图片按钮
-  if (!capturedInput) {
-    const toolbarBtns = Array.from(document.querySelectorAll<HTMLElement>(
-      '[class*="toolbar"] button, [class*="Toolbar"] button, [class*="toolbar"] [role="button"]'
-    )).filter(btn => {
-      const t = (btn.getAttribute('title') || btn.textContent || '').toLowerCase();
-      return t.includes('图片') || t.includes('image') || t.includes('img');
-    });
-    for (const btn of toolbarBtns) {
-      forceClick(btn);
+  try {
+    const imgToolbar = document.querySelector('eva3-toolbar-image');
+    if (imgToolbar) {
+      forceClick(imgToolbar as HTMLElement);
       await sleep(800);
-      if (capturedInput) break;
+      const allItems = _deepQuerySelectorAll(imgToolbar, '.item');
+      const uploadItem = allItems.find(e => (e.textContent || '').trim() === '上传图片') || allItems[0];
+      if (uploadItem) {
+        forceClick(uploadItem);
+      } else {
+        const icon = _deepQuerySelector(imgToolbar, 'eva3-icon');
+        if (icon) forceClick(icon as HTMLElement);
+      }
+      await sleep(800);
     }
-  }
 
-  HTMLInputElement.prototype.click = origClick;
-  observer.disconnect();
+    if (!capturedInput) {
+      const quillBtn = document.querySelector('.ql-toolbar .ql-image, .ql-toolbar button.ql-image');
+      if (quillBtn) { forceClick(quillBtn as HTMLElement); await sleep(800); }
+    }
+
+    if (!capturedInput) {
+      const toolbarBtns = Array.from(document.querySelectorAll<HTMLElement>(
+        '[class*="toolbar"] button, [class*="Toolbar"] button, [class*="toolbar"] [role="button"]'
+      )).filter(btn => {
+        const t = (btn.getAttribute('title') || btn.textContent || '').toLowerCase();
+        return t.includes('图片') || t.includes('image') || t.includes('img');
+      });
+      for (const btn of toolbarBtns) {
+        forceClick(btn);
+        await sleep(800);
+        if (capturedInput) break;
+      }
+    }
+  } finally {
+    HTMLInputElement.prototype.click = origClick;
+    observer.disconnect();
+  }
   return capturedInput;
 }
 

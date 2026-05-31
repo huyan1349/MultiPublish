@@ -1,4 +1,4 @@
-﻿﻿import { useState, useCallback, useRef, useEffect } from 'react';
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿import { useState, useCallback, useRef, useEffect, memo, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AlertCircle, ArrowLeft, ArrowRight, MessageCircle, RefreshCw, Save, Sparkles, Wand2, Zap, FileText, List } from 'lucide-react';
 import { useContentStore } from '../stores/contentStore';
@@ -58,7 +58,7 @@ const CONTENT_FORMATS: Record<PlatformType, Array<{ id: string; label: string; d
   ],
 };
 
-function ExtensionIndicator() {
+const ExtensionIndicator = memo(function ExtensionIndicator() {
   const extStatus = useExtensionStatus();
   if (extStatus.checking) {
     return (
@@ -79,7 +79,7 @@ function ExtensionIndicator() {
       <span className="px-dot bg-red-500" /> 扩展未连接
     </span>
   );
-}
+});
 
 type EditorStep = 'outline' | 'content' | 'platform';
 
@@ -393,21 +393,33 @@ export default function Editor() {
     }
     setError('');
     resetPublishStates();
+
+    let contentId = currentContentId;
+    if (!contentId) {
+      try {
+        const tags = draft.tags.split(/[,，]/).map((t) => t.trim()).filter(Boolean);
+        const content = await api.createContent({
+          title: draft.title,
+          rawMarkdown: draft.htmlContent,
+          tags,
+          coverImage: draft.coverImage || undefined,
+        });
+        contentId = content.id;
+        setCurrentContentId(content.id);
+      } catch (err) {
+        showToast('error', '自动保存失败', '发布前保存内容到后端失败，请先手动保存');
+        return;
+      }
+    }
+
     for (const platform of selected) {
       const state = platformStates.get(platform);
       if (!state) continue;
       setPlatformPublishStatus(platform, 'publishing');
       try {
-        // 1. 将 body 中的 blob URL 替换为 data URL（与扩展端 resolveBlobUrlsInOutputs 一致）
         let resolvedBody = await resolveBodyImages(state.output.body);
-
-        // 2. 从 resolved body 中提取图片，构建 ImagePayload[]（与扩展端 publishOne 一致）
         const images = await buildImagePayloads(resolvedBody, draft.coverImage);
-
-        // 3. 清除 body 中的 data URL img 标签（与扩展端 Background SW 一致，避免传输超大字符串）
         resolvedBody = stripDataUrlImages(resolvedBody);
-
-        // 4. 清除 coverImage 中的 data URL
         let cleanCoverImage = state.output.coverImage;
         if (cleanCoverImage && cleanCoverImage.startsWith('data:')) {
           cleanCoverImage = undefined;
@@ -423,12 +435,10 @@ export default function Editor() {
           autoLayout: true,
           images: images.length > 0 ? images : undefined,
         });
-        if (currentContentId) {
-          api.createPublishRecord({
-            contentId: currentContentId, platform, platformName: state.platformName,
-            status: result.success ? 'success' : 'failed', message: result.message,
-          }).catch(() => {});
-        }
+        api.createPublishRecord({
+          contentId: contentId!, platform, platformName: state.platformName,
+          status: result.success ? 'success' : 'failed', message: result.message,
+        }).catch(() => {});
         if (result.success) {
           setPlatformPublishStatus(platform, 'success', result.message);
           showToast('success', `${state.platformName} 发布成功`, result.message);
@@ -440,18 +450,17 @@ export default function Editor() {
         const message = err instanceof Error ? err.message : '未知错误';
         setPlatformPublishStatus(platform, 'failed', message);
         showToast('error', `${state.platformName} 发布失败`, message);
-        if (currentContentId) {
-          api.createPublishRecord({
-            contentId: currentContentId, platform, platformName: state.platformName,
-            status: 'failed', message,
-          }).catch(() => {});
-        }
+        api.createPublishRecord({
+          contentId: contentId!, platform, platformName: state.platformName,
+          status: 'failed', message,
+        }).catch(() => {});
       }
     }
   };
 
   const publishing = Array.from(platformStates.values()).some((state) => state.status === 'publishing');
   const generatedContent = generatedContents[activePlatform];
+  const streamingBlocks = useMemo(() => streamingHtml ? splitHtmlBlocks(streamingHtml) : [], [streamingHtml]);
 
   return (
     <div
@@ -473,12 +482,12 @@ export default function Editor() {
     >
       <style>{`
         @keyframes pulse-glow {
-          0%, 100% { box-shadow: var(--glow-shadow); transform: translateY(0); }
-          50% { box-shadow: var(--glow-shadow-strong); transform: translateY(-2px); }
+          0%, 100% { box-shadow: var(--glow-shadow); transform: translate3d(0, 0, 0); }
+          50% { box-shadow: var(--glow-shadow-strong); transform: translate3d(0, -2px, 0); }
         }
         @keyframes blur-reveal {
-          from { filter: blur(12px); opacity: 0; transform: translateY(0.5em); }
-          to { filter: blur(0); opacity: 1; transform: translateY(0); }
+          from { filter: blur(8px); opacity: 0; transform: translate3d(0, 0.3em, 0); }
+          to { filter: blur(0); opacity: 1; transform: translate3d(0, 0, 0); }
         }
         @keyframes shimmer {
           0% { background-position: -200% 0; }
@@ -489,7 +498,8 @@ export default function Editor() {
           50% { opacity: 0; }
         }
         .animate-blur-reveal {
-          animation: blur-reveal 0.55s cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+          animation: blur-reveal 0.4s cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+          will-change: filter, opacity, transform;
         }
         .animate-pulse-glow {
           animation: pulse-glow 2s ease-in-out infinite;
@@ -832,10 +842,8 @@ export default function Editor() {
                         <span className="ai-cursor text-[15px]" />
                       </div>
                       <div className="space-y-0">
-                        {streamingHtml && (() => {
-                          const blocks = splitHtmlBlocks(streamingHtml);
-                          return blocks.map((block, i) => {
-                            const isLast = i === blocks.length - 1;
+                        {streamingBlocks.length > 0 && streamingBlocks.map((block, i) => {
+                          const isLast = i === streamingBlocks.length - 1;
                             return (
                               <div
                                 key={i}
@@ -844,8 +852,7 @@ export default function Editor() {
                                 dangerouslySetInnerHTML={{ __html: block }}
                               />
                             );
-                          });
-                        })()}
+                          })}
                       </div>
                     </div>
                   )}
@@ -991,39 +998,38 @@ export default function Editor() {
 
               {/* Active platform card */}
               <div className="p-4 md:p-5">
-                {allPlatforms.map((platform) => {
-                  const state = platformStates.get(platform);
+                {(() => {
+                  const state = platformStates.get(activePlatform);
                   if (!state) return null;
                   return (
-                    <div key={platform} className={activePlatform === platform ? '' : 'hidden'}>
-                      <PlatformCard
-                        platform={platform}
-                        platformName={PLATFORM_NAMES[platform]}
-                        selected={selectedPlatforms.has(platform)}
-                        onToggle={() => togglePlatform(platform)}
-                        status={state.status}
-                        statusMessage={state.message}
-                        titleCount={state.meta.titleCharCount}
-                        titleMax={state.meta.maxTitleLength}
-                        bodyCount={state.meta.bodyCharCount}
-                        bodyMax={state.meta.maxBodyLength}
-                        tagCount={state.meta.tagCount}
-                        tagMax={state.meta.maxTags}
-                        messages={state.validation.messages}
-                        previewTitle={state.output.title}
-                        previewBody={state.output.body}
-                        previewTags={state.output.tags}
-                        draftTitle={draft.title}
-                        draftHtmlContent={draft.htmlContent}
-                        beautifiedContent={beautifiedOutputs.get(platform)}
-                        onBeautifyStart={() => handleBeautifyStart(platform)}
-                        onBeautifyComplete={handleBeautifyComplete(platform)}
-                        onBeautifyError={handleBeautifyError(platform)}
-                        onApplyBeautified={handleApplyBeautified(platform)}
-                      />
-                    </div>
+                    <PlatformCard
+                      key={activePlatform}
+                      platform={activePlatform}
+                      platformName={PLATFORM_NAMES[activePlatform]}
+                      selected={selectedPlatforms.has(activePlatform)}
+                      onToggle={() => togglePlatform(activePlatform)}
+                      status={state.status}
+                      statusMessage={state.message}
+                      titleCount={state.meta.titleCharCount}
+                      titleMax={state.meta.maxTitleLength}
+                      bodyCount={state.meta.bodyCharCount}
+                      bodyMax={state.meta.maxBodyLength}
+                      tagCount={state.meta.tagCount}
+                      tagMax={state.meta.maxTags}
+                      messages={state.validation.messages}
+                      previewTitle={state.output.title}
+                      previewBody={state.output.body}
+                      previewTags={state.output.tags}
+                      draftTitle={draft.title}
+                      draftHtmlContent={draft.htmlContent}
+                      beautifiedContent={beautifiedOutputs.get(activePlatform)}
+                      onBeautifyStart={() => handleBeautifyStart(activePlatform)}
+                      onBeautifyComplete={handleBeautifyComplete(activePlatform)}
+                      onBeautifyError={handleBeautifyError(activePlatform)}
+                      onApplyBeautified={handleApplyBeautified(activePlatform)}
+                    />
                   );
-                })}
+                })()}
               </div>
             </section>
 

@@ -16,45 +16,40 @@ function addEmojiToTitle(title: string): string {
 }
 
 function buildNoteBody(blocks: StandardContent['blocks']): string {
-  const lines: string[] = [];
+  const parts: string[] = [];
   for (const b of blocks) {
     switch (b.type) {
       case 'heading':
-        lines.push(`📌 ${b.text}`);
-        lines.push('');
+        parts.push(`<p style="font-size:16px;font-weight:bold;margin:12px 0 6px;">📌 ${b.text}</p>`);
         break;
       case 'paragraph': {
         const sentences = (b.text || '').split(/[。！？]/);
-        for (const s of sentences) {
-          if (s.trim()) lines.push(`${s.trim()}。`);
-        }
-        lines.push('');
+        const formatted = sentences.filter(s => s.trim()).map(s => `${s.trim()}。`).join('<br/>');
+        parts.push(`<p style="font-size:14px;line-height:1.8;color:#333;margin:6px 0;">${formatted}</p>`);
         break;
       }
       case 'list': {
-        for (const item of (b.items || [])) {
-          lines.push(`${EMOJIS[Math.floor(Math.random() * EMOJIS.length)]} ${item}`);
-        }
-        lines.push('');
+        const items = (b.items || []).map(item =>
+          `<li style="margin:3px 0;padding-left:4px;">${EMOJIS[Math.floor(Math.random() * EMOJIS.length)]} ${item}</li>`
+        ).join('');
+        parts.push(`<ul style="padding-left:20px;margin:6px 0;">${items}</ul>`);
         break;
       }
       case 'quote':
-        lines.push(`💬 ${(b.text || '').replace(/\n/g, ' ')}`);
-        lines.push('');
+        parts.push(`<blockquote style="border-left:3px solid #FF2442;padding:6px 12px;color:#666;margin:8px 0;background:#fff5f7;"><p style="font-size:13px;line-height:1.6;margin:0;">💬 ${(b.text || '').replace(/\n/g, ' ')}</p></blockquote>`);
         break;
       case 'image':
         if (b.url) {
-          lines.push(`<p style="text-align:center;margin:8px 0;"><img src="${b.url}" alt="${b.caption || '图片'}" style="max-width:100%;border-radius:4px;"/></p>`);
+          parts.push(`<p style="text-align:center;margin:8px 0;"><img src="${b.url}" alt="${b.caption || '图片'}" style="max-width:100%;border-radius:4px;"/></p>`);
         }
-        lines.push('');
         break;
     }
   }
 
-  let body = lines.join('\n');
+  let body = parts.join('\n');
   if (!body.includes('#')) {
     const hashTags = ['#内容创作', '#效率工具', '#自媒体', '#干货分享', '#创作灵感'];
-    body += '\n\n' + hashTags.slice(0, 4).join(' ');
+    body += `\n<p style="font-size:13px;color:#999;margin-top:12px;">${hashTags.slice(0, 4).join(' ')}</p>`;
   }
   return body;
 }
