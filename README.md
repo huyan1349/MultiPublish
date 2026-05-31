@@ -1,6 +1,6 @@
-# ContentBridge — 多平台内容发布工具
+# MultiPublish — 多平台内容发布工具
 
-> 一次创作，多端适配。提供 **Web 应用**（模拟发布）+ **Chrome 扩展**（真发布，Content Script DOM 注入）双形态。
+> "一次编写，全平台触达" — Markdown 编写一次，自动适配公众号、知乎、B站、小红书四平台格式，真实注入目标编辑器并触发发布流程。
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
@@ -12,7 +12,7 @@
 
 内容创作者面临一个核心痛点：在不同平台（公众号、知乎、B站、小红书等）发布内容时，每个平台对格式、排版、字数、标签、封面尺寸等要求各不相同。创作者需要花费大量时间手动调整，**单篇多平台完整发布耗时 40-85 分钟**。
 
-ContentBridge 解决的就是这个问题——用户在所见即所得编辑器中输入一次内容，系统自动适配各平台格式与风格，支持预览、编辑和模拟一键发布。
+MultiPublish 解决的就是这个问题——用户在所见即所得编辑器中输入一次内容，系统自动适配各平台格式与风格，支持预览、编辑和一键发布。
 
 ## 核心功能
 
@@ -93,11 +93,16 @@ ContentBridge 解决的就是这个问题——用户在所见即所得编辑器
 ### 环境要求
 
 - Node.js >= 18
-- npm >= 9
+- pnpm >= 8
 
-### 方式一：一键启动（Windows）
+### 方式一：一键启动
 
-双击 `start.bat`，自动启动后端 + 前端 + 打开浏览器。
+| 系统 | 脚本 |
+|------|------|
+| Windows | 双击 `start.bat` |
+| macOS | 双击 `start.command` 或终端运行 `./start.command` |
+
+自动安装依赖 → 初始化数据库 → 启动后端 + 前端 → 打开浏览器。
 
 ### 方式二：手动启动
 
@@ -134,7 +139,6 @@ pnpm dev
 Chrome 扩展通过 Content Script 直接将适配内容注入到平台编辑器，实现**真实发布**。
 
 ```bash
-# 安装依赖
 cd extension
 pnpm install
 pnpm build        # 产出 build/chrome-mv3-prod/
@@ -142,7 +146,7 @@ pnpm build        # 产出 build/chrome-mv3-prod/
 
 **加载**：Chrome → `chrome://extensions/` → 开发者模式 → 加载已解压 → 选 `extension/build/chrome-mv3-prod/`
 
-**发布原理**：Storage 信号机制 — Background 写待发布数据到 `chrome.storage.local` → Content Script 加载后自主读取 → `MutationObserver` 轮询编辑器 DOM → 注入内容 → 写结果回 Storage → Background 回报用户
+**发布原理**：Storage 信号机制 — Background 写待发布数据到 `chrome.storage.local` → Content Script 加载后自主读取 → `MutationObserver` 轮询编辑器 DOM → 注入内容 → 写结果回 Storage → Background 回报用户。所有操作均为真实 DOM 注入，不依赖平台 API。
 
 | 平台 | 注入策略 |
 |------|----------|
@@ -238,14 +242,18 @@ interface PlatformAdapter {
 
 - [x] AI 辅助标题改写与摘要生成（DeepSeek API 集成）
 - [x] 图片上传（四平台）与编辑器内拖拽缩放
-- [x] 「打开平台编辑器 + 剪贴板自动复制」一键发布工作流
-- [ ] 图片跨平台尺寸自动适配（封面、正文图片尺寸裁剪）
+- [x] Chrome 扩展真发布（四平台 Content Script DOM 注入）
+- [x] 知乎完整自动发布链路（填充 + 发布按钮点击）
+- [ ] 公众号自动发布（填充后自动点击发布按钮）
+- [ ] B站自动发布（填充后自动点击发布按钮）
+- [ ] 小红书自动发布（填充后自动点击发布按钮）
 - [ ] 公众号图片素材库上传（外链 → 微信素材库 → 替换 src）
+- [ ] 图片跨平台尺寸自动适配（封面、正文图片尺寸裁剪）
 - [ ] AST 格式转换管道（unified/remark 替代当前简单解析）
-- [ ] 登录态检测（发布前检测是否已登录）
+- [ ] 登录态检测（发布前检测是否已登录，未登录提示）
 - [ ] 更多平台支持（头条号、百家号、CSDN、掘金等）
 - [ ] 定时发布与发布日历
-- [ ] 草稿自动保存（编辑内容自动持久化）
+- [ ] 草稿自动保存（编辑内容自动持久化，关闭重开不丢失）
 
 ## 开发记录
 
@@ -292,4 +300,4 @@ interface PlatformAdapter {
 
 ## License
 
-MIT © 2026 ContentBridge
+MIT © 2026 MultiPublish
