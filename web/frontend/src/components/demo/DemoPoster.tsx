@@ -67,12 +67,13 @@ export default function DemoPoster({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="relative h-full w-full flex items-center justify-center">
-      {/* Quiet close */}
+      {/* Close */}
       <button
         onClick={onClose}
-        className="absolute top-4 right-2 flex items-center gap-1 rounded-full hover:bg-[rgba(49,56,45,0.04)] px-2 py-1 text-[10px] text-[var(--ink-faint)] hover:text-[var(--ink-soft)] transition-all z-10"
+        className="absolute top-4 right-3 flex items-center gap-1 rounded-full border border-[rgba(49,56,45,0.08)] bg-white/50 px-2.5 py-1 text-[10px] text-[var(--ink-faint)] hover:text-[var(--ink-soft)] hover:border-[rgba(49,56,45,0.15)] transition-all z-10"
       >
-        <X size={9} />
+        <X size={10} />
+        退出
       </button>
 
       <AnimatePresence mode="wait">
