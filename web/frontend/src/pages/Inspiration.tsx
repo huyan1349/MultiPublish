@@ -33,6 +33,7 @@ const PLATFORM_OPTIONS: { key: PlatformStyle | ''; label: string; Icon: React.El
   { key: 'zhihu', label: '知乎', Icon: GraduationCap },
   { key: 'bilibili', label: 'B站', Icon: Play },
   { key: 'xiaohongshu', label: '小红书', Icon: Heart },
+  { key: 'weibo', label: '微博', Icon: Zap },
 ];
 
 const ANGLE_COLORS: Record<string, string> = {
@@ -49,6 +50,7 @@ const PLATFORM_BG: Record<string, string> = {
   '知乎': 'var(--platform-zhihu-soft)',
   'B站': 'var(--platform-bilibili-soft)',
   '小红书': 'var(--platform-xiaohongshu-soft)',
+  '微博': 'var(--platform-weibo-soft)',
 };
 
 function loadHistory(): InspirationResult[] {

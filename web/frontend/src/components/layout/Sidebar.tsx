@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { PenLine, LayoutDashboard, FileText, Sparkles, Settings, CircleUserRound } from 'lucide-react';
+import { PenLine, LayoutDashboard, FileText, Sparkles, Settings, CircleUserRound, Zap } from 'lucide-react';
 import BrandMark from '../brand/BrandMark';
 
 const navItems = [
@@ -8,6 +8,7 @@ const navItems = [
   { to: '/contents', icon: FileText, label: '稿件' },
   { to: '/inspiration', icon: Sparkles, label: '灵感' },
   { to: '/records', icon: FileText, label: '记录' },
+  { to: '/welcome', icon: Zap, label: '引导' },
 ];
 
 export default function Sidebar() {

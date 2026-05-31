@@ -3,6 +3,7 @@ import { wechatAdapter } from './wechat/WechatAdapter';
 import { zhihuAdapter } from './zhihu/ZhihuAdapter';
 import { bilibiliAdapter } from './bilibili/BilibiliAdapter';
 import { xiaohongshuAdapter } from './xiaohongshu/XiaohongshuAdapter';
+import { weiboAdapter } from './weibo/WeiboAdapter';
 
 const adapterMap = new Map<PlatformType, PlatformAdapter>();
 
@@ -10,6 +11,7 @@ adapterMap.set('wechat', wechatAdapter);
 adapterMap.set('zhihu', zhihuAdapter);
 adapterMap.set('bilibili', bilibiliAdapter);
 adapterMap.set('xiaohongshu', xiaohongshuAdapter);
+adapterMap.set('weibo', weiboAdapter);
 
 export function getAdapter(platform: PlatformType): PlatformAdapter {
   const adapter = adapterMap.get(platform);

@@ -9,6 +9,7 @@ const ICONS: Record<PlatformType, string> = {
   zhihu: zhihuIcon,
   bilibili: bilibiliIcon,
   xiaohongshu: xiaohongshuIcon,
+  weibo: xiaohongshuIcon, // TODO: replace with weibo icon
 };
 
 interface Props {

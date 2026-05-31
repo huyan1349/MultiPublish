@@ -17,6 +17,7 @@ const PLATFORM_COLOR: Record<string, string> = {
   zhihu: 'var(--platform-zhihu)',
   bilibili: 'var(--platform-bilibili)',
   xiaohongshu: 'var(--platform-xiaohongshu)',
+  weibo: 'var(--platform-weibo)',
 };
 
 const platformNotes = [
@@ -24,6 +25,7 @@ const platformNotes = [
   { key: 'zhihu', name: '知乎', note: '观点结构与逻辑推进' },
   { key: 'bilibili', name: 'B站', note: '标签与导语节奏' },
   { key: 'xiaohongshu', name: '小红书', note: '标题吸引与短段落表达' },
+  { key: 'weibo', name: '微博', note: '话题驱动与即时传播' },
 ];
 
 const inspirationPrompts = [

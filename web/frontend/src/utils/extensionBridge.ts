@@ -15,7 +15,7 @@ export interface ImagePayload {
 }
 
 export interface ExtensionPublishPayload {
-  platform: 'wechat' | 'zhihu' | 'bilibili' | 'xiaohongshu';
+  platform: 'wechat' | 'zhihu' | 'bilibili' | 'xiaohongshu' | 'weibo';
   content: {
     title: string;
     body: string;

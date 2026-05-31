@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Trash2, Check, AlertCircle, Zap, ExternalLink } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Trash2, Check, AlertCircle, Zap, ExternalLink, ArrowRight, Monitor } from 'lucide-react';
+import { useDemoMode } from '../hooks/useDemoMode';
 import { useContentStore } from '../stores/contentStore';
 import { setExtensionId, getExtensionId, isExtensionInstalled } from '../utils/extensionBridge';
 
@@ -13,6 +15,8 @@ const CHANGELOG = [
 
 export default function Settings() {
   const { resetDraft, saveToStorage } = useContentStore();
+  const { enabled: demoEnabled, toggle: toggleDemo } = useDemoMode();
+  const navigate = useNavigate();
   const [toast, setToast] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
   const [extIdInput, setExtIdInput] = useState(getExtensionId());
   const [extConnected, setExtConnected] = useState(isExtensionInstalled());
@@ -116,6 +120,14 @@ export default function Settings() {
                     </div>
                   </details>
                 </div>
+
+                <button
+                  onClick={() => navigate('/welcome')}
+                  className="mt-4 w-full flex items-center justify-center gap-2 rounded-[18px] border border-[var(--accent)]/20 bg-[var(--accent)]/5 px-4 py-3 text-[13px] text-[var(--accent-deep)] hover:bg-[var(--accent)]/10 transition-all duration-200"
+                >
+                  重新访问引导界面
+                  <ArrowRight size={13} />
+                </button>
               </div>
             </div>
 
@@ -153,6 +165,35 @@ export default function Settings() {
                       清除
                     </button>
                   </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="px-card px-paper p-6">
+              <div className="px-label mb-5">演示模式</div>
+              <div className="rounded-[24px] border border-[rgba(49,56,45,0.1)] bg-[rgba(255,255,255,0.72)] p-5">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <div className="text-[14px] text-[var(--ink)] flex items-center gap-2">
+                      <Monitor size={14} />
+                      PPT 演示视图
+                    </div>
+                    <p className="mt-2 text-[13px] leading-6 text-[var(--ink-soft)]">
+                      开启后将 web 界面缩至左侧，右侧显示功能演示幻灯片，用于路演和 Demo 展示。
+                    </p>
+                  </div>
+                  <button
+                    onClick={toggleDemo}
+                    className={`relative flex h-7 w-12 shrink-0 items-center rounded-full transition-all duration-300 ${
+                      demoEnabled ? 'bg-[var(--ink)]' : 'bg-[rgba(49,56,45,0.2)]'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-5 w-5 rounded-full bg-white shadow-[0_2px_6px_rgba(0,0,0,0.15)] transition-all duration-300 ${
+                        demoEnabled ? 'translate-x-[26px]' : 'translate-x-[3px]'
+                      }`}
+                    />
+                  </button>
                 </div>
               </div>
             </div>

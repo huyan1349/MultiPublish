@@ -51,5 +51,6 @@ adaptRouter.get('/platforms', (_req, res) => {
     { id: 'zhihu', name: '知乎', color: 'zhihu' },
     { id: 'bilibili', name: 'B站', color: 'bilibili' },
     { id: 'xiaohongshu', name: '小红书', color: 'xiaohongshu' },
+    { id: 'weibo', name: '微博', color: 'weibo' },
   ]);
 });
