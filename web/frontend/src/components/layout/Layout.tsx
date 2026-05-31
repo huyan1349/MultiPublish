@@ -1,4 +1,6 @@
+import { useCallback } from 'react';
 import type { ReactNode } from 'react';
+import { Maximize } from 'lucide-react';
 import { useDemoMode } from '../../hooks/useDemoMode';
 import DemoPoster from '../demo/DemoPoster';
 import Sidebar from './Sidebar';
@@ -17,6 +19,14 @@ function AppShell({ children }: { children: ReactNode }) {
 export default function Layout({ children }: { children: ReactNode }) {
   const { enabled, toggle } = useDemoMode();
 
+  const handleFullscreen = useCallback(() => {
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    } else {
+      document.documentElement.requestFullscreen().catch(() => {});
+    }
+  }, []);
+
   if (!enabled) {
     return (
       <div className="app-shell flex min-h-screen overflow-hidden">
@@ -29,7 +39,17 @@ export default function Layout({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gradient-to-br from-[#fafaf7] via-[#f7f8f4] to-[#fafaf8]">
+    <div className="relative flex h-screen overflow-hidden bg-gradient-to-br from-[#fafaf7] via-[#f7f8f4] to-[#fafaf8]">
+      {/* Fullscreen button — top right */}
+      <button
+        onClick={handleFullscreen}
+        className="absolute top-4 right-4 z-50 flex items-center gap-1.5 rounded-full border border-[rgba(49,56,45,0.08)] bg-white/60 backdrop-blur-sm px-3 py-1.5 text-[11px] text-[var(--ink-soft)] hover:bg-white hover:border-[rgba(49,56,45,0.15)] transition-all"
+        title="全屏"
+      >
+        <Maximize size={12} />
+        全屏
+      </button>
+
       {/* Screen mockup — 80% */}
       <div className="flex flex-col items-center justify-center shrink-0" style={{ width: '80vw' }}>
         <div className="relative flex flex-col items-center">
