@@ -932,3 +932,65 @@
 .px-btn-spring:hover {
   transform: translateY(-1px);
 }
+
+/* Windows Chromium often falls back to expensive repaint paths for fixed blur,
+   backdrop-filter, mask layers, and infinite decorative animations. Keep the
+   richer treatment on macOS, but use cheaper surfaces on Windows. */
+html.windows-render-safe body {
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbf7 52%, #eef5ec 100%);
+}
+
+html.windows-render-safe body::before {
+  display: none;
+}
+
+html.windows-render-safe .px-card,
+html.windows-render-safe .backdrop-blur-sm,
+html.windows-render-safe .backdrop-blur-md,
+html.windows-render-safe .backdrop-blur-\[2px\] {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  --tw-backdrop-blur: blur(0) !important;
+}
+
+html.windows-render-safe .px-card {
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 10px 28px rgba(40, 46, 38, 0.08);
+  will-change: auto;
+}
+
+html.windows-render-safe .px-card:hover,
+html.windows-render-safe .px-card-depth:hover {
+  transform: none;
+}
+
+html.windows-render-safe .px-btn,
+html.windows-render-safe .px-btn-spring,
+html.windows-render-safe .px-card-depth {
+  will-change: auto;
+}
+
+html.windows-render-safe .px-orb {
+  display: none;
+}
+
+html.windows-render-safe .px-pulse-dot,
+html.windows-render-safe .px-blink,
+html.windows-render-safe .px-float,
+html.windows-render-safe .px-shimmer,
+html.windows-render-safe .px-text-shimmer,
+html.windows-render-safe .px-glow-breathe,
+html.windows-render-safe .px-border-pulse,
+html.windows-render-safe .px-skeleton-pulse,
+html.windows-render-safe .px-thinking-dot,
+html.windows-render-safe .animate-pulse-glow,
+html.windows-render-safe .shimmer-bar,
+html.windows-render-safe .ai-cursor::after,
+html.windows-render-safe [class*="animate-[px-orb-"] {
+  animation: none !important;
+}
+
+html.windows-render-safe .px-text-shimmer {
+  background: none;
+  -webkit-text-fill-color: currentColor;
+}

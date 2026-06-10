@@ -44,6 +44,23 @@ describe('OpenAICompatibleAdapter', () => {
     expect(body.max_tokens).toBe(4096);
   });
 
+  it('can send token limits as max_completion_tokens for OpenAI GPT-5 chat models', () => {
+    const openaiAdapter = new OpenAICompatibleAdapter('https://api.openai.com/v1/chat/completions', {
+      tokenLimitParam: 'max_completion_tokens',
+    });
+    const req = openaiAdapter.buildRequest({
+      apiKey: 'sk-test',
+      model: 'gpt-5.4-mini',
+      body: {
+        messages: [{ role: 'user', content: 'hi' }],
+        max_tokens: 256,
+      },
+    });
+    const body = JSON.parse(req.bodyString);
+    expect(body.max_completion_tokens).toBe(256);
+    expect(body.max_tokens).toBeUndefined();
+  });
+
   it('parseResponse extracts content from OpenAI choices[0].message.content', () => {
     const json = {
       choices: [{ message: { role: 'assistant', content: 'Hello!' } }],
@@ -61,14 +78,14 @@ describe('AnthropicAdapter', () => {
 
   it('can be configured with a custom baseUrl (e.g., for MiniMax Anthropic-compatible endpoint)', () => {
     const customAdapter = new AnthropicAdapter({
-      baseUrl: 'https://api.minimax.io/anthropic/v1/messages',
+      baseUrl: 'https://api.minimaxi.com/anthropic/v1/messages',
     });
     const req = customAdapter.buildRequest({
       apiKey: 'minimax-key',
       model: 'MiniMax-M3',
       body: { messages: [{ role: 'user', content: 'hi' }], max_tokens: 100 },
     });
-    expect(req.url).toBe('https://api.minimax.io/anthropic/v1/messages');
+    expect(req.url).toBe('https://api.minimaxi.com/anthropic/v1/messages');
     expect(req.headers['x-api-key']).toBe('minimax-key');
     expect(req.headers['anthropic-version']).toBe('2023-06-01');
     const body = JSON.parse(req.bodyString);

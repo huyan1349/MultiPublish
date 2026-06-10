@@ -139,6 +139,7 @@ export default function Welcome() {
   const [copied, setCopied] = useState(false);
   const [installExpanded, setInstallExpanded] = useState(false);
   const [activeStep, setActiveStep] = useState(1);
+  const activeStepRef = useRef(1);
   const extId = getExtensionId();
 
   // Scroll-triggered step progress
@@ -146,21 +147,38 @@ export default function Welcome() {
   const startRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const handleScroll = () => {
+    let frame = 0;
+
+    const updateActiveStep = () => {
+      frame = 0;
       const scrollY = window.scrollY + window.innerHeight / 2;
       const connectEl = connectRef.current;
       const startEl = startRef.current;
 
+      let nextStep = 1;
       if (startEl && scrollY >= startEl.offsetTop) {
-        setActiveStep(3);
+        nextStep = 3;
       } else if (connectEl && scrollY >= connectEl.offsetTop) {
-        setActiveStep(2);
-      } else {
-        setActiveStep(1);
+        nextStep = 2;
+      }
+
+      if (activeStepRef.current !== nextStep) {
+        activeStepRef.current = nextStep;
+        setActiveStep(nextStep);
       }
     };
+
+    const handleScroll = () => {
+      if (frame) return;
+      frame = window.requestAnimationFrame(updateActiveStep);
+    };
+
+    handleScroll();
     window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      if (frame) window.cancelAnimationFrame(frame);
+    };
   }, []);
 
   const handleCopyExtId = async () => {

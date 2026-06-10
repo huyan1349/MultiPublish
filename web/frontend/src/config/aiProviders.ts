@@ -72,7 +72,7 @@ export const PROVIDERS: readonly ProviderConfig[] = [
     models: [
       { id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6', contextWindow: 1000000 },
       { id: 'claude-opus-4-8', label: 'Claude Opus 4.8', contextWindow: 1000000 },
-      { id: 'claude-haiku-4-5', label: 'Claude Haiku 4.5', contextWindow: 200000 },
+      { id: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5', contextWindow: 200000 },
     ],
     docsUrl: 'https://platform.claude.com/docs/en/docs/about-claude/models/overview',
     enabled: true,
@@ -96,7 +96,7 @@ export const PROVIDERS: readonly ProviderConfig[] = [
   {
     id: 'minimax',
     label: 'MiniMax',
-    baseUrl: 'https://api.minimax.io/anthropic/v1/messages',
+    baseUrl: 'https://api.minimaxi.com/anthropic/v1/messages',
     authStyle: 'x-api-key',
     defaultModel: 'MiniMax-M3',
     extraHeaders: { 'anthropic-version': '2023-06-01' },
@@ -105,7 +105,7 @@ export const PROVIDERS: readonly ProviderConfig[] = [
       { id: 'MiniMax-M2.7', label: 'MiniMax M2.7', contextWindow: 1000000 },
       { id: 'MiniMax-M2.7-highspeed', label: 'MiniMax M2.7 Highspeed', contextWindow: 1000000 },
     ],
-    docsUrl: 'https://platform.minimax.io/docs/api-reference/text-anthropic-api',
+    docsUrl: 'https://platform.minimaxi.com/docs/api-reference/text-chat-anthropic',
     enabled: true,
     hint: 'Anthropic 协议兼容。旗舰 M3，速度/质量按需在 2.7 与 M2.5 之间取舍。',
   },

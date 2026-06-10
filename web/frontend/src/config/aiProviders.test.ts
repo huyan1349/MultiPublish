@@ -18,7 +18,7 @@ describe('aiProviders', () => {
     expect(mm?.enabled).toBe(true);
     expect(mm?.models.length).toBeGreaterThan(0);
     expect(mm?.authStyle).toBe('x-api-key');
-    expect(mm?.baseUrl).toMatch(/minimax\.io/);
+    expect(mm?.baseUrl).toMatch(/minimaxi\.com/);
   });
 
   it('all enabled providers have a non-empty default model', () => {

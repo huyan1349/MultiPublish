@@ -9,7 +9,7 @@ function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-0 flex-1 overflow-hidden bg-[var(--paper-bg)]">
       <Sidebar />
-      <main className="flex-1 overflow-auto px-2 py-2 md:px-3 md:py-3">
+      <main className="min-h-0 flex-1 overflow-y-auto px-2 py-2 md:px-3 md:py-3">
         {children}
       </main>
     </div>
@@ -29,9 +29,9 @@ export default function Layout({ children }: { children: ReactNode }) {
 
   if (!enabled) {
     return (
-      <div className="app-shell flex min-h-screen overflow-hidden">
+      <div className="app-shell flex h-screen min-h-0 overflow-hidden">
         <Sidebar />
-        <main className="flex-1 overflow-auto px-2 py-2 md:px-3 md:py-3">
+        <main className="min-h-0 flex-1 overflow-y-auto px-2 py-2 md:px-3 md:py-3">
           {children}
         </main>
       </div>

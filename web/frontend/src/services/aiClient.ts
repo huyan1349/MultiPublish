@@ -3,8 +3,8 @@ import type { ProviderId } from '../config/aiProviders';
 
 const API_URL = 'http://localhost:4395/api/ai/chat';
 const PING_URL = 'http://localhost:4395/api/ai/ping';
-const TIMEOUT_MS = 30000;
-const STREAM_TIMEOUT_MS = 90000;
+const AI_TIMEOUT_MS = 150_000;
+const AI_TIMEOUT_LABEL = '2分半';
 
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
@@ -66,7 +66,7 @@ export async function chat(
 ): Promise<string> {
   const cfg = ensureConfigured();
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
 
   try {
     const res = await fetch(API_URL, {
@@ -100,7 +100,7 @@ export async function chat(
     return content;
   } catch (err) {
     if (err instanceof DOMException && err.name === 'AbortError') {
-      throw new Error('AI 请求超时（30s），请稍后重试');
+      throw new Error(`AI 请求超时（${AI_TIMEOUT_LABEL}），请稍后重试`);
     }
     markRuntimeError(err);
     throw err;
@@ -116,7 +116,7 @@ export async function streamChat(
 ): Promise<void> {
   const cfg = ensureConfigured();
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), STREAM_TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
 
   try {
     const res = await fetch(API_URL, {
@@ -183,7 +183,7 @@ export async function streamChat(
     callbacks.onComplete(fullText);
   } catch (err) {
     if (err instanceof DOMException && err.name === 'AbortError') {
-      callbacks.onError(new Error('AI 请求超时，请稍后重试'));
+      callbacks.onError(new Error(`AI 请求超时（${AI_TIMEOUT_LABEL}），请稍后重试`));
     } else {
       const e = err instanceof Error ? err : new Error('流式请求失败');
       markRuntimeError(e);
@@ -201,7 +201,7 @@ export async function ping(args: {
   apiKey: string;
 }): Promise<PingResult> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 25000);
+  const timer = setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
   try {
     const res = await fetch(PING_URL, {
       method: 'POST',
@@ -226,7 +226,7 @@ export async function ping(args: {
     return { ok: true, provider: data.provider, model: data.model, latencyMs: data.latencyMs };
   } catch (err) {
     if (err instanceof DOMException && err.name === 'AbortError') {
-      return { ok: false, error: '测连通超时（25s）' };
+      return { ok: false, error: `测连通超时（${AI_TIMEOUT_LABEL}）` };
     }
     return { ok: false, error: err instanceof Error ? err.message : '测连通失败' };
   } finally {

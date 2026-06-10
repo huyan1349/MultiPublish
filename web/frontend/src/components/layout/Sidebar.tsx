@@ -13,13 +13,13 @@ const navItems = [
 
 export default function Sidebar() {
   return (
-    <aside className="hidden md:flex w-[74px] shrink-0 flex-col items-center border-r border-[rgba(49,56,45,0.12)] bg-[rgba(255,255,255,0.92)] py-5">
-      <div className="flex min-h-screen w-full flex-col items-center px-3 py-1">
+    <aside className="hidden h-full w-[74px] shrink-0 flex-col items-center overflow-hidden border-r border-[rgba(49,56,45,0.12)] bg-[rgba(255,255,255,0.92)] py-5 md:flex">
+      <div className="flex h-full min-h-0 w-full flex-col items-center px-3 py-1">
         <div className="mb-7">
           <BrandMark size={48} rounded={18} />
         </div>
 
-        <nav className="flex flex-1 flex-col items-center gap-3">
+        <nav className="flex min-h-0 flex-1 flex-col items-center gap-3">
           {navItems.map((item) => (
             <NavLink
               key={item.to}

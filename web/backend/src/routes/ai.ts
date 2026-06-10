@@ -5,6 +5,49 @@ import type { AdapterContext } from '../providers/providerAdapters.js';
 
 export const aiRouter = Router();
 
+const AI_TIMEOUT_MS = 150_000;
+const AI_TIMEOUT_LABEL = '2分半';
+
+function createAiTimeout() {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
+  return {
+    signal: controller.signal,
+    clear: () => clearTimeout(timer),
+  };
+}
+
+function isAbortError(err: unknown) {
+  return err instanceof Error && err.name === 'AbortError';
+}
+
+function normalizeAiBody(data: {
+  provider: string;
+  model: string;
+  messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>;
+  temperature?: number;
+  max_tokens?: number;
+  stream?: boolean;
+}): AdapterContext['body'] {
+  const body: AdapterContext['body'] = {
+    messages: data.messages,
+    temperature: data.temperature,
+    max_tokens: data.max_tokens,
+    stream: data.stream,
+  };
+
+  if (data.provider === 'kimi' && data.model.startsWith('kimi-k2')) {
+    body.temperature = 1;
+    body.max_tokens = Math.max(body.max_tokens ?? 4096, 256);
+  }
+
+  if (data.provider === 'openai' && data.model.startsWith('gpt-5')) {
+    body.max_tokens = Math.max(body.max_tokens ?? 4096, 32);
+  }
+
+  return body;
+}
+
 // 校验 schema：与前端 aiClient payload 一致
 const chatSchema = z.object({
   provider: z.enum(['deepseek', 'openai', 'claude', 'kimi', 'minimax']),
@@ -96,21 +139,20 @@ aiRouter.post('/chat', async (req: Request, res: Response) => {
   const ctx: AdapterContext = {
     apiKey,
     model: data.model,
-    body: {
-      messages: data.messages,
-      temperature: data.temperature,
-      max_tokens: data.max_tokens,
-      stream: data.stream,
-    },
+    body: normalizeAiBody(data),
   };
 
   const upstream = adapter.buildRequest(ctx);
+
+  const timeout = createAiTimeout();
+  let streamPiped = false;
 
   try {
     const response = await fetch(upstream.url, {
       method: upstream.method,
       headers: upstream.headers,
       body: upstream.bodyString,
+      signal: timeout.signal,
     });
 
     if (!response.ok) {
@@ -139,9 +181,14 @@ aiRouter.post('/chat', async (req: Request, res: Response) => {
       // 用 Node Web Stream -> Node Readable 桥接到 Express Response
       const { Readable } = await import('node:stream');
       const nodeStream = Readable.fromWeb(transformed as unknown as import('node:stream/web').ReadableStream);
+      streamPiped = true;
+      res.once('close', timeout.clear);
+      res.once('finish', timeout.clear);
+      nodeStream.once('end', timeout.clear);
       nodeStream.pipe(res);
 
       nodeStream.on('error', (err: Error) => {
+        timeout.clear();
         // 静默关闭（已经写过 headers，不能再 res.status）
         if (!res.headersSent) {
           res.status(500).json({ error: err.message });
@@ -165,6 +212,14 @@ aiRouter.post('/chat', async (req: Request, res: Response) => {
       }
       const { Readable } = await import('node:stream');
       const nodeStream = Readable.fromWeb(response.body as unknown as import('node:stream/web').ReadableStream);
+      streamPiped = true;
+      res.once('close', timeout.clear);
+      res.once('finish', timeout.clear);
+      nodeStream.once('end', timeout.clear);
+      nodeStream.once('error', () => {
+        timeout.clear();
+        res.end();
+      });
       nodeStream.pipe(res);
       return;
     }
@@ -174,9 +229,17 @@ aiRouter.post('/chat', async (req: Request, res: Response) => {
     const parsed = adapter.parseResponse(json);
     res.json({ content: parsed.content, provider: data.provider, model: data.model });
   } catch (err) {
+    if (isAbortError(err)) {
+      res.status(504).json({ error: `AI 请求超时（${AI_TIMEOUT_LABEL}）` });
+      return;
+    }
     const message = err instanceof Error ? err.message : 'AI proxy request failed';
     const safeMessage = message.replace(/sk-[A-Za-z0-9_\-]{16,}/g, '[REDACTED]');
     res.status(500).json({ error: safeMessage });
+  } finally {
+    if (!streamPiped) {
+      timeout.clear();
+    }
   }
 });
 
@@ -206,21 +269,25 @@ aiRouter.post('/ping', async (req: Request, res: Response) => {
   const ctx: AdapterContext = {
     apiKey: data.apiKey,
     model: data.model,
-    body: {
+    body: normalizeAiBody({
+      provider: data.provider,
+      model: data.model,
       messages: [{ role: 'user', content: 'ping' }],
       max_tokens: 1,
       temperature: 0,
       stream: false,
-    },
+    }),
   };
   const upstream = adapter.buildRequest(ctx);
 
   const start = Date.now();
+  const timeout = createAiTimeout();
   try {
     const r = await fetch(upstream.url, {
       method: upstream.method,
       headers: upstream.headers,
       body: upstream.bodyString,
+      signal: timeout.signal,
     });
     const latencyMs = Date.now() - start;
 
@@ -239,9 +306,15 @@ aiRouter.post('/ping', async (req: Request, res: Response) => {
     res.json({ ok: true, provider: data.provider, model: data.model, latencyMs });
   } catch (err) {
     const latencyMs = Date.now() - start;
+    if (isAbortError(err)) {
+      res.status(504).json({ ok: false, error: `测连通超时（${AI_TIMEOUT_LABEL}）`, latencyMs });
+      return;
+    }
     const message = err instanceof Error ? err.message : 'Network error';
     const safeMessage = message.replace(/sk-[A-Za-z0-9_\-]{16,}/g, '[REDACTED]');
     res.status(500).json({ ok: false, error: safeMessage, latencyMs });
+  } finally {
+    timeout.clear();
   }
 });
 

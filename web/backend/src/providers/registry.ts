@@ -64,7 +64,7 @@ export const PROVIDERS: readonly ProviderConfig[] = [
     models: [
       { id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6', contextWindow: 1000000 },
       { id: 'claude-opus-4-8', label: 'Claude Opus 4.8', contextWindow: 1000000 },
-      { id: 'claude-haiku-4-5', label: 'Claude Haiku 4.5', contextWindow: 200000 },
+      { id: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5', contextWindow: 200000 },
     ],
     enabled: true,
   },
@@ -83,7 +83,7 @@ export const PROVIDERS: readonly ProviderConfig[] = [
   {
     id: 'minimax',
     label: 'MiniMax',
-    baseUrl: 'https://api.minimax.io/anthropic/v1/messages',
+    baseUrl: 'https://api.minimaxi.com/anthropic/v1/messages',
     defaultModel: 'MiniMax-M3',
     models: [
       { id: 'MiniMax-M3', label: 'MiniMax M3', contextWindow: 1000000 },
@@ -101,10 +101,12 @@ export function getProviderConfig(id: string | null | undefined): ProviderConfig
 
 const ADAPTERS: Record<ProviderId, ProviderAdapter> = {
   deepseek: new OpenAICompatibleAdapter('https://api.deepseek.com/chat/completions'),
-  openai: new OpenAICompatibleAdapter('https://api.openai.com/v1/chat/completions'),
+  openai: new OpenAICompatibleAdapter('https://api.openai.com/v1/chat/completions', {
+    tokenLimitParam: 'max_completion_tokens',
+  }),
   kimi: new OpenAICompatibleAdapter('https://api.moonshot.cn/v1/chat/completions'),
   // MiniMax 提供 Anthropic-SDK 兼容端点
-  minimax: new AnthropicAdapter({ baseUrl: 'https://api.minimax.io/anthropic/v1/messages' }),
+  minimax: new AnthropicAdapter({ baseUrl: 'https://api.minimaxi.com/anthropic/v1/messages' }),
   claude: new AnthropicAdapter(),
 };
 

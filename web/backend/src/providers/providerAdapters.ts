@@ -46,14 +46,21 @@ export interface ProviderAdapter {
   transformStreamBody?(body: ReadableStream<Uint8Array>): ReadableStream<Uint8Array>;
 }
 
+type OpenAITokenLimitParam = 'max_tokens' | 'max_completion_tokens';
+
 // ---------------------------------------------------------------------------
 // OpenAI 兼容家族（DeepSeek / OpenAI / Kimi / MiniMax 占位）
 // ---------------------------------------------------------------------------
 
 export class OpenAICompatibleAdapter implements ProviderAdapter {
-  constructor(private readonly baseUrl: string) {}
+  constructor(
+    private readonly baseUrl: string,
+    private readonly opts: { tokenLimitParam?: OpenAITokenLimitParam } = {},
+  ) {}
 
   buildRequest(ctx: AdapterContext): UpstreamRequest {
+    const tokenLimitParam = this.opts.tokenLimitParam ?? 'max_tokens';
+
     return {
       url: this.baseUrl,
       method: 'POST',
@@ -65,7 +72,7 @@ export class OpenAICompatibleAdapter implements ProviderAdapter {
         model: ctx.model,
         messages: ctx.body.messages,
         temperature: ctx.body.temperature ?? 0.7,
-        max_tokens: ctx.body.max_tokens ?? 4096,
+        [tokenLimitParam]: ctx.body.max_tokens ?? 4096,
         stream: !!ctx.body.stream,
       }),
     };

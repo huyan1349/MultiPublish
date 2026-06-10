@@ -24,7 +24,7 @@ app.use(helmet({
         'https://api.openai.com',
         'https://api.anthropic.com',
         'https://api.moonshot.cn',
-        'https://api.minimax.io',
+        'https://api.minimaxi.com',
       ],
     },
   },
