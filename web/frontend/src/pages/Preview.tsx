@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Rocket, CheckCircle, AlertTriangle, Info, Loader2, Zap, Eye, Edit3, ExternalLink, Globe, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -53,14 +53,33 @@ export default function Preview() {
 
   const extensionReady = isExtensionInstalled();
 
-  useEffect(() => {
-    if (!id) return;
+  const loadPreview = useCallback(async () => {
+    if (!id) {
+      setLoading(false);
+      setLoadError(true);
+      return;
+    }
+
+    setLoading(true);
     setLoadError(false);
-    api.getOutputs(id)
-      .then((data) => { setOutputs(data); setLoadError(false); })
-      .catch(() => setLoadError(true))
-      .finally(() => setLoading(false));
+    try {
+      let data = await api.getOutputs(id);
+      if (data.length === 0) {
+        await api.adaptContent(id, PLATFORMS.map((p) => p.id));
+        data = await api.getOutputs(id);
+      }
+      setOutputs(data);
+      setLoadError(false);
+    } catch {
+      setLoadError(true);
+    } finally {
+      setLoading(false);
+    }
   }, [id]);
+
+  useEffect(() => {
+    void loadPreview();
+  }, [loadPreview]);
 
   const sortedOutputs = useMemo(() => {
     const order = PLATFORMS.map((p) => p.id);
@@ -170,7 +189,7 @@ export default function Preview() {
         <div className="rounded-[28px] border border-dashed border-[rgba(49,56,45,0.18)] px-8 py-16 text-center">
           <Globe size={24} className="mx-auto mb-3 text-[var(--ink-faint)]" />
           <p className="text-[14px] text-[var(--ink-soft)]">加载平台内容失败，请确认后端服务已启动</p>
-          <button onClick={() => { setLoading(true); setLoadError(false); api.getOutputs(id!).then((data) => { setOutputs(data); setLoadError(false); }).catch(() => setLoadError(true)).finally(() => setLoading(false)); }} className="px-btn-secondary mt-4">重试</button>
+          <button onClick={loadPreview} className="px-btn-secondary mt-4">重试</button>
         </div>
       </div>
     );

@@ -984,10 +984,18 @@ html.windows-render-safe .px-border-pulse,
 html.windows-render-safe .px-skeleton-pulse,
 html.windows-render-safe .px-thinking-dot,
 html.windows-render-safe .animate-pulse-glow,
+html.windows-render-safe .animate-blur-reveal,
 html.windows-render-safe .shimmer-bar,
 html.windows-render-safe .ai-cursor::after,
 html.windows-render-safe [class*="animate-[px-orb-"] {
   animation: none !important;
+}
+
+html.windows-render-safe .animate-blur-reveal {
+  filter: none !important;
+  opacity: 1 !important;
+  transform: none !important;
+  will-change: auto !important;
 }
 
 html.windows-render-safe .px-text-shimmer {

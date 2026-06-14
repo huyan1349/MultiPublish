@@ -73,7 +73,21 @@ export async function update(req: Request, res: Response) {
 
 export async function remove(req: Request, res: Response) {
   try {
-    await prisma.content.delete({ where: { id: req.params.id as string } });
+    const contentId = req.params.id as string;
+    const existing = await prisma.content.findUnique({
+      where: { id: contentId },
+      select: { id: true },
+    });
+    if (!existing) {
+      res.status(404).json({ error: 'Content not found' });
+      return;
+    }
+
+    await prisma.$transaction([
+      prisma.publishRecord.deleteMany({ where: { contentId } }),
+      prisma.platformOutput.deleteMany({ where: { contentId } }),
+      prisma.content.delete({ where: { id: contentId } }),
+    ]);
     res.status(204).send();
   } catch (err) {
     res.status(500).json({ error: 'Failed to delete content' });
